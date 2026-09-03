@@ -3,21 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Coin Builder</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23d4a017'/%3E%3Ccircle cx='50' cy='50' r='34' fill='none' stroke='%23fff3c4' stroke-width='4'/%3E%3C/svg%3E">
+  <title>Coin Builder | Coins For Anything</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23F58220'/%3E%3Ccircle cx='50' cy='50' r='34' fill='none' stroke='%231A1A1A' stroke-width='6'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Open+Sans:wght@400;600;700&family=Yellowtail&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="app">
+    <div class="topbar">100% Veteran Owned &amp; Operated &middot; <b>The Quality is Always Here</b></div>
     <header class="app-header">
       <div class="brand">
         <span class="brand-coin" aria-hidden="true"></span>
         <div>
-          <h1>Coin Builder</h1>
-          <p class="sub">Turn your artwork into a custom coin</p>
+          <h1><span class="script">Custom</span>Coin Builder</h1>
+          <p class="sub">Upload your artwork. See it as a coin in seconds.</p>
         </div>
       </div>
-      <button id="restart" class="ghost" type="button" title="Start over">Start over</button>
+      <button id="restart" class="btn dark small" type="button" title="Start over">Start Over</button>
     </header>
 
     <section id="chat" class="chat" aria-live="polite" aria-label="Conversation"></section>
@@ -30,11 +34,10 @@
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/></svg>
         <span class="sr-only">Attach image</span>
       </label>
-      <input id="text" type="text" placeholder="Type a message or attach your image…" aria-label="Message">
-      <button id="send" type="submit" aria-label="Send">
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
-      </button>
+      <input id="text" type="text" placeholder="Type a message…" aria-label="Message">
+      <button id="send" class="btn" type="submit">Send</button>
     </form>
+    <div class="foot">Over <b>20 million coins</b> minted &middot; <b>60,000+</b> designs &middot; Trusted by <b>50,000+</b> companies</div>
     <div id="drop" class="drop" hidden>Drop your image to upload</div>
   </main>
 

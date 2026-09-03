@@ -63,10 +63,26 @@
 
   function userSay(html) { return addMessage('user', html); }
 
+  // Bot message that ends with an "Upload Your Image" button
+  async function botAskForImage(introHtml, delay) {
+    const wrap = el('div');
+    wrap.innerHTML = introHtml;
+    const actions = el('div', 'actions');
+    const up = el('button', 'btn', 'Upload Your Image');
+    up.type = 'button';
+    up.addEventListener('click', () => fileInput.click());
+    actions.appendChild(up);
+    wrap.appendChild(actions);
+    const bubble = await botSay('', delay);
+    bubble.appendChild(wrap);
+    scrollDown();
+    return bubble;
+  }
+
   function setChips(list) {
     chips.innerHTML = '';
     for (const c of list) {
-      const b = el('button', 'chip');
+      const b = el('button', 'chip' + (c.primary ? ' primary' : ''));
       b.type = 'button';
       if (c.color) {
         const s = el('span', 'swatch');
@@ -94,8 +110,13 @@
     chat.innerHTML = '';
     setChips([]);
     Object.assign(state, { step: 'await-image', file: null, previewUrl: null, finish: null, notes: '', busy: false });
-    await botSay('<p>Hi! I\'m the <strong>Coin Builder</strong>. 👋</p><p>Send me the image of the coin you\'d like to generate, please. A logo, artwork, or sketch works great.</p>', 400);
-    textInput.placeholder = 'Attach your image to get started…';
+    await botAskForImage(
+      '<p class="head"><span class="script">Welcome</span> to the Coin Builder</p>' +
+      '<p>Send me the image of the coin you\'d like to generate, please. A logo, artwork, or sketch works great.</p>' +
+      '<p>Tap the button below, or drag and drop a file anywhere in this chat.</p>',
+      400
+    );
+    textInput.placeholder = 'Upload your image to get started…';
   }
 
   async function receiveImage(file) {
@@ -140,7 +161,7 @@
     state.step = 'await-notes';
     await botSay('<p>Any extra details? For example: <em>"add the text EST. 2024 around the rim"</em> or <em>"make the background textured"</em>.</p><p>Or just tell me to go ahead.</p>');
     textInput.placeholder = 'Type details, or tap "Generate my coin"';
-    setChips([{ label: '✨ Generate my coin', onClick: () => generate() }]);
+    setChips([{ label: 'Generate My Coin', primary: true, onClick: () => generate() }]);
   }
 
   async function generate() {
@@ -165,13 +186,14 @@
 
       state.coinCount += 1;
       const wrap = el('div');
-      wrap.appendChild(el('p', null, `Here\'s your <strong>${finishLabel(state.finish)}</strong> coin! 🪙`));
+      wrap.appendChild(el('p', 'head', `<span class="script">Your</span> ${finishLabel(state.finish)} Coin`));
+      wrap.appendChild(el('p', null, 'Here it is. The Quality is Always Here.'));
       const img = el('img');
       img.src = data.image;
       img.alt = 'Generated coin';
       wrap.appendChild(img);
       const actions = el('div', 'actions');
-      const dl = el('a', null, 'Download');
+      const dl = el('a', 'btn small', 'Download');
       dl.href = data.image;
       dl.download = `coin-${state.finish}-${state.coinCount}.${data.image.startsWith('data:image/svg') ? 'svg' : 'png'}`;
       actions.appendChild(dl);
@@ -188,8 +210,8 @@
       bubble.innerHTML = `<p>${escapeHtml(e.message || 'Something went wrong.')}</p>`;
       state.step = 'done';
       setChips([
-        { label: '🔁 Try again', onClick: () => generate() },
-        { label: '🖼️ Use a different image', onClick: () => restartForNewImage() },
+        { label: 'Try Again', primary: true, onClick: () => generate() },
+        { label: 'Use a Different Image', onClick: () => restartForNewImage() },
       ]);
     } finally {
       state.busy = false;
@@ -202,9 +224,9 @@
     await botSay('<p>What would you like to do next?</p>');
     textInput.placeholder = 'Choose an option above, or type a tweak…';
     setChips([
-      { label: '🎨 Try another finish', onClick: () => askFinish() },
-      { label: '✏️ Tweak this coin', onClick: () => askTweak() },
-      { label: '🖼️ Make another coin', onClick: () => restartForNewImage() },
+      { label: 'Try Another Finish', onClick: () => askFinish() },
+      { label: 'Tweak This Coin', onClick: () => askTweak() },
+      { label: 'Make Another Coin', primary: true, onClick: () => restartForNewImage() },
     ]);
   }
 
@@ -220,8 +242,8 @@
     state.file = null;
     state.finish = null;
     state.notes = '';
-    await botSay('<p>Great! Send me the next image you\'d like to turn into a coin.</p>');
-    textInput.placeholder = 'Attach your next image…';
+    await botAskForImage('<p>Great! Send me the next image you\'d like to turn into a coin.</p>');
+    textInput.placeholder = 'Upload your next image…';
   }
 
   // ---------- text handling ----------
@@ -244,7 +266,7 @@
 
     switch (state.step) {
       case 'await-image':
-        await botSay('<p>I just need your image to get started. Tap the picture icon or drag a file into the chat.</p>');
+        await botAskForImage('<p>I just need your image to get started.</p>');
         break;
 
       case 'await-finish': {

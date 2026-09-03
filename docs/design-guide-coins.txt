@@ -1,0 +1,133 @@
+=====================================================================
+COINS FOR ANYTHING (coinsforanything.com) — DESIGN GUIDE
+Reference file for building widgets, dashboards, and UI that match
+the CFA brand. Derived from the live homepage (Aug 2026).
+=====================================================================
+
+BRAND PERSONALITY
+---------------------------------------------------------------------
+- Veteran-owned, military-rooted, patriotic, proud, hardworking.
+- Craftsmanship + heritage: "The Quality is Always Here."
+- Tone: confident, direct, a little bold/loud — not corporate-slick,
+  not minimalist. Think workshop/mint, not tech startup.
+- Trust signals matter: years in business, 20M+ coins minted,
+  60,000+ designs, Inc. 5000, big-name clients (Coca-Cola, Ford).
+
+COLOR PALETTE
+---------------------------------------------------------------------
+Primary Orange (CTA/accent):   #F58220  (approx; ranges #EF8122–#F6871F)
+  - Used for: primary buttons, script accent words, links, section
+    accents, "SIGN UP" callouts, hover states.
+Navy Blue (secondary):         #2B3990  (approx; deep royal/navy)
+  - Used for: phone/CTA panels, secondary buttons, small accents.
+Near-Black (dark sections):    #1A1A1A – #222222
+  - Used for: main nav bar, dark content bands, footer-adjacent
+    sections, "Get a Free Quote" panels.
+White:                         #FFFFFF
+Off-white / light gray:        #F4F4F4 (footer + light section bg)
+Body text gray:                #4A4A4A – #555555
+Teal/steel-blue underline accent (subtle): #4A7C8C (thin rules under
+  section headings — used sparingly)
+
+Rule of thumb: white or wood-textured background, dark charcoal
+sections for contrast bands, orange for every action. Orange is the
+ONLY call-to-action color; navy is support, never the primary CTA.
+
+TEXTURES & IMAGERY
+---------------------------------------------------------------------
+- Light wood-plank texture backgrounds on hero/feature sections
+  (weathered whitewashed wood). Dark walnut wood for premium/dark
+  bands. If no texture asset available, use warm off-white (#F5F1EA)
+  or #1E1E1E as stand-ins.
+- Photography: real product shots of coins on dark wood, coins held
+  or displayed, denim/apparel flat lays. High contrast, warm.
+- American flag motifs, eagles, military insignia appear in product
+  imagery — don't add flags decoratively in UI; let product photos
+  carry the patriotism.
+- Mascot: "Coin Nerd" cartoon character (glasses, magnifying glass)
+  used for newsletter/fun contexts only.
+
+TYPOGRAPHY
+---------------------------------------------------------------------
+Three-tier system:
+
+1. HEADINGS — bold condensed/geometric sans, ALL CAPS, generous
+   letter-spacing. Looks like Oswald / Bebas-adjacent / Montserrat
+   Bold in caps. White on dark, charcoal on light.
+   Example: "AMERICA'S ... OWNED CUSTOM COIN COMPANY"
+
+2. SCRIPT ACCENT — a brush/marker script used for ONE emphasized
+   word or phrase inside a heading, always in orange (or white on
+   dark). Examples: "Largest Veteran", "Free", "Different!",
+   "Sign Up", "Custom". Suggested web stands-ins: "Yellowtail",
+   "Pacifico", "Caveat Bold", or similar brush script.
+   USAGE RULE: max one script phrase per section. It's the brand's
+   signature move — accent, never body.
+
+3. BODY — clean humanist sans (Open Sans / Roboto / Lato family
+   feel), 14–16px, ~1.6 line-height, gray #4A4A4A. Bold inline for
+   key phrases ("100% veteran-owned").
+
+Section headings pattern: centered, ALL CAPS, letterspaced, with a
+thin horizontal rule on either side or a short underline beneath
+(e.g. "SATISFIED CUSTOMERS", "LATEST BLOG POSTS").
+
+BUTTONS & CTAs
+---------------------------------------------------------------------
+Primary:   Solid orange (#F58220), white ALL-CAPS bold label,
+           trailing "›" chevron, rectangular (0–2px radius),
+           generous horizontal padding. e.g. "GET A FREE QUOTE ›",
+           "ORDER NOW ›", "VISIT BLOG ›".
+Secondary: Solid near-black (#1A1A1A) with white caps label, same
+           shape ("ORDER NOW", "VIEW ›").
+Tertiary:  Navy (#2B3990) for phone/utility CTAs.
+- Buttons are punchy and frequent — almost every section ends in one.
+- No ghost/outline buttons, no pill shapes, no soft shadows.
+
+LAYOUT PATTERNS
+---------------------------------------------------------------------
+- Full-width horizontal bands alternating: light/wood → dark →
+  white → dark. Strong contrast between adjacent sections.
+- Top utility bar: black strip with orange "SIGN UP!" teaser text.
+- Sticky-style nav: black bar, white caps links, orange highlighted
+  CTA item on the right ("GET A FREE QUOTE"), one inverted white
+  item ("STORE").
+- 3–4 column card grids for categories (Military Coins, Custom
+  Coins, Badges, Displays): image card + small caps label beneath.
+- Two-column text sections with left-aligned caps headings +
+  short orange underline.
+- Logo carousel for social proof (grayscale client logos, one
+  colored on hover/active).
+- Dark 3-up promo band (Ceramic Chips / Badges / Lapel Pins):
+  white caps heading, short copy, stacked small CTAs.
+- Footer: light gray, 4–5 columns of plain link lists, small caps
+  column headings, contact block, social icons in orange circles.
+
+VOICE & COPY
+---------------------------------------------------------------------
+- Superlatives + proof: "America's Largest Veteran Owned...",
+  "Over 50,000 companies... TRUST US", numbers everywhere.
+- Direct imperative CTAs: "Order Your T-Shirt Today", "Get a Free
+  Quote", "Sign Up to Win Free Coins".
+- Occasional playful energy ("Get a little geeky over challenge
+  coins, too?") but never at the expense of pride/quality messaging.
+- Key phrases to reuse: "The Quality is Always Here", "100%
+  veteran owned and operated", "custom challenge coins".
+
+WIDGET-BUILDING CHECKLIST (for Claude Code)
+---------------------------------------------------------------------
+[ ] Orange #F58220 for all primary actions; never invent new accents.
+[ ] Dark charcoal bands for contrast sections; wood texture or warm
+    off-white for light sections.
+[ ] Headings: bold condensed sans, ALL CAPS, letterspaced.
+[ ] One brush-script accent word max per component, in orange.
+[ ] Rectangular buttons, caps labels, trailing › chevron.
+[ ] Body text: neutral sans, gray, comfortable line-height.
+[ ] Include trust/proof elements where relevant (counts, badges).
+[ ] No rounded pills, pastel palettes, thin-weight typography,
+    glassmorphism, or gradients — none of these fit the brand.
+[ ] Mobile-friendly: bands stack, grids collapse to 1–2 columns.
+
+=====================================================================
+END OF GUIDE
+=====================================================================
