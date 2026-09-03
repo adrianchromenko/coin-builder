@@ -1,0 +1,19 @@
+{
+  "name": "coin-builder",
+  "version": "1.0.0",
+  "description": "Chat-style web app that turns an uploaded image into an AI-rendered custom coin",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "multer": "^2.3.0"
+  },
+  "license": "MIT"
+}
