@@ -5,4 +5,4 @@ Drop the Coins for Anything logo here. Any of these work:
 - logo.svg
 - logo.jpg
 
-Once a file is in place, tell Claude and it will wire it into the chat header.
+The header uses logo.webp. Replace that file to update the logo.
