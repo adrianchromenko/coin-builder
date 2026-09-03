@@ -73,11 +73,16 @@ app.post('/api/orders', async (req, res) => {
   const email = String(b.email || '').trim().slice(0, 200);
   const phone = String(b.phone || '').trim().slice(0, 40);
   const notes = String(b.notes || '').trim().slice(0, 1000);
+  const company = String(b.company || '').trim().slice(0, 160);
+  const street = String(b.street || '').trim().slice(0, 200);
+  const cityStateZip = String(b.cityStateZip || '').trim().slice(0, 120);
+  const country = String(b.country || '').trim().slice(0, 80);
 
   if (!quantity || quantity < 1 || quantity > 100000) return res.status(400).json({ error: 'Please enter a valid quantity.' });
   if (!SIZES.includes(size)) return res.status(400).json({ error: 'Please choose a valid coin size.' });
   if (!name) return res.status(400).json({ error: 'Please tell us your name.' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
+  if (!street || !cityStateZip || !country) return res.status(400).json({ error: 'Please enter a complete shipping address.' });
   if (rateLimited(req.ip)) return res.status(429).json({ error: 'Too many requests. Please try again shortly.' });
 
   try {
@@ -89,6 +94,8 @@ app.post('/api/orders', async (req, res) => {
       name,
       email,
       phone,
+      company,
+      shipping: { street, cityStateZip, country },
       notes,
       estimate: estimate(size, quantity),
       image: typeof b.image === 'string' ? b.image : '',

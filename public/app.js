@@ -235,10 +235,10 @@
 
   async function offerNext() {
     state.step = 'done';
-    await botSay('<p>What do you think? Would you like to <strong>order</strong> this coin, or <strong>edit</strong> it first?</p>');
+    await botSay('<p>What do you think? If you love it, tap <strong>I Want This Coin Made</strong> and we\'ll get the details. Or edit it first.</p>');
     textInput.placeholder = 'Choose an option above…';
     setChips([
-      { label: 'Order This Coin', primary: true, onClick: () => startOrder() },
+      { label: 'I Want This Coin Made', primary: true, onClick: () => startOrder() },
       { label: 'Edit This Coin', onClick: () => askEdit() },
       { label: 'Start a New Coin', onClick: () => restartForNewImage() },
     ]);
@@ -273,7 +273,7 @@
 
   // ---------- order flow ----------
   async function startOrder() {
-    state.order = { quantity: null, size: null, name: '', email: '', phone: '' };
+    state.order = { quantity: null, size: null, name: '', email: '', phone: '', company: '', street: '', cityStateZip: '', country: '' };
     state.step = 'order-qty';
     await botSay('<p class="head"><span class="script">Great</span> choice!</p><p>How many coins would you like to order? Pick a quantity or type a number.</p>');
     textInput.placeholder = 'Type a quantity…';
@@ -334,8 +334,47 @@
     state.step = 'order-phone';
     await botSay('<p>And a <strong>phone number</strong>, in case our team has a quick question? You can skip this.</p>');
     textInput.placeholder = 'Phone number (optional)';
-    setChips([{ label: 'Skip', onClick: () => { userSay('<p>Skip</p>'); reviewOrder(); } }]);
+    setChips([{ label: 'Skip', onClick: () => { userSay('<p>Skip</p>'); askCompany(); } }]);
     textInput.focus();
+  }
+
+  async function askCompany() {
+    state.step = 'order-company';
+    await botSay('<p>Is this for a <strong>company, unit, or organization</strong>? Type the name, or skip.</p>');
+    textInput.placeholder = 'Company / organization (optional)';
+    setChips([{ label: 'Skip', onClick: () => { userSay('<p>Skip</p>'); askStreet(); } }]);
+    textInput.focus();
+  }
+
+  async function askStreet() {
+    state.step = 'order-street';
+    await botSay('<p>Where should we <strong>ship</strong> your coins? Start with the street address.</p>');
+    textInput.placeholder = 'Street address, suite / unit';
+    textInput.focus();
+  }
+
+  async function askCityStateZip() {
+    state.step = 'order-city';
+    await botSay('<p>City, state and ZIP? For example: <em>Austin, TX 78701</em></p>');
+    textInput.placeholder = 'City, State ZIP';
+    textInput.focus();
+  }
+
+  async function askCountry() {
+    state.step = 'order-country';
+    await botSay('<p>And the <strong>country</strong>?</p>');
+    textInput.placeholder = 'Country';
+    setChips([
+      { label: 'United States', primary: true, onClick: () => chooseCountry('United States') },
+      { label: 'Canada', onClick: () => chooseCountry('Canada') },
+    ]);
+    textInput.focus();
+  }
+
+  async function chooseCountry(c) {
+    state.order.country = c;
+    userSay(`<p>${escapeHtml(c)}</p>`);
+    await reviewOrder();
   }
 
   async function reviewOrder() {
@@ -348,6 +387,8 @@
       ['Name', escapeHtml(o.name)],
       ['Email', escapeHtml(o.email)],
       o.phone ? ['Phone', escapeHtml(o.phone)] : null,
+      o.company ? ['Company', escapeHtml(o.company)] : null,
+      ['Ship to', `${escapeHtml(o.street)}<br>${escapeHtml(o.cityStateZip)}<br>${escapeHtml(o.country)}`],
       state.notes ? ['Notes', escapeHtml(state.notes)] : null,
     ].filter(Boolean);
 
@@ -365,11 +406,12 @@
     bubble.appendChild(wrap);
     scrollDown();
 
-    const payLabel = config.payments && o.estimate ? 'Pay Now' : 'Place Order';
+    const payLabel = config.payments && o.estimate ? 'Pay Now' : 'Send to Coins for Anything';
     textInput.placeholder = 'Confirm above, or type a change…';
     setChips([
       { label: payLabel, primary: true, onClick: () => submitOrder() },
       { label: 'Change Quantity', onClick: () => startOrder() },
+      { label: 'Change Shipping', onClick: () => askStreet() },
       { label: 'Cancel', onClick: () => { userSay('<p>Cancel</p>'); offerNext(); } },
     ]);
   }
@@ -391,6 +433,10 @@
           name: o.name,
           email: o.email,
           phone: o.phone,
+          company: o.company,
+          street: o.street,
+          cityStateZip: o.cityStateZip,
+          country: o.country,
           notes: state.notes,
           image: state.lastImage,
         }),
@@ -406,10 +452,12 @@
       }
 
       bubble.innerHTML =
-        `<p class="head"><span class="script">Thank you</span>, ${escapeHtml(o.name.split(' ')[0])}!</p>` +
-        `<p>Your order number is <strong>${escapeHtml(data.orderId)}</strong>. Our team will email <strong>${escapeHtml(o.email)}</strong> ` +
-        (o.estimate ? 'with your invoice and next steps' : 'with a quote and next steps') +
-        ' within one business day.</p>';
+        `<p class="head"><span class="script">Thank you</span> so much for your business!</p>` +
+        `<p>Your coin request <strong>${escapeHtml(data.orderId)}</strong> has been sent to the <strong>Coins for Anything team for review</strong>. ` +
+        `We\'ll be in touch at <strong>${escapeHtml(o.email)}</strong> ` +
+        (o.estimate ? 'with your invoice and next steps' : 'with pricing and next steps') +
+        ' within one business day.</p>' +
+        '<p>The Quality is Always Here.</p>';
       state.step = 'ordered';
       setChips([
         { label: 'Make Another Coin', primary: true, onClick: () => restartForNewImage() },
@@ -512,7 +560,7 @@
       case 'done':
       case 'edit-menu': {
         const f = parseFinish(t);
-        if (/order|buy|purchase|pay/.test(t)) { setChips([]); await startOrder(); }
+        if (/order|buy|purchase|pay|want|make it|love/.test(t)) { setChips([]); await startOrder(); }
         else if (f) { state.finish = f; setChips([]); await generate(); }
         else if (/another|new image|different image|next/.test(t)) { setChips([]); await restartForNewImage(); }
         else if (/edit|change|tweak/.test(t) && state.step === 'done') { setChips([]); await askEdit(); }
@@ -549,12 +597,38 @@
       case 'order-phone':
         state.order.phone = /^(skip|no|none)$/.test(t) ? '' : raw;
         setChips([]);
+        await askCompany();
+        break;
+
+      case 'order-company':
+        state.order.company = /^(skip|no|none|n\/a)$/.test(t) ? '' : raw;
+        setChips([]);
+        await askStreet();
+        break;
+
+      case 'order-street':
+        if (raw.length < 4) { await botSay('<p>Please enter the street address.</p>'); break; }
+        state.order.street = raw;
+        await askCityStateZip();
+        break;
+
+      case 'order-city':
+        if (raw.length < 3) { await botSay('<p>Please enter the city, state and ZIP.</p>'); break; }
+        state.order.cityStateZip = raw;
+        await askCountry();
+        break;
+
+      case 'order-country':
+        if (raw.length < 2) { await botSay('<p>Please enter the country.</p>'); break; }
+        state.order.country = raw;
+        setChips([]);
         await reviewOrder();
         break;
 
       case 'order-review':
         if (/^(yes|confirm|place order|pay|ok|okay)[.!]?$/.test(t)) { setChips([]); await submitOrder(); }
         else if (/quantity|qty|how many/.test(t) || parseQuantity(raw)) { setChips([]); await startOrder(); }
+        else if (/ship|address/.test(t)) { setChips([]); await askStreet(); }
         else if (/cancel|back/.test(t)) { setChips([]); await offerNext(); }
         else { await botSay('<p>Tap <strong>Place Order</strong> to confirm, or choose what to change.</p>'); }
         break;
