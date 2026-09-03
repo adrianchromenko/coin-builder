@@ -157,6 +157,21 @@ app.post('/api/generate', (req, res) => {
 
 app.get('/healthz', (_req, res) => res.send('ok'));
 
-app.listen(PORT, () => {
-  console.log(`Coin Builder running on http://localhost:${PORT} (provider: ${getProvider().name}, reference coins: ${countReferences()})`);
-});
+// Start on PORT; if it is busy, try the next few ports instead of crashing.
+function listen(port, attemptsLeft) {
+  const server = app.listen(port, () => {
+    if (port !== Number(PORT)) console.log(`[coin-builder] port ${PORT} was busy, using ${port} instead`);
+    console.log(`Coin Builder running on http://localhost:${port} (provider: ${getProvider().name}, reference coins: ${countReferences()})`);
+  });
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE' && attemptsLeft > 0) {
+      console.warn(`[coin-builder] port ${port} in use, trying ${port + 1}...`);
+      listen(port + 1, attemptsLeft - 1);
+    } else {
+      console.error('[coin-builder] failed to start:', err.message);
+      process.exit(1);
+    }
+  });
+}
+
+listen(Number(PORT), 10);
