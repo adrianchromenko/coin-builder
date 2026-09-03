@@ -25,6 +25,7 @@ Without an API key the server runs in **demo mode** and returns a local SVG mock
 | `OPENAI_IMAGE_MODEL` | `gpt-image-1` | Image model |
 | `OPENAI_IMAGE_SIZE` | `1024x1024` | Output size |
 | `OPENAI_IMAGE_QUALITY` | `medium` | `low`, `medium`, or `high` |
+| `REFERENCE_COUNT` | `4` | Reference coin photos sent per render (see `references/`) |
 | `PORT` | `3000` | HTTP port |
 | `RATE_LIMIT_PER_HOUR` | `20` | Generations per IP per hour |
 
@@ -39,4 +40,5 @@ server.js          Express server, upload handling, rate limit
 lib/prompt.js      Finish list and the coin prompt
 lib/providers.js   OpenAI image-edit provider + demo provider
 public/            Chat UI (index.html, style.css, app.js)
+references/        Photos of real coins used as style references
 ```

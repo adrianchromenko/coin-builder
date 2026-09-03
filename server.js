@@ -6,6 +6,7 @@ const express = require('express');
 const multer = require('multer');
 const { getProvider } = require('./lib/providers');
 const { FINISHES } = require('./lib/prompt');
+const { countReferences } = require('./lib/references');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,7 +41,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/config', (_req, res) => {
   const provider = getProvider();
-  res.json({ provider: provider.name, finishes: Object.keys(FINISHES) });
+  res.json({ provider: provider.name, finishes: Object.keys(FINISHES), references: countReferences() });
 });
 
 app.post('/api/generate', (req, res) => {
@@ -79,5 +80,5 @@ app.post('/api/generate', (req, res) => {
 app.get('/healthz', (_req, res) => res.send('ok'));
 
 app.listen(PORT, () => {
-  console.log(`Coin Builder running on http://localhost:${PORT} (provider: ${getProvider().name})`);
+  console.log(`Coin Builder running on http://localhost:${PORT} (provider: ${getProvider().name}, reference coins: ${countReferences()})`);
 });
