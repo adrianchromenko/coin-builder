@@ -1,6 +1,7 @@
 # Reference coins
 
-Drop photos of real coins here (JPG, PNG, or WEBP). The app sends a few of these
+Drop photos of FINISHED coins here (JPG, PNG, or WEBP). Do not put logos or
+artwork in this folder; the AI will mistake them for the customer's design. The app sends a few of these
 along with each customer image so the AI matches our coin style.
 
 Tips:
