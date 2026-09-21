@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "check-models": "node scripts/check-models.js",
+    "bakeoff": "node scripts/bakeoff.js"
   },
   "engines": {
     "node": ">=20"
@@ -13,7 +15,9 @@
   "dependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "multer": "^2.3.0"
+    "multer": "^2.3.0",
+    "nodemailer": "^10.0.10",
+    "sharp": "^0.35.4"
   },
   "license": "MIT"
 }

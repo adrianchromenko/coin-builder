@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1A1A1A">
   <title>Coin Builder | Coins For Anything</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23F58220'/%3E%3Ccircle cx='50' cy='50' r='34' fill='none' stroke='%231A1A1A' stroke-width='6'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,28 +19,302 @@
         <img class="brand-logo" src="brand/logo.webp" alt="Coins for Anything, Inc.">
         <div class="brand-text">
           <h1><span class="script">Custom</span>Coin Builder</h1>
-          <p class="sub">Upload your artwork. See it as a coin in seconds.</p>
+          <p class="sub">Upload your logo, add your text, see your coin.</p>
         </div>
       </div>
-      <button id="restart" class="btn dark small" type="button" title="Start over">Start Over</button>
+      <div class="header-actions">
+        <button id="test-toggle" class="test-toggle" type="button" aria-pressed="false" title="Test mode: no AI render, no real payment. Orders are saved as TEST orders.">
+          <span class="test-toggle-label">Test Mode</span>
+          <span class="test-toggle-state">Off</span>
+          <span class="test-toggle-track"><span class="test-toggle-knob"></span></span>
+        </button>
+        <button id="restart" class="btn dark small plain" type="button" title="Start over">Start Over</button>
+      </div>
     </header>
 
-    <section id="chat" class="chat" aria-live="polite" aria-label="Conversation"></section>
+    <ol id="stepper" class="stepper" aria-label="Progress">
+      <li data-step="design" class="current"><span>1</span><b>Design</b></li>
+      <li data-step="options"><span>2</span><b>Order Options</b></li>
+      <li data-step="details"><span>3</span><b>Your Details</b></li>
+      <li data-step="review"><span>4</span><b>Review &amp; Pay</b></li>
+    </ol>
 
-    <div id="chips" class="chips" role="group" aria-label="Quick replies"></div>
+    <div class="builder" id="builder" data-step="design">
+      <!-- ============ live preview ============ -->
+      <div class="preview-col">
+      <section class="preview" aria-label="Coin preview">
+        <div class="preview-tabs" id="preview-tabs" hidden>
+          <button type="button" data-view="layout" class="on">My Layout</button>
+          <button type="button" data-view="ai">AI Render</button>
+        </div>
+        <div class="preview-stage">
+          <div id="preview-svg" class="preview-svg"></div>
+          <img id="preview-ai" class="preview-ai" alt="AI rendered coin" draggable="false" hidden>
+          <div id="preview-busy" class="preview-busy" role="status" hidden>
+            <span class="typing"><i></i><i></i><i></i></span>
+            <p>Rendering your coin, then proofreading the wording… this takes a minute or two.</p>
+          </div>
+        </div>
+        <p id="preview-spec" class="preview-spec"></p>
+        <p id="preview-caption" class="preview-caption">Your coin updates as you type.</p>
+        <div class="preview-actions">
+          <button id="ai-btn" class="btn navy" type="button">Let AI Finish It</button>
+          <button id="download-btn" class="btn dark small plain" type="button"><span class="only-wide">Email Me This Design</span><span class="only-narrow">Email It</span></button>
+        </div>
+        <div id="versions-wrap" class="versions-wrap" hidden>
+          <span class="versions-label">AI versions</span>
+          <div id="versions" class="versions" role="group" aria-label="AI versions of your coin"></div>
+        </div>
+        <div id="ai-check" class="ai-check" role="status" hidden></div>
+      </section>
+      </div>
 
-    <form id="composer" class="composer" autocomplete="off">
-      <label class="attach" title="Attach an image">
-        <input id="file" type="file" accept="image/png,image/jpeg,image/webp" hidden>
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/></svg>
-        <span class="sr-only">Attach image</span>
-      </label>
-      <input id="text" type="text" placeholder="Type a message…" aria-label="Message">
-      <button id="send" class="btn" type="submit">Send</button>
-    </form>
+      <!-- ============ step panels ============ -->
+      <section class="panel">
+
+        <!-- Step 1: design -->
+        <div class="step" data-step="design">
+          <h2><span class="script">Design</span> your coin</h2>
+
+          <section class="group">
+            <h3 class="group-title">Artwork &amp; text</h3>
+            <div class="field">
+              <label class="label" id="logo-label">Your logo or artwork</label>
+              <div id="logo-drop" class="logo-drop" tabindex="0" role="button" aria-labelledby="logo-label">
+                <input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
+                <div class="logo-empty">
+                  <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path fill="currentColor" d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/></svg>
+                  <strong>Upload your logo</strong>
+                  <span><span class="only-mouse">PNG, JPG, WEBP or SVG · drag &amp; drop, paste, or click</span><span class="only-touch">Tap to choose a photo or file</span> · transparent PNG looks best</span>
+                </div>
+                <div class="logo-have" hidden>
+                  <img id="logo-thumb" alt="">
+                  <div class="logo-meta"><strong id="logo-name"></strong><span>Placed on your coin · <span class="only-mouse">click</span><span class="only-touch">tap</span> to replace</span></div>
+                  <button id="logo-remove" class="link" type="button">Remove</button>
+                </div>
+              </div>
+            </div>
+            <div class="field two">
+              <label class="ff"><span class="label">Top text</span><input id="text-top" type="text" maxlength="40" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="next" placeholder="e.g. UNITED STATES ARMY"></label>
+              <label class="ff"><span class="label">Bottom text</span><input id="text-bottom" type="text" maxlength="40" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="next" placeholder="e.g. EST. 1775"></label>
+            </div>
+            <div class="field two">
+              <label class="ff"><span class="label">Center text <em>(optional)</em></span><input id="text-center" type="text" maxlength="30" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="done" placeholder="e.g. 3RD BATTALION"></label>
+              <label class="ff"><span class="label">Logo size</span><input id="logo-size" type="range" min="50" max="100" value="82" aria-label="Logo size"></label>
+            </div>
+            <p id="text-hint" class="hint note" role="status" hidden></p>
+          </section>
+
+          <section class="group">
+            <h3 class="group-title">Metal &amp; color</h3>
+            <div class="field">
+              <span class="label">Metal finish</span>
+              <div id="finishes" class="swatches" role="group" aria-label="Metal finish"></div>
+            </div>
+            <div class="field two">
+              <div>
+                <span class="label">Color</span>
+                <div id="colors" class="seg" role="group" aria-label="Color">
+                  <button type="button" data-color="color-one" class="on" title="Unlimited Color, One Side">One Side</button>
+                  <button type="button" data-color="color-both" title="Unlimited Color, Both Sides">Both Sides</button>
+                  <button type="button" data-color="none" title="No Color: bare metal only">No Color</button>
+                </div>
+              </div>
+              <div>
+                <span class="label">Shape</span>
+                <div id="shapes" class="seg" role="group" aria-label="Shape">
+                  <button type="button" data-shape="round" class="on">Round</button>
+                  <button type="button" data-shape="odd" title="Odd Shaped: cut to the outline of your artwork">Custom Shape</button>
+                </div>
+              </div>
+            </div>
+            <p id="shape-note" class="hint note" hidden>Custom-shaped coins are cut to the outline of your artwork. The AI render shows the idea; our artists finalize the exact outline with you before production.</p>
+            <div class="field">
+              <span class="label">Center background <em>(optional)</em></span>
+              <div id="bg-colors" class="bg-swatches" role="group" aria-label="Background color"></div>
+              <div class="bg-texture">
+                <span class="sublabel">Texture</span>
+                <div id="bg-textures" class="seg" role="group" aria-label="Background texture">
+                  <button type="button" data-texture="smooth" class="on">Smooth</button>
+                  <button type="button" data-texture="sandblast">Sandblast</button>
+                  <button type="button" data-texture="sunburst">Sunburst</button>
+                  <button type="button" data-texture="diamond">Diamond Cut</button>
+                </div>
+              </div>
+              <p id="bg-note" class="hint" role="status" hidden></p>
+            </div>
+            <div class="field">
+              <span class="label">Rim style</span>
+              <div id="borders" class="seg" role="group" aria-label="Rim style">
+                <button type="button" data-border="plain" class="on">Plain</button>
+                <button type="button" data-border="rope">Rope</button>
+                <button type="button" data-border="beads">Beads</button>
+                <button type="button" data-border="stars">Stars</button>
+              </div>
+            </div>
+          </section>
+
+
+          <p id="design-hint" class="hint">Add a logo or some text to get started.</p>
+          <div class="step-actions">
+            <button id="to-options" class="btn" type="button" disabled>Continue to Order</button>
+          </div>
+        </div>
+
+        <!-- Step 2: quantity & size -->
+        <div class="step" data-step="options" hidden>
+          <h2><span class="script">How many</span> coins?</h2>
+          <div class="field">
+            <span class="label">Quantity</span>
+            <div id="qty-chips" class="seg wrap"></div>
+            <input id="qty-input" class="qty-input" type="number" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" min="1" max="100000" placeholder="Or type a quantity" aria-label="Custom quantity">
+            <p class="hint">We recommend a minimum of 25 coins. The price per coin drops as quantity goes up.</p>
+          </div>
+          <div class="field">
+            <span class="label">Coin size</span>
+            <div id="size-chips" class="seg wrap"></div>
+            <p class="hint">Most challenge coins are 1.75" or 2". Need a different size? Tell us in the notes.</p>
+          </div>
+          <section class="group">
+            <h3 class="group-title">Add-ons <em>optional</em></h3>
+            <div id="addons" class="addons"></div>
+            <p class="hint">Add-ons are priced into your quote by our team. They are not drawn on the coin preview.</p>
+          </section>
+          <div id="estimate" class="estimate" hidden></div>
+          <div class="field">
+            <label class="ff"><span class="label">Notes for our team <em>(optional)</em></span><textarea id="notes" rows="2" maxlength="1000" placeholder="Colors, enamel, a second side, a deadline…"></textarea></label>
+          </div>
+          <div class="step-actions">
+            <button class="btn dark back" type="button" data-back="design">Back</button>
+            <button id="to-details" class="btn" type="button" disabled>Continue</button>
+          </div>
+        </div>
+
+        <!-- Step 3: details form -->
+        <div class="step" data-step="details" hidden>
+          <h2><span class="script">Your</span> details</h2>
+          <form id="details-form" class="details-form" novalidate>
+            <div class="ff-grid">
+              <label class="ff"><span class="ff-label">Full name <i>*</i></span><input type="text" name="name" autocomplete="name" autocapitalize="words" enterkeyhint="next"></label>
+              <label class="ff"><span class="ff-label">Email <i>*</i></span><input type="email" name="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="next" placeholder="you@example.com"></label>
+              <label class="ff"><span class="ff-label">Phone</span><input type="tel" name="phone" inputmode="tel" autocomplete="tel" enterkeyhint="next"></label>
+              <label class="ff"><span class="ff-label">Company / organization</span><input type="text" name="company" autocomplete="organization"></label>
+            </div>
+            <p class="ff-section">Billing address</p>
+            <div class="ff-grid">
+              <label class="ff wide"><span class="ff-label">Street address, suite / unit <i>*</i></span><input type="text" name="billStreet" autocomplete="billing street-address"></label>
+              <label class="ff"><span class="ff-label">City, state, ZIP <i>*</i></span><input type="text" name="billCityStateZip" autocomplete="billing address-level2" placeholder="Austin, TX 78701"></label>
+              <label class="ff"><span class="ff-label">Country <i>*</i></span><input type="text" name="billCountry" value="United States" autocomplete="billing country-name"></label>
+            </div>
+            <label class="ff-check"><input type="checkbox" name="same" checked> Ship to the same address</label>
+            <div id="ship-fields">
+              <p class="ff-section">Shipping address</p>
+              <div class="ff-grid">
+                <label class="ff wide"><span class="ff-label">Street address, suite / unit <i>*</i></span><input type="text" name="street" autocomplete="shipping street-address"></label>
+                <label class="ff"><span class="ff-label">City, state, ZIP <i>*</i></span><input type="text" name="cityStateZip" autocomplete="shipping address-level2" placeholder="Austin, TX 78701"></label>
+                <label class="ff"><span class="ff-label">Country <i>*</i></span><input type="text" name="country" value="United States" autocomplete="shipping country-name"></label>
+              </div>
+            </div>
+            <p id="details-error" class="ff-error" role="alert" hidden></p>
+            <div class="step-actions">
+              <button class="btn dark back" type="button" data-back="options">Back</button>
+              <button class="btn" type="submit">Continue to Review</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Step 4: review -->
+        <div class="step" data-step="review" hidden>
+          <h2><span class="script">Review</span> your order <span id="review-test" class="test-tag" hidden>TEST</span></h2>
+          <table id="review-table" class="summary"></table>
+          <p id="review-error" class="ff-error" role="alert" hidden></p>
+          <div class="step-actions">
+            <button class="btn dark back" type="button" data-back="details">Back</button>
+            <button id="place-order" class="btn" type="button">Send to Coins for Anything</button>
+          </div>
+          <p class="hint">Our team reviews every design before production and confirms shipping and any setup fees.</p>
+        </div>
+
+        <!-- Result -->
+        <div class="step" data-step="result" hidden>
+          <div id="result"></div>
+          <div class="step-actions">
+            <button id="another" class="btn" type="button">Make Another Coin</button>
+          </div>
+        </div>
+
+      </section>
+    </div>
+
     <div class="foot">Over <b>20 million coins</b> minted &middot; <b>60,000+</b> designs &middot; Trusted by <b>50,000+</b> companies</div>
-    <div id="drop" class="drop" hidden>Drop your image to upload</div>
+    <div id="drop" class="drop" hidden>Drop your logo to upload</div>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   </main>
+
+  <!-- Test checkout popup: no real charge, card number never leaves the browser -->
+  <div id="checkout" class="checkout" hidden role="dialog" aria-modal="true" aria-labelledby="co-title">
+    <div class="co-card">
+      <div class="co-test-bar">Test checkout &middot; no real charge &middot; use 4242 4242 4242 4242</div>
+      <button id="co-close" class="co-close" type="button" aria-label="Close">&times;</button>
+      <div class="co-body">
+        <aside class="co-summary">
+          <div class="co-brand"><img src="brand/logo.webp" alt="Coins for Anything"></div>
+          <img id="co-coin" class="co-coin" alt="Your coin">
+          <div id="co-item" class="co-item"></div>
+          <div class="co-lines">
+            <div><span>Subtotal</span><span id="co-subtotal"></span></div>
+            <div><span>Shipping</span><span id="co-shipping">Calculated by our team</span></div>
+            <div class="co-total"><span>Total due</span><span id="co-total"></span></div>
+          </div>
+          <div id="co-note" class="co-note"></div>
+        </aside>
+        <form id="co-form" class="co-form" novalidate autocomplete="off">
+          <h2 id="co-title">Pay with card</h2>
+          <label class="ff"><span class="ff-label">Email</span><input id="co-email" type="email" name="email" readonly></label>
+          <label class="ff"><span class="ff-label">Name on card <i>*</i></span><input type="text" name="cardName" autocomplete="cc-name"></label>
+          <label class="ff"><span class="ff-label">Card number <i>*</i></span><input type="text" name="cardNumber" inputmode="numeric" placeholder="1234 1234 1234 1234" maxlength="23" autocomplete="off"></label>
+          <div class="co-row">
+            <label class="ff"><span class="ff-label">Expiry <i>*</i></span><input type="text" name="cardExp" inputmode="numeric" placeholder="MM / YY" maxlength="7" autocomplete="off"></label>
+            <label class="ff"><span class="ff-label">CVC <i>*</i></span><input type="text" name="cardCvc" inputmode="numeric" placeholder="123" maxlength="4" autocomplete="off"></label>
+            <label class="ff"><span class="ff-label">ZIP <i>*</i></span><input type="text" name="cardZip" inputmode="numeric" placeholder="78701" maxlength="10" autocomplete="off"></label>
+          </div>
+          <p id="co-error" class="ff-error" role="alert" hidden></p>
+          <button id="co-pay" class="btn co-pay" type="submit">Pay</button>
+          <p class="co-secure">Test mode. Nothing is charged and the card number never leaves this page.</p>
+        </form>
+        <div id="co-done" class="co-done" hidden>
+          <div class="co-check">&#10003;</div>
+          <h2>Payment successful</h2>
+          <p id="co-done-text"></p>
+          <button id="co-finish" class="btn" type="button">Back to Coin Builder</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- "Email me this design": trades the design for an email address -->
+  <div id="send" class="checkout send" hidden role="dialog" aria-modal="true" aria-labelledby="send-title">
+    <div class="co-card send-card">
+      <button id="send-close" class="co-close" type="button" aria-label="Close">&times;</button>
+      <form id="send-form" class="send-form" novalidate>
+        <img id="send-coin" class="send-coin" alt="" draggable="false">
+        <h2 id="send-title"><span class="script">Get</span> your design</h2>
+        <p class="send-lead">Tell us where to send it and your coin design will be in your inbox in a minute, ready to share with your team.</p>
+        <label class="ff"><span class="ff-label">Email <i>*</i></span><input type="email" name="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="you@example.com"></label>
+        <label class="ff"><span class="ff-label">First name <em>(optional)</em></span><input type="text" name="name" autocomplete="given-name" autocapitalize="words" enterkeyhint="send"></label>
+        <label class="ff-check"><input type="checkbox" name="newsletter"> Also send me coin ideas and offers now and then</label>
+        <p id="send-error" class="ff-error" role="alert" hidden></p>
+        <button id="send-submit" class="btn" type="submit">Email My Design</button>
+        <p class="co-secure">We will email you this design and may follow up about your coin. No spam, and we never share your address.</p>
+      </form>
+      <div id="send-done" class="send-done" hidden>
+        <div class="co-check">&#10003;</div>
+        <h2>On its way</h2>
+        <p id="send-done-text"></p>
+        <button id="send-finish" class="btn" type="button">Back to My Coin</button>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>
