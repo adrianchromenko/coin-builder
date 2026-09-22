@@ -38,6 +38,10 @@ Without an API key the server runs in **demo mode** and returns a local SVG mock
 | `LEAD_WEBHOOK_URL` | | Every lead is POSTed here as JSON |
 | `MAIL_PREVIEW_DIR` | | Testing: write emails to `.eml` files here instead of sending |
 | `TEST_MODE` | | `1` forces test mode for everyone (see below) |
+| `RENDERS_PER_HOUR`, `RENDERS_PER_DAY` | `6`, `15` | AI renders one visitor (IP) may make |
+| `RENDERS_PER_DAY_TOTAL` | `300` | AI renders the whole site may make per day (ET); the team is emailed at 80% and 100% |
+| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET` | | Cloudflare Turnstile: every render must come from a real browser (recommended in production) |
+| `ORDER_LIMIT_PER_HOUR` | `20` | Order submissions per IP per hour |
 | `PORT` | `3000` | HTTP port |
 | `RATE_LIMIT_PER_HOUR` | `20` | Generations per IP per hour |
 
@@ -53,6 +57,15 @@ Image models are good at metal and bad at spelling, so the pipeline is built aro
 5. The customer sees a green "Wording checked" or an amber "not quite right" note that quotes what the AI actually wrote. Every render is kept as a **version** under the coin; picking an older version also brings back the design it was made from, so the picture and the order always match.
 
 6. **Nothing clean leaves the server.** `lib/watermark.js` keeps the original in `renders/` (git-ignored, swept after `RENDER_KEEP_DAYS`) and gives the browser only a small, lightly watermarked preview. The Download button fetches a full-size, heavily watermarked copy. When a customer orders an AI version, the order gets the clean original from the server's own copy. Right-click, long-press and drag are blocked on coin images, but that only stops casual saving; the watermark is what actually protects the artwork, because a screenshot is always possible.
+
+### Keeping the OpenAI bill in check
+
+Each render costs real money whether or not the visitor orders, so `lib/guard.js` sits in front of `/api/generate`:
+
+1. One render at a time per visitor, and per-visitor hourly and daily caps (`RENDERS_PER_HOUR`, `RENDERS_PER_DAY`).
+2. A site-wide daily budget (`RENDERS_PER_DAY_TOTAL`). When it is spent, rendering pauses for everyone until midnight ET and the team is emailed (at 80% and at 100%). The count lives in `DATA_DIR/render-count.json` so a restart does not reset it.
+3. Repeats are free: the exact same art proof with the exact same options within 24 hours gets the earlier render back.
+4. Optional Cloudflare Turnstile (`TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET`): each render carries a token proving it came from a real browser, which is what stops scripted abuse from many IP addresses. Test mode never renders, so it is not affected by any of this.
 
 The proofreader reads the render without seeing the art proof on purpose. When it could see the intended wording it "corrected" typos in its head and passed misspelled coins.
 

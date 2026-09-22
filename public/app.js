@@ -493,6 +493,43 @@
   // ---------- AI render ----------
   const cloneDesign = () => ({ ...design });
 
+  // Cloudflare Turnstile (only when the server has TURNSTILE_SITE_KEY): every render carries a fresh token
+  // proving it came from a real browser. Invisible to genuine visitors; scripts hitting /api/generate get refused.
+  const turnstile = { widget: null, loading: null };
+  function turnstileToken() {
+    if (!config.turnstileSiteKey) return Promise.resolve('');
+    if (!turnstile.loading) {
+      turnstile.loading = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        s.async = true;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Could not load the bot check. Please reload the page.'));
+        document.head.appendChild(s);
+      });
+    }
+    return turnstile.loading.then(() => new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('The bot check timed out. Please try again.')), 30000);
+      const done = (token) => { clearTimeout(timer); resolve(token); };
+      const fail = () => { clearTimeout(timer); reject(new Error('The bot check failed. Please reload the page and try again.')); };
+      if (turnstile.widget == null) {
+        let host = $('turnstile-host');
+        if (!host) { host = document.createElement('div'); host.id = 'turnstile-host'; document.body.appendChild(host); }
+        turnstile.widget = window.turnstile.render(host, {
+          sitekey: config.turnstileSiteKey, size: 'invisible', execution: 'execute',
+          callback: (t) => turnstile.resolve && turnstile.resolve(t),
+          'error-callback': () => turnstile.reject && turnstile.reject(),
+          'expired-callback': () => {},
+        });
+      } else {
+        window.turnstile.reset(turnstile.widget);
+      }
+      turnstile.resolve = done;
+      turnstile.reject = fail;
+      window.turnstile.execute(turnstile.widget);
+    }));
+  }
+
   async function aiRender() {
     if (ai.busy) return;
     if (!designReady()) { toast('Add a logo or some text first.'); return; }
@@ -506,9 +543,10 @@
     const snapshot = cloneDesign();
     const signature = designSignature();
     try {
-      const blob = await (await fetch(await proofPng())).blob();
+      const [blob, token] = await Promise.all([fetch(await proofPng()).then((r) => r.blob()), turnstileToken()]);
       const form = new FormData();
       form.append('image', blob, 'art-proof.png');
+      if (token) form.append('turnstile', token);
       form.append('finish', snapshot.finish);
       form.append('color', snapshot.color);
       form.append('shape', snapshot.shape);

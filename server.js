@@ -10,11 +10,12 @@ const { countReferences } = require('./lib/references');
 const { SIZES, hasPricing, estimate } = require('./lib/pricing');
 const { saveOrder, updateOrder, notifyWebhook, createCheckout } = require('./lib/orders');
 const { watermark, saveOriginal, readOriginal } = require('./lib/watermark');
-const { mailConfigured, sendDesignEmail, sendOrderEmail, readMailImage, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
+const { mailConfigured, sendDesignEmail, sendOrderEmail, sendAlertEmail, readMailImage, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
+const guard = require('./lib/guard');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const RATE_LIMIT = Number(process.env.RATE_LIMIT_PER_HOUR || 20);
+const ORDER_RATE_LIMIT = Number(process.env.ORDER_LIMIT_PER_HOUR || 20);
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -25,13 +26,13 @@ const upload = multer({
   },
 });
 
-// Simple in-memory rate limit per IP
+// Simple in-memory rate limit per IP for order submissions. AI renders are guarded separately in lib/guard.js.
 const hits = new Map();
 function rateLimited(ip) {
   const now = Date.now();
   const windowStart = now - 60 * 60 * 1000;
   const list = (hits.get(ip) || []).filter((t) => t > windowStart);
-  if (list.length >= RATE_LIMIT) {
+  if (list.length >= ORDER_RATE_LIMIT) {
     hits.set(ip, list);
     return true;
   }
@@ -41,6 +42,7 @@ function rateLimited(ip) {
 }
 
 app.set('trust proxy', 1);
+guard.onAlert(sendAlertEmail);
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
     // Always revalidate the app files so a plain refresh picks up changes
@@ -65,6 +67,8 @@ app.get('/api/config', (_req, res) => {
     testMode: process.env.TEST_MODE === '1',
     // true when SMTP is set up: designs are emailed instead of downloaded
     emailDesigns: mailConfigured(),
+    // set when Cloudflare Turnstile guards renders; the page then sends a token with every render
+    turnstileSiteKey: guard.turnstileOn() ? process.env.TURNSTILE_SITE_KEY : '',
   });
 });
 
@@ -208,9 +212,6 @@ app.post('/api/generate', (req, res) => {
   upload.single('image')(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.message });
     if (!req.file) return res.status(400).json({ error: 'No image received.' });
-    if (rateLimited(req.ip)) {
-      return res.status(429).json({ error: 'Too many coins generated. Please try again in a little while.' });
-    }
 
     const finish = normalizeFinish(req.body.finish);
     const color = normalizeColor(req.body.color);
@@ -221,6 +222,23 @@ app.post('/api/generate', (req, res) => {
     const hasLogo = req.body.hasLogo === '1' || req.body.hasLogo === 'true';
     const centerFirstLineWords = Math.max(0, parseInt(req.body.centerFirstLineWords, 10) || 0);
     const background = normalizeBackground({ color: req.body.bgColor, colorName: req.body.bgColorName, texture: req.body.bgTexture });
+    const options = { finish, color, shape, addons, texts, hasLogo, border, background, centerFirstLineWords };
+
+    // Every render below this line costs money, so the cheap checks come first.
+    // 1. The very same proof and options were rendered recently: hand back that result for free.
+    const key = guard.fingerprint(req.file.buffer, options);
+    const repeat = guard.cached(key);
+    if (repeat) {
+      console.log('[coin-builder] repeat render served from cache');
+      return res.json(repeat);
+    }
+    // 2. Real browser? (only when Turnstile is configured)
+    if (!(await guard.verifyTurnstile(req.body.turnstile, req.ip))) {
+      return res.status(403).json({ error: 'We could not confirm this request came from a browser. Please reload the page and try again.' });
+    }
+    // 3. Per-visitor and site-wide limits. From here on the render is counted, so release() must run.
+    const gate = guard.admit(req.ip);
+    if (!gate.ok) return res.status(gate.status).json({ error: gate.error });
 
     // DEBUG_PROOF_DIR=some/folder saves the art proof exactly as the AI receives it, for troubleshooting a bad render
     if (process.env.DEBUG_PROOF_DIR) {
@@ -230,20 +248,8 @@ app.post('/api/generate', (req, res) => {
     try {
       const provider = getProvider();
       const started = Date.now();
-      const result = await provider.generate({
-        buffer: req.file.buffer,
-        mimetype: req.file.mimetype,
-        finish,
-        color,
-        shape,
-        addons,
-        texts,
-        hasLogo,
-        border,
-        background,
-        centerFirstLineWords,
-      });
-      console.log(`[coin-builder] ${provider.name} generated coin (${[finish, color, shape, ...addons].join(', ')}) in ${Date.now() - started}ms, ${result.attempts} attempt(s), model ${result.model}`);
+      const result = await provider.generate({ buffer: req.file.buffer, mimetype: req.file.mimetype, ...options });
+      console.log(`[coin-builder] ${provider.name} generated coin (${[finish, color, shape, ...addons].join(', ')}) in ${Date.now() - started}ms, ${result.attempts} attempt(s), model ${result.model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
       // The clean render stays on the server. The browser gets a small, lightly watermarked preview; the download
       // endpoint below hands out a heavily watermarked full-size copy. If watermarking fails, nothing is sent.
       let image = `data:${result.mimetype};base64,${result.base64}`;
@@ -254,7 +260,7 @@ app.post('/api/generate', (req, res) => {
         renderId = saveOriginal(clean);
         image = `data:image/png;base64,${preview.toString('base64')}`;
       }
-      res.json({
+      const response = {
         provider: provider.name,
         finish,
         image,
@@ -262,10 +268,14 @@ app.post('/api/generate', (req, res) => {
         // Proofreading result: which lettering matched, stray text, how well the logo held up
         check: result.check,
         attempts: result.attempts,
-      });
+      };
+      if (provider.name !== 'demo') guard.remember(key, response);
+      res.json(response);
     } catch (e) {
       console.error('[coin-builder] generation error:', e.message);
       res.status(502).json({ error: 'Sorry, I could not generate the coin right now. Please try again.' });
+    } finally {
+      guard.release(req.ip);
     }
   });
 });
