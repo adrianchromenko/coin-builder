@@ -10,7 +10,7 @@ const { countReferences } = require('./lib/references');
 const { SIZES, hasPricing, estimate } = require('./lib/pricing');
 const { saveOrder, updateOrder, notifyWebhook, createCheckout } = require('./lib/orders');
 const { watermark, saveOriginal, readOriginal } = require('./lib/watermark');
-const { mailConfigured, sendDesignEmail, readMailImage, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
+const { mailConfigured, sendDesignEmail, sendOrderEmail, readMailImage, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -129,6 +129,10 @@ app.post('/api/orders', async (req, res) => {
   if (rateLimited(req.ip)) return res.status(429).json({ error: 'Too many requests. Please try again shortly.' });
 
   try {
+    // An AI version is ordered by its id, and staff get the clean original from the server's own copy;
+    // the browser only ever had the watermarked preview. Layout orders send their flat mock-up as before.
+    const original = readOriginal(d.renderId);
+    const imageDataUrl = original ? `data:image/png;base64,${original.toString('base64')}` : (typeof b.image === 'string' ? b.image : '');
     const record = saveOrder({
       finish,
       finishLabel: finishLabel(finish),
@@ -143,13 +147,7 @@ app.post('/api/orders', async (req, res) => {
       notes,
       design,
       estimate: estimate(size, quantity),
-      // An AI version is ordered by its id, and staff get the clean original from the server's own copy;
-      // the browser only ever had the watermarked preview. Layout orders send their flat mock-up as before.
-      image: (() => {
-        const original = readOriginal(d.renderId);
-        if (original) return `data:image/png;base64,${original.toString('base64')}`;
-        return typeof b.image === 'string' ? b.image : '';
-      })(),
+      image: imageDataUrl,
       ip: req.ip,
       test: isTest,
     });
@@ -168,6 +166,11 @@ app.post('/api/orders', async (req, res) => {
     }
 
     notifyWebhook({ ...record, checkoutUrl });
+    // Tell the team. The order is already saved on disk, so a mail problem never loses it (or fails the customer)
+    const m = /^data:image\/png;base64,(.+)$/i.exec(imageDataUrl);
+    sendOrderEmail(record, m ? Buffer.from(m[1], 'base64') : null)
+      .then((r) => { if (r) console.log(`[coin-builder] order ${record.id} emailed to the team`); })
+      .catch((e) => console.error(`[coin-builder] order email failed for ${record.id}:`, e.message));
     res.json({ ok: true, orderId: record.id, estimate: record.estimate, checkoutUrl });
   } catch (e) {
     console.error('[coin-builder] order error:', e.message);
