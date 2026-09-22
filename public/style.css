@@ -661,3 +661,16 @@ html { -webkit-text-size-adjust: 100%; }
 .side-badge[hidden] { display: none; }
 .preview-ai, .version img, .review-coin img, .co-coin, .send-coin { object-fit: contain; }
 .preview-stage.wide { aspect-ratio: 2096 / 1024; max-width: none; }
+
+/* ---------- coin shapes ---------- */
+.shape-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(126px, 1fr)); gap: 8px; }
+.shape-chips button {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px;
+  border: 2px solid transparent; background: var(--offwhite); border-radius: 0;
+  padding: 6px 10px 6px 8px; cursor: pointer; text-align: left; transition: border-color .15s, background .15s;
+  font-family: var(--font-head); font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dark);
+}
+.shape-chips button svg { flex: 0 0 auto; width: 26px; height: 26px; color: #555; }
+.shape-chips button:hover { border-color: #ccc; }
+.shape-chips button.on { border-color: var(--orange); background: #fff7ef; }
+.shape-chips button.on svg { color: var(--orange); }

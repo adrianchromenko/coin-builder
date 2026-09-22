@@ -20,7 +20,9 @@
   ];
   const DEFAULT_FINISH = 'shiny-gold';
   const COLORS = { 'color-one': 'Unlimited color, one side', 'color-both': 'Unlimited color, both sides', none: 'No color' };
-  const SHAPES = { round: 'Round', odd: 'Odd shaped' };
+  // Round plus the preset outlines in shapes.js, plus "cut to my artwork" (the outline is traced from the front design)
+  const SHAPES = { round: 'Round', artwork: 'Cut to my artwork' };
+  for (const [k, v] of Object.entries(window.CoinShapes.PRESETS)) SHAPES[k] = v.label;
   // Center background: enamel colors a mint would stock, and textures that are struck into the metal.
   // Color and texture combine: translucent enamel over a textured field, so the texture shows through.
   const BG_COLORS = [
@@ -289,23 +291,108 @@
   // What the last drawn coin looked like: the AI prompt and the "small lettering" hint read it
   let lastLayout = null;
 
-  function borderMarkup(r, hi, lo, border) {
+  // The decorative border just inside the rim, drawn along any outline (`d` is SVG path data)
+  function borderMarkup(d, hi, lo, border) {
     switch (border) {
       case 'rope':
-        return `<circle cx="512" cy="512" r="${r}" fill="none" stroke="${lo}" stroke-width="12" stroke-dasharray="16 9" stroke-linecap="round" opacity=".85"/>` +
-               `<circle cx="512" cy="512" r="${r}" fill="none" stroke="${hi}" stroke-width="4" stroke-dasharray="16 9" stroke-dashoffset="2" stroke-linecap="round" opacity=".7"/>`;
+        return `<path d="${d}" fill="none" stroke="${lo}" stroke-width="12" stroke-dasharray="16 9" stroke-linecap="round" opacity=".85"/>` +
+               `<path d="${d}" fill="none" stroke="${hi}" stroke-width="4" stroke-dasharray="16 9" stroke-dashoffset="2" stroke-linecap="round" opacity=".7"/>`;
       case 'beads':
-        return `<circle cx="512" cy="512" r="${r}" fill="none" stroke="${lo}" stroke-width="14" stroke-dasharray="0 24" stroke-linecap="round" opacity=".9"/>` +
-               `<circle cx="512" cy="512" r="${r}" fill="none" stroke="${hi}" stroke-width="6" stroke-dasharray="0 24" stroke-dashoffset="1" stroke-linecap="round" opacity=".8"/>`;
+        return `<path d="${d}" fill="none" stroke="${lo}" stroke-width="14" stroke-dasharray="0 24" stroke-linecap="round" opacity=".9"/>` +
+               `<path d="${d}" fill="none" stroke="${hi}" stroke-width="6" stroke-dasharray="0 24" stroke-dashoffset="1" stroke-linecap="round" opacity=".8"/>`;
       case 'stars': {
-        const n = Math.round((2 * Math.PI * r) / 34);
-        const stars = Array.from({ length: n }, () => '★').join(' ');
-        return `<path id="starPath" d="M ${512 - r},512 A ${r},${r} 0 1,1 ${512 + r},512 A ${r},${r} 0 1,1 ${512 - r},512" fill="none"/>` +
+        const stars = Array.from({ length: 90 }, () => '★').join(' '); // more than any outline needs; the path clips the rest
+        return `<path id="starPath" d="${d}" fill="none"/>` +
                `<text font-family="Georgia, 'Times New Roman', serif" font-size="22" fill="${lo}" opacity=".9"><textPath href="#starPath" startOffset="0">${stars}</textPath></text>`;
       }
       default:
-        return `<circle cx="512" cy="512" r="${r}" fill="none" stroke="${lo}" stroke-width="3" opacity=".6"/>`;
+        return `<path d="${d}" fill="none" stroke="${lo}" stroke-width="3" opacity=".6"/>`;
     }
+  }
+
+  // Straight lines of lettering above and below, logo and center wording in a circle between them: the layout for
+  // every coin that is not round. Ri is the radius of the content circle, cy its center.
+  function layoutStacked(top, bottom, center, hasLogo, aspect, logoScale, Ri, cy) {
+    const chord = (dy) => 2 * Math.sqrt(Math.max(0, Ri * Ri - dy * dy)) * 0.92;
+    const fit = (text, maxW, maxSize) => { for (let sz = maxSize; sz >= 14; sz -= 1) if (textWidth(text, sz) <= maxW) return sz; return 14; };
+    const dy = Ri * 0.72;
+    let size = 0;
+    if (top || bottom) size = Math.min(top ? fit(top, chord(dy), 50) : 99, bottom ? fit(bottom, chord(dy), 50) : 99);
+    const topLine = top ? { text: top, size, y: cy - dy + (size * CAP) / 2 } : null;
+    const bottomLine = bottom ? { text: bottom, size, y: cy + dy + (size * CAP) / 2 } : null;
+    const topEdge = top ? cy - dy + (size * CAP) / 2 + size * 0.4 : cy - Ri;
+    const botEdge = bottom ? cy + dy - (size * CAP) / 2 - size * 0.4 : cy + Ri;
+    const mid = (topEdge + botEdge) / 2;
+    const Rm = Math.max(40, Math.min((botEdge - topEdge) / 2, Ri * 0.95));
+    const c = layoutCenter(center, hasLogo, aspect, logoScale, Rm); // laid out around (512, 512)
+    const shift = mid - 512;
+    return {
+      rim: { top: topLine, bottom: bottomLine, dots: [] },
+      center: { logo: c.logo ? { ...c.logo, cy: c.logo.cy + shift } : null, lines: c.lines.map((l) => ({ ...l, y: l.y + shift })), size: c.size, firstLineWords: c.firstLineWords },
+    };
+  }
+
+  // "Cut to my artwork": the front's logo and lettering stacked freely in the middle; the coin is then cut around them.
+  // Returns the same structure as layoutStacked plus `items`, the solid parts the outline is traced from.
+  function layoutArtwork(face, top, bottom, center) {
+    const maxW = 740;
+    const fit = (text, max) => { for (let sz = max; sz >= 14; sz -= 1) if (textWidth(text, sz) <= maxW) return sz; return 14; };
+    const rows = [];
+    if (top) rows.push({ role: 'top', text: top, size: fit(top, 56) });
+    if (face.logo) { const aspect = face.logoAspect || 1; let w = 640 * (face.logoSize / 100); let h = w / aspect; if (h > 560) { h = 560; w = h * aspect; } rows.push({ role: 'logo', w, h }); }
+    if (center) rows.push({ role: 'center', text: center, size: fit(center, 46) });
+    if (bottom) rows.push({ role: 'bottom', text: bottom, size: fit(bottom, 56) });
+    const hOf = (r) => (r.role === 'logo' ? r.h : r.size * CAP);
+    let gap = 26;
+    let H = rows.reduce((t, r) => t + hOf(r), 0) + gap * Math.max(0, rows.length - 1);
+    const f = Math.min(1, 860 / Math.max(1, H));
+    if (f < 1) {
+      for (const r of rows) { if (r.role === 'logo') { r.w *= f; r.h *= f; } else r.size = Math.max(14, r.size * f); }
+      gap *= f;
+      H = rows.reduce((t, r) => t + hOf(r), 0) + gap * Math.max(0, rows.length - 1);
+    }
+    let y = 512 - H / 2;
+    const out = { rim: { top: null, bottom: null, dots: [] }, center: { logo: null, lines: [], size: 0, firstLineWords: 0 }, items: [] };
+    for (const r of rows) {
+      const h = hOf(r);
+      if (r.role === 'logo') {
+        out.center.logo = { w: r.w, h: r.h, cy: y + h / 2 };
+        out.items.push({ type: 'image', src: face.logo, x: 512 - r.w / 2, y, w: r.w, h: r.h });
+      } else {
+        const line = { text: r.text, size: r.size, y: y + h, w: textWidth(r.text, r.size) };
+        out.items.push({ type: 'text', text: r.text, x: 512, y: y + h, font: `bold ${r.size}px ${FONT}`, letterSpacing: `${(r.size * TRACK).toFixed(2)}px` });
+        if (r.role === 'top') out.rim.top = line;
+        else if (r.role === 'bottom') out.rim.bottom = line;
+        else { out.center.lines.push(line); out.center.size = r.size; }
+      }
+      y += h + gap;
+    }
+    return out;
+  }
+
+  // The traced outline for "cut to my artwork" is coin-wide and comes from the front. It is computed off-thread of the
+  // preview (it needs the logo decoded), cached by what it was traced from, and the preview redraws when it is ready.
+  const artwork = { key: '', result: null, promise: null };
+  const artworkKey = () => { const f = design.front; return JSON.stringify([f.logo ? f.logo.length + f.logoName : null, f.topText, f.bottomText, f.centerText, f.logoSize]); };
+  const artworkOutline = () => (design.shape === 'artwork' && artwork.key === artworkKey() && artwork.result && artwork.result.ok ? artwork.result : null);
+  function ensureArtwork() {
+    if (design.shape !== 'artwork') return Promise.resolve(null);
+    const key = artworkKey();
+    if (artwork.key === key && artwork.promise) return artwork.promise;
+    artwork.key = key;
+    artwork.result = null;
+    const f = design.front;
+    const clean = (t) => t.replace(/\s+/g, ' ').trim();
+    if (!sideReady(f)) { artwork.result = { ok: false, empty: true }; artwork.promise = Promise.resolve(artwork.result); return artwork.promise; }
+    const lay = layoutArtwork(f, clean(f.topText), clean(f.bottomText), clean(f.centerText));
+    artwork.promise = window.CoinShapes.traceArtwork(lay.items).then((result) => {
+      if (artwork.key !== key) return null; // the design moved on while this was tracing
+      artwork.result = result;
+      renderPreview();
+      syncShapeNote();
+      return result;
+    });
+    return artwork.promise;
   }
 
   // `proof: true` draws the art proof sent to the AI: same layout, but with solid, high-contrast lettering.
@@ -321,11 +408,33 @@
     const top = clean(face.topText), bottom = clean(face.bottomText), center = clean(face.centerText);
     const hasRim = !!(top || bottom);
 
-    // The decorative ring moves out to the edge when there is no rim lettering; the middle gets the room
-    const ringR = hasRim ? 348 : 396;
-    const fieldR = ringR - 24;
-    const rim = layoutRim(top, bottom);
-    const mid2 = layoutCenter(center, !!face.logo, face.logoAspect || 1, face.logoSize / 100, fieldR);
+    // ---- the outline: round, a preset, or the front's traced artwork ----
+    const preset = window.CoinShapes.PRESETS[design.shape];
+    const art = design.shape === 'artwork' ? artworkOutline() : null;
+    const artFront = !!(art && face === design.front);
+    const circlePath = (r, cx = 512, cy = 512) => `M ${cx - r},${cy} A ${r},${r} 0 1,1 ${cx + r},${cy} A ${r},${r} 0 1,1 ${cx - r},${cy}`;
+    let geo; // outer, rim, ring, field, border, bg: path data; Ri / cy: the content circle
+    if (preset) {
+      const P = (k) => window.CoinShapes.presetPath(design.shape, k);
+      geo = { outer: P(1), rim: P(0.936), ring: P(0.877), field: P(0.86), border: P(0.8), bg: P(0.79), Ri: preset.inner * 470, cy: 512 + preset.cy * 470 };
+    } else if (art) {
+      geo = { outer: art.outer, rim: null, ring: null, field: art.inner, border: art.inner, bg: art.inner, Ri: Math.max(120, Math.min(art.bbox.w, art.bbox.h) / 2 - 110), cy: art.bbox.y + art.bbox.h / 2 };
+    } else {
+      // Round: the decorative ring moves out to the edge when there is no rim lettering; the middle gets the room
+      const ringR = hasRim ? 348 : 396;
+      geo = { round: true, ringR, fieldR: ringR - 24, bgR: ringR - 7 };
+    }
+
+    // ---- the layout ----
+    let rim, mid2;
+    if (geo.round) {
+      rim = layoutRim(top, bottom);
+      mid2 = layoutCenter(center, !!face.logo, face.logoAspect || 1, face.logoSize / 100, geo.fieldR);
+    } else if (artFront) {
+      ({ rim, center: mid2 } = layoutArtwork(face, top, bottom, center));
+    } else {
+      ({ rim, center: mid2 } = layoutStacked(top, bottom, center, !!face.logo, face.logoAspect || 1, face.logoSize / 100, geo.Ri, geo.cy));
+    }
     lastLayout = { rim, center: mid2 };
 
     // Raised lettering: a light copy nudged up-left under the dark one. The art proof uses flat ink instead.
@@ -340,7 +449,7 @@
     };
 
     // The center background: everything inside the decorative ring, behind the logo and the center lettering
-    const bgR = ringR - 7;
+    const bgCx = 512, bgCy = geo.round ? 512 : geo.cy, bgR = geo.round ? geo.bgR : 470;
     const texture = () => {
       const light = proof ? '#fff' : hi, dark = proof ? '#000' : lo;
       switch (face.bgTexture) {
@@ -348,25 +457,27 @@
           const n = 96, rays = [];
           for (let i = 0; i < n; i++) {
             const a0 = (i / n) * 2 * Math.PI, a1 = ((i + 1) / n) * 2 * Math.PI;
-            const pt = (a) => `${(512 + bgR * Math.sin(a)).toFixed(1)},${(512 - bgR * Math.cos(a)).toFixed(1)}`;
-            rays.push(`<path d="M512,512 L${pt(a0)} A${bgR},${bgR} 0 0,1 ${pt(a1)} Z" fill="${i % 2 ? dark : light}" opacity="${i % 2 ? 0.2 : 0.16}"/>`);
+            const pt = (a) => `${(bgCx + bgR * Math.sin(a)).toFixed(1)},${(bgCy - bgR * Math.cos(a)).toFixed(1)}`;
+            rays.push(`<path d="M${bgCx},${bgCy} L${pt(a0)} A${bgR},${bgR} 0 0,1 ${pt(a1)} Z" fill="${i % 2 ? dark : light}" opacity="${i % 2 ? 0.2 : 0.16}"/>`);
           }
           return rays.join('');
         }
         case 'diamond':
-          return `<rect x="${512 - bgR}" y="${512 - bgR}" width="${2 * bgR}" height="${2 * bgR}" fill="url(#texDiamond)"/>`;
+          return `<rect x="${bgCx - bgR}" y="${bgCy - bgR}" width="${2 * bgR}" height="${2 * bgR}" fill="url(#texDiamond)"/>`;
         case 'sandblast':
-          return `<rect x="${512 - bgR}" y="${512 - bgR}" width="${2 * bgR}" height="${2 * bgR}" fill="url(#texSand)"/>`;
+          return `<rect x="${bgCx - bgR}" y="${bgCy - bgR}" width="${2 * bgR}" height="${2 * bgR}" fill="url(#texSand)"/>`;
         default:
           return '';
       }
     };
+    const bgEl = (attrs) => (geo.round ? `<circle cx="512" cy="512" r="${geo.bgR}" ${attrs}/>` : `<path d="${geo.bg}" ${attrs}/>`);
+    const bgEdge = geo.round ? `<circle cx="512" cy="512" r="${geo.bgR - 2}" fill="none" stroke="#000" stroke-width="5" opacity=".28"/>` : `<path d="${geo.bg}" fill="none" stroke="#000" stroke-width="5" opacity=".28"/>`;
     const background = !hasBackground(face) ? '' : `<g clip-path="url(#bgClip)">`
-      + (face.bgColor ? `<circle cx="512" cy="512" r="${bgR}" fill="${face.bgColor}"/>` : '')
+      + (face.bgColor ? bgEl(`fill="${face.bgColor}"`) : '')
       + texture()
       // enamel is glossy: a soft highlight top-left, and a darker edge where it meets the metal wall
-      + (face.bgColor && !proof ? `<circle cx="512" cy="512" r="${bgR}" fill="url(#enamelGloss)"/>` : '')
-      + `</g>` + (proof ? '' : `<circle cx="512" cy="512" r="${bgR - 2}" fill="none" stroke="#000" stroke-width="5" opacity=".28"/>`);
+      + (face.bgColor && !proof ? bgEl('fill="url(#enamelGloss)"') : '')
+      + `</g>` + (proof ? '' : bgEdge);
 
     // A full circle that starts opposite the lettering, so the middle of the wording sits at 50% of the path
     // and long wording can never run off the end of it (the old half-circle paths cut it off).
@@ -378,7 +489,8 @@
         : `M 512,${512 - l.r} A ${r},${r} 0 1,0 512,${512 + l.r} A ${r},${r} 0 1,0 512,${512 - l.r}`;
       return `<path id="${id}" d="${d}" fill="none"/>` + lettering('', `<textPath href="#${id}" startOffset="50%">${escapeXml(l.text)}</textPath>`, l.size, l.track);
     };
-    const dots = rim.dots.map((p) => (proof ? '' : `<circle cx="${(p.x - 1.5).toFixed(1)}" cy="${(p.y - 1.5).toFixed(1)}" r="5.5" fill="${hi}" opacity=".9"/>`) +
+    const straight = (l) => (l ? lettering(`x="512" y="${l.y.toFixed(1)}"`, escapeXml(l.text), l.size, TRACK) : '');
+    const dots = (rim.dots || []).map((p) => (proof ? '' : `<circle cx="${(p.x - 1.5).toFixed(1)}" cy="${(p.y - 1.5).toFixed(1)}" r="5.5" fill="${hi}" opacity=".9"/>`) +
       `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="5.5" fill="${proof ? ink : lo}"/>`).join('');
 
     const L = mid2.logo;
@@ -386,21 +498,26 @@
       <image href="${face.logo}" x="${(512 - L.w / 2).toFixed(1)}" y="${(L.cy - L.h / 2).toFixed(1)}" width="${L.w.toFixed(1)}" height="${L.h.toFixed(1)}" preserveAspectRatio="xMidYMid meet" clip-path="url(#field)"${design.color === 'none' ? ` filter="url(#mono)" opacity="${proof ? 1 : 0.85}"` : ''}/>` : '';
     const centerMarkup = mid2.lines.map((l) => lettering(`x="512" y="${l.y.toFixed(1)}"`, escapeXml(l.text), l.size, TRACK, !!face.bgColor)).join('');
     const empty = !face.logo && !top && !bottom && !center;
+    const emptyY = geo.round ? 512 : geo.cy;
+    const placeholder = empty ? `<text x="512" y="${emptyY - 12}" font-family="${FONT}" font-size="30" letter-spacing="6" text-anchor="middle" fill="${lo}" opacity=".8">YOUR LOGO</text><text x="512" y="${emptyY + 36}" font-family="${FONT}" font-size="22" letter-spacing="4" text-anchor="middle" fill="${lo}" opacity=".6">AND TEXT HERE</text>` : '';
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <defs>
+    const defs = `<defs>
     <radialGradient id="bg" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="#3a3d44"/><stop offset="1" stop-color="#121317"/></radialGradient>
     <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${hi}"/><stop offset=".5" stop-color="${mid}"/><stop offset="1" stop-color="${lo}"/></linearGradient>
     <linearGradient id="metal2" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${hi}"/><stop offset=".5" stop-color="${mid}"/><stop offset="1" stop-color="${lo}"/></linearGradient>
-    <clipPath id="bgClip"><circle cx="512" cy="512" r="${bgR}"/></clipPath>
+    <clipPath id="bgClip">${bgEl('')}</clipPath>
     <radialGradient id="enamelGloss" cx="34%" cy="28%" r="80%"><stop offset="0" stop-color="#fff" stop-opacity=".30"/><stop offset=".45" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></radialGradient>
     <pattern id="texDiamond" width="26" height="26" patternUnits="userSpaceOnUse"><path d="M0,0 L26,26 M26,0 L0,26" stroke="${proof ? '#000' : lo}" stroke-width="2.4" opacity=".42"/><path d="M-1,1 L25,27 M25,1 L-1,27" stroke="${proof ? '#fff' : hi}" stroke-width="1.2" opacity=".4"/></pattern>
     <pattern id="texSand" width="18" height="18" patternUnits="userSpaceOnUse">${[[2, 3], [9, 1], [14, 5], [5, 8], [11, 10], [16, 13], [1, 14], [7, 16], [13, 17], [4, 12], [17, 8], [8, 5]].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 1 : 1.4}" fill="${i % 2 ? (proof ? '#000' : lo) : (proof ? '#fff' : hi)}" opacity=".5"/>`).join('')}</pattern>
     <radialGradient id="fieldFill" cx="40%" cy="35%" r="75%"><stop offset="0" stop-color="${fieldMid}"/><stop offset="1" stop-color="${fieldLo}"/></radialGradient>
-    <clipPath id="field"><circle cx="512" cy="512" r="${fieldR + 8}"/></clipPath>
+    <clipPath id="field">${geo.round ? `<circle cx="512" cy="512" r="${geo.fieldR + 8}"/>` : `<path d="${geo.field}"/>`}</clipPath>
     <filter id="mono"><feColorMatrix type="saturate" values="0"/></filter>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000" flood-opacity=".7"/></filter>
-  </defs>
+  </defs>`;
+
+    if (geo.round) {
+      return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+  ${defs}
   <rect width="1024" height="1024" fill="url(#bg)"/>
   <circle cx="512" cy="512" r="470" fill="url(#metal)" filter="url(#shadow)"/>
   <circle cx="512" cy="512" r="470" fill="none" stroke="${lo}" stroke-width="6" stroke-dasharray="4 6" opacity=".8"/>
@@ -408,14 +525,44 @@
   <circle cx="512" cy="512" r="412" fill="${lo}" opacity=".55"/>
   <circle cx="512" cy="512" r="404" fill="url(#fieldFill)"/>
   ${background}
-  ${borderMarkup(ringR, hi, lo, face.border)}
+  ${borderMarkup(circlePath(geo.ringR), hi, lo, face.border)}
   ${legend('topArc', rim.top, true)}
   ${legend('bottomArc', rim.bottom, false)}
   ${dots}
   ${logoMarkup}
   ${centerMarkup}
-  ${empty ? `<text x="512" y="500" font-family="${FONT}" font-size="30" letter-spacing="6" text-anchor="middle" fill="${lo}" opacity=".8">YOUR LOGO</text><text x="512" y="548" font-family="${FONT}" font-size="22" letter-spacing="4" text-anchor="middle" fill="${lo}" opacity=".6">AND TEXT HERE</text>` : ''}
+  ${placeholder}
   <circle cx="512" cy="512" r="404" fill="none" stroke="${hi}" stroke-width="3" opacity=".6"/>
+</svg>`;
+    }
+
+    // A shaped coin: the same nested metal, ring and field, following the outline. A traced outline is only as big
+    // as the design it was traced from, so it is scaled up to fill the frame like every other coin.
+    let open = '', close = '';
+    if (art) {
+      const k = Math.min(940 / Math.max(art.bbox.w, art.bbox.h), 2.2);
+      const cx = art.bbox.x + art.bbox.w / 2, cy = art.bbox.y + art.bbox.h / 2;
+      open = `<g transform="translate(512 512) scale(${k.toFixed(4)}) translate(${(-cx).toFixed(1)} ${(-cy).toFixed(1)})">`;
+      close = '</g>';
+    }
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+  ${defs}
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  ${open}
+  <path d="${geo.outer}" fill="url(#metal)" filter="url(#shadow)"/>
+  <path d="${geo.outer}" fill="none" stroke="${lo}" stroke-width="6" stroke-dasharray="4 6" opacity=".8"/>
+  ${geo.rim ? `<path d="${geo.rim}" fill="url(#metal2)"/>` : ''}
+  ${geo.ring ? `<path d="${geo.ring}" fill="${lo}" opacity=".55"/>` : `<path d="${geo.field}" fill="none" stroke="${lo}" stroke-width="18" opacity=".55"/>`}
+  <path d="${geo.field}" fill="url(#fieldFill)"/>
+  ${background}
+  ${borderMarkup(geo.border, hi, lo, face.border)}
+  ${straight(rim.top)}
+  ${straight(rim.bottom)}
+  ${logoMarkup}
+  ${centerMarkup}
+  ${placeholder}
+  <path d="${geo.field}" fill="none" stroke="${hi}" stroke-width="3" opacity=".6"/>
+  ${close}
 </svg>`;
   }
 
@@ -439,7 +586,8 @@
         $('preview-caption').textContent = 'Design changed. Your earlier AI versions are kept below; tap one to go back to it.';
         renderVersions();
       }
-      $('shape-note').hidden = design.shape !== 'odd';
+      syncShapeNote();
+      if (design.shape === 'artwork') ensureArtwork();
       $('preview-spec').textContent = specLine();
       updateTextHint();
       syncBackground();
@@ -600,6 +748,10 @@
     const snapshot = cloneDesign();
     const signature = designSignature();
     try {
+      if (design.shape === 'artwork') {
+        const r = await ensureArtwork();
+        if (!r || !r.ok) throw new Error('Your design could not be traced into a coin outline. Try a bolder logo or bigger lettering, or pick one of the preset shapes.');
+      }
       const faces = twoSided() ? [snapshot.front, snapshot.back] : [snapshot.front];
       const proofs = [];
       for (const f of faces) proofs.push(await proofFor(f));
@@ -645,7 +797,7 @@
       assignDesign(v.design);
       syncControls();
       $('preview-svg').innerHTML = coinSvg();
-      $('shape-note').hidden = design.shape !== 'odd';
+      syncShapeNote();
       $('preview-spec').textContent = specLine();
       updateDesignReady();
     }
@@ -998,6 +1150,39 @@
     });
     finishesEl.appendChild(b);
   }
+  // Shape chips: round, the presets from shapes.js, and "cut to my artwork"
+  (function buildShapes() {
+    const ICONS = {
+      round: '<circle cx="12" cy="12" r="9.5" fill="currentColor"/>',
+      artwork: '<path d="M4.5 13.5c-2.2-4 .6-9 4.6-9 2 0 2.9 1.4 4.4 1.4S15.8 4 17.8 4.6c3.2 1 3.7 5.6 1.6 8.2-2 2.6-1.2 6.2-4.3 6.2-2.1 0-3-1.6-5-1.6s-3.9 1.4-5.6-3.9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="3 2.2"/>',
+    };
+    const el = $('shapes');
+    for (const key of Object.keys(SHAPES)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.shape = key;
+      b.className = key === design.shape ? 'on' : '';
+      b.title = key === 'artwork' ? 'The coin is cut to the outline of your own design' : key === 'round' ? 'Round' : `Odd Shaped: ${SHAPES[key].toLowerCase()}`;
+      const icon = ICONS[key] || `<path d="${window.CoinShapes.PRESETS[key].icon}" fill="currentColor"/>`;
+      b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${escapeHtml(SHAPES[key])}`;
+      el.appendChild(b);
+    }
+  })();
+  function syncShapeNote() {
+    const note = $('shape-note');
+    let text = '';
+    if (design.shape === 'artwork') {
+      const r = artwork.key === artworkKey() ? artwork.result : null;
+      if (!sideReady(design.front)) text = 'Add a logo or some text on the front first; the coin is cut to the outline of that design.';
+      else if (!r) text = 'Tracing the outline of your design…';
+      else if (r.ok) text = 'Your coin is cut to the outline of your design, with a metal rim around it. The back is cut to the same outline. Our artists finalize the exact die line with you before production.';
+      else text = 'This design is too thin or spread out to cut a coin around, so the preview stays round. Try a bolder logo or bigger lettering, or pick one of the preset shapes.';
+    } else if (design.shape !== 'round') {
+      text = `Odd-shaped coins are cut to this outline; rim lettering runs straight above and below your artwork. Our team confirms the die-cut charge with you before production.`;
+    }
+    note.textContent = text;
+    note.hidden = !text;
+  }
   // Single-choice segmented controls: color and shape
   for (const [id, attr] of [['colors', 'color'], ['shapes', 'shape']]) {
     $(id).addEventListener('click', (e) => {
@@ -1005,6 +1190,7 @@
       if (!b) return;
       design[attr] = b.dataset[attr];
       for (const x of $(id).children) x.classList.toggle('on', x === b);
+      if (attr === 'shape') syncShapeNote();
       // A bare-metal coin cannot have an enamel background (a struck texture is still fine)
       if (attr === 'color' && design.color === 'none' && (design.front.bgColor || design.back.bgColor)) { design.front.bgColor = ''; design.back.bgColor = ''; syncBackground(); toast('No Color means bare metal, so the colored background was removed. Textures still work.'); }
       renderPreview();

@@ -243,24 +243,19 @@
               </div>
               <p id="two-tone-note" class="hint" role="status" hidden></p>
             </div>
-            <div class="field two">
-              <div>
-                <span class="label">Color</span>
-                <div id="colors" class="seg" role="group" aria-label="Color">
-                  <button type="button" data-color="color-one" class="on" title="Unlimited Color, One Side">One Side</button>
-                  <button type="button" data-color="color-both" title="Unlimited Color, Both Sides">Both Sides</button>
-                  <button type="button" data-color="none" title="No Color: bare metal only">No Color</button>
-                </div>
-              </div>
-              <div>
-                <span class="label">Shape</span>
-                <div id="shapes" class="seg" role="group" aria-label="Shape">
-                  <button type="button" data-shape="round" class="on">Round</button>
-                  <button type="button" data-shape="odd" title="Odd Shaped: cut to the outline of your artwork">Odd Shaped</button>
-                </div>
+            <div class="field">
+              <span class="label">Color</span>
+              <div id="colors" class="seg" role="group" aria-label="Color">
+                <button type="button" data-color="color-one" class="on" title="Unlimited Color, One Side">One Side</button>
+                <button type="button" data-color="color-both" title="Unlimited Color, Both Sides">Both Sides</button>
+                <button type="button" data-color="none" title="No Color: bare metal only">No Color</button>
               </div>
             </div>
-            <p id="shape-note" class="hint note" hidden>Odd-shaped coins are cut to the outline of your artwork. The AI render shows the idea; our artists finalize the exact outline with you before production.</p>
+            <div class="field">
+              <span class="label">Shape</span>
+              <div id="shapes" class="shape-chips" role="group" aria-label="Shape"></div>
+              <p id="shape-note" class="hint note" role="status" hidden></p>
+            </div>
             <div class="field two">
               <div>
                 <span class="label">Coin size <em>(diameter)</em></span>
@@ -437,6 +432,7 @@
     </div>
   </div>
 
+  <script src="shapes.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
