@@ -10,7 +10,7 @@ const { countReferences } = require('./lib/references');
 const { SIZES, hasPricing, estimate } = require('./lib/pricing');
 const { saveOrder, updateOrder, notifyWebhook, createCheckout } = require('./lib/orders');
 const { watermark, saveOriginal, readOriginal } = require('./lib/watermark');
-const { mailConfigured, sendDesignEmail, readMailImage, saveLead, notifyLead } = require('./lib/mailer');
+const { mailConfigured, sendDesignEmail, readMailImage, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -364,6 +364,18 @@ app.get('/mail-img/:id.jpg', (req, res) => {
   if (!img) return res.status(404).end();
   res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=2592000' });
   res.send(img);
+});
+
+// Staff: the list of everyone who asked for their design by email, as a spreadsheet.
+// Open /signups.csv?key=<ADMIN_KEY>. Off entirely unless ADMIN_KEY is set.
+app.get('/signups.csv', (req, res) => {
+  const key = process.env.ADMIN_KEY || '';
+  const given = String(req.query.key || '');
+  const ok = key.length >= 8 && given.length === key.length && require('crypto').timingSafeEqual(Buffer.from(given), Buffer.from(key));
+  if (!ok) return res.status(404).end();
+  const csv = readSignupsCsv() || 'date,name,email,newsletter,emailed,top text,center text,bottom text\r\n';
+  res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="coin-builder-signups.csv"', 'Cache-Control': 'private, no-store' });
+  res.send(csv);
 });
 
 app.get('/healthz', (_req, res) => res.send('ok'));
