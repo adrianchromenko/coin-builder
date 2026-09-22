@@ -20,7 +20,7 @@
   ];
   const DEFAULT_FINISH = 'shiny-gold';
   const COLORS = { 'color-one': 'Unlimited color, one side', 'color-both': 'Unlimited color, both sides', none: 'No color' };
-  const SHAPES = { round: 'Round', odd: 'Custom shape' };
+  const SHAPES = { round: 'Round', odd: 'Odd shaped' };
   // Center background: enamel colors a mint would stock, and textures that are struck into the metal.
   // Color and texture combine: translucent enamel over a textured field, so the texture shows through.
   const BG_COLORS = [
@@ -30,10 +30,10 @@
   ];
   const BG_TEXTURES = { smooth: 'Smooth', sandblast: 'Sandblast', sunburst: 'Sunburst', diamond: 'Diamond Cut' };
   const bgColorName = (hex) => { const c = BG_COLORS.find((x) => x.hex.toLowerCase() === String(hex).toLowerCase()); return c ? c.name : 'Custom color'; };
-  const hasBackground = () => !!(design.bgColor || design.bgTexture !== 'smooth');
-  const backgroundLabel = () => (!hasBackground() ? '' : design.bgColor && design.bgTexture !== 'smooth'
-    ? `Translucent ${bgColorName(design.bgColor).toLowerCase()} over ${BG_TEXTURES[design.bgTexture].toLowerCase()}`
-    : design.bgColor ? `${bgColorName(design.bgColor)} enamel background` : `${BG_TEXTURES[design.bgTexture]} background`);
+  const hasBackground = (f = side()) => !!(f.bgColor || f.bgTexture !== 'smooth');
+  const backgroundLabel = (f = side()) => (!hasBackground(f) ? '' : f.bgColor && f.bgTexture !== 'smooth'
+    ? `Translucent ${bgColorName(f.bgColor).toLowerCase()} over ${BG_TEXTURES[f.bgTexture].toLowerCase()}`
+    : f.bgColor ? `${bgColorName(f.bgColor)} enamel background` : `${BG_TEXTURES[f.bgTexture]} background`);
   const COLOR_SHORT = { 'color-one': 'Color, one side', 'color-both': 'Color, both sides', none: 'No color' };
   // Add-ons with a `group` are the one-side / both-sides versions of the same thing (pick one or neither)
   const ADDONS = [
@@ -45,11 +45,16 @@
     { key: 'key-chain', label: 'Key Chain', desc: 'Loop and split ring at the top', price: '+75¢ each · $75 set-up' },
     { key: 'numbering', label: 'Numbering', desc: 'Every coin individually numbered', price: '+35¢ each' },
     { key: 'edge-text', label: 'Rolling Edge Text', desc: 'Your words engraved around the edge' },
+    { key: 'reeded-edge', label: 'Reeded Edge', group: 'edge', price: 'extra' },
   ];
+  // Groups listed here get a None / One Side / Both Sides row on the order step. 2-tone plating and the reeded
+  // edge are chosen on the design step instead, because they change how the coin looks and is rendered.
   const ADDON_GROUPS = {
     epoxy: { label: 'Epoxy Dome', desc: 'A clear, glossy dome that protects the artwork' },
-    'two-tone': { label: '2-Tone Plating', desc: 'Two metals on one coin for extra contrast' },
   };
+  const TWO_TONE = { '': '', 'two-tone-one': '2-tone plating, one side', 'two-tone-both': '2-tone plating, both sides' };
+  // The second metal of a 2-tone coin: whatever contrasts with the main finish (matches lib/prompt.js)
+  const contrastFinish = (finish) => (/gold|brass|copper/.test(finish) ? 'shiny-silver' : 'shiny-gold');
   const SIZES = ['1.5', '1.75', '2', '2.5', '3'];
   const QUANTITIES = [50, 100, 250, 500, 1000];
 
@@ -62,8 +67,15 @@
 
   // ---------- state ----------
   const config = { pricing: false, payments: false, testMode: false, provider: '' };
-  const newDesign = () => ({ logo: null, logoName: '', topText: '', bottomText: '', centerText: '', logoAspect: 1, finish: DEFAULT_FINISH, color: 'color-one', shape: 'round', bgColor: '', bgTexture: 'smooth', border: 'plain', logoSize: 82 });
+  // A coin has two faces. Artwork, lettering, background and rim belong to a side; metal, color, shape, size,
+  // 2-tone and edge belong to the whole coin. `side` is the face being edited; the back only counts once `backEnabled`.
+  const newSide = () => ({ logo: null, logoName: '', logoAspect: 1, logoSize: 82, topText: '', bottomText: '', centerText: '', bgColor: '', bgTexture: 'smooth', border: 'plain' });
+  const newDesign = () => ({ finish: DEFAULT_FINISH, color: 'color-one', shape: 'round', twoTone: '', edge: 'smooth', side: 'front', backEnabled: false, front: newSide(), back: newSide() });
   const design = newDesign();
+  const side = () => design[design.side];
+  const twoSided = () => design.backEnabled;
+  const cloneDesign = () => ({ ...design, front: { ...design.front }, back: { ...design.back } });
+  const assignDesign = (src) => { Object.assign(design, src); design.front = { ...src.front }; design.back = { ...src.back }; };
   const order = {
     quantity: null, size: null, estimate: null, notes: '', addons: [],
     name: '', email: '', phone: '', company: '',
@@ -75,6 +87,10 @@
   const ai = { versions: [], current: null, nextNumber: 1, view: 'layout', busy: false };
   const currentVersion = () => ai.versions.find((v) => v.id === ai.current) || null;
   let busy = false;
+  // Everything that goes on the order as an add-on: the order-step add-ons plus the design-step choices that are priced as add-ons
+  const allAddons = () => [...order.addons, design.twoTone, design.edge === 'reeded' ? 'reeded-edge' : ''].filter(Boolean);
+  // One side of the coin as the server records it on orders and leads
+  const sidePayload = (f) => ({ topText: f.topText, bottomText: f.bottomText, centerText: f.centerText, border: f.border, bgColor: f.bgColor, bgColorName: f.bgColor ? bgColorName(f.bgColor) : '', bgTexture: f.bgTexture, logoName: f.logoName });
 
   const configReady = fetch('/api/config').then((r) => r.json()).then((c) => {
     Object.assign(config, c);
@@ -273,8 +289,8 @@
   // What the last drawn coin looked like: the AI prompt and the "small lettering" hint read it
   let lastLayout = null;
 
-  function borderMarkup(r, hi, lo) {
-    switch (design.border) {
+  function borderMarkup(r, hi, lo, border) {
+    switch (border) {
       case 'rope':
         return `<circle cx="512" cy="512" r="${r}" fill="none" stroke="${lo}" stroke-width="12" stroke-dasharray="16 9" stroke-linecap="round" opacity=".85"/>` +
                `<circle cx="512" cy="512" r="${r}" fill="none" stroke="${hi}" stroke-width="4" stroke-dasharray="16 9" stroke-dashoffset="2" stroke-linecap="round" opacity=".7"/>`;
@@ -294,24 +310,27 @@
 
   // `proof: true` draws the art proof sent to the AI: same layout, but with solid, high-contrast lettering.
   // The soft embossed lettering of the on-screen preview is pretty, but it is exactly what image models misread.
-  function coinSvg({ proof = false } = {}) {
+  function coinSvg({ proof = false, face = side() } = {}) {
     const [hi, mid, lo] = finishOf(design.finish).colors;
+    // 2-tone: the recessed field inside the border is plated in the contrasting metal
+    const [, fieldMid, fieldLo] = design.twoTone ? finishOf(contrastFinish(design.finish)).colors : [hi, mid, lo];
     const lum = (hex) => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; };
     const ink = lum(mid) < 0.38 ? '#F5F5F5' : '#111111';
-    const clean = (t) => t.replace(/\s+/g, ' ').trim().toUpperCase();
-    const top = clean(design.topText), bottom = clean(design.bottomText), center = clean(design.centerText);
+    // Lettering keeps the capitalization the customer typed ("CoinsForAnything.com" stays that way)
+    const clean = (t) => t.replace(/\s+/g, ' ').trim();
+    const top = clean(face.topText), bottom = clean(face.bottomText), center = clean(face.centerText);
     const hasRim = !!(top || bottom);
 
     // The decorative ring moves out to the edge when there is no rim lettering; the middle gets the room
     const ringR = hasRim ? 348 : 396;
     const fieldR = ringR - 24;
     const rim = layoutRim(top, bottom);
-    const mid2 = layoutCenter(center, !!design.logo, design.logoAspect || 1, design.logoSize / 100, fieldR);
+    const mid2 = layoutCenter(center, !!face.logo, face.logoAspect || 1, face.logoSize / 100, fieldR);
     lastLayout = { rim, center: mid2 };
 
     // Raised lettering: a light copy nudged up-left under the dark one. The art proof uses flat ink instead.
     // Lettering over a colored field is drawn as bright metal standing above the enamel (shadow down-right) instead.
-    const fieldInk = design.bgColor ? (lum(design.bgColor) < 0.45 ? '#F5F5F5' : '#111111') : ink;
+    const fieldInk = face.bgColor ? (lum(face.bgColor) < 0.45 ? '#F5F5F5' : '#111111') : ink;
     const lettering = (attrs, inner, size, track, onColor = false) => {
       const common = `${attrs} font-family="${FONT}" font-weight="bold" font-size="${size}" letter-spacing="${(size * track).toFixed(2)}" text-anchor="middle"`;
       if (proof) return `<text ${common} fill="${onColor ? fieldInk : ink}">${inner}</text>`;
@@ -324,7 +343,7 @@
     const bgR = ringR - 7;
     const texture = () => {
       const light = proof ? '#fff' : hi, dark = proof ? '#000' : lo;
-      switch (design.bgTexture) {
+      switch (face.bgTexture) {
         case 'sunburst': {
           const n = 96, rays = [];
           for (let i = 0; i < n; i++) {
@@ -342,11 +361,11 @@
           return '';
       }
     };
-    const background = !hasBackground() ? '' : `<g clip-path="url(#bgClip)">`
-      + (design.bgColor ? `<circle cx="512" cy="512" r="${bgR}" fill="${design.bgColor}"/>` : '')
+    const background = !hasBackground(face) ? '' : `<g clip-path="url(#bgClip)">`
+      + (face.bgColor ? `<circle cx="512" cy="512" r="${bgR}" fill="${face.bgColor}"/>` : '')
       + texture()
       // enamel is glossy: a soft highlight top-left, and a darker edge where it meets the metal wall
-      + (design.bgColor && !proof ? `<circle cx="512" cy="512" r="${bgR}" fill="url(#enamelGloss)"/>` : '')
+      + (face.bgColor && !proof ? `<circle cx="512" cy="512" r="${bgR}" fill="url(#enamelGloss)"/>` : '')
       + `</g>` + (proof ? '' : `<circle cx="512" cy="512" r="${bgR - 2}" fill="none" stroke="#000" stroke-width="5" opacity=".28"/>`);
 
     // A full circle that starts opposite the lettering, so the middle of the wording sits at 50% of the path
@@ -364,9 +383,9 @@
 
     const L = mid2.logo;
     const logoMarkup = L ? `
-      <image href="${design.logo}" x="${(512 - L.w / 2).toFixed(1)}" y="${(L.cy - L.h / 2).toFixed(1)}" width="${L.w.toFixed(1)}" height="${L.h.toFixed(1)}" preserveAspectRatio="xMidYMid meet" clip-path="url(#field)"${design.color === 'none' ? ` filter="url(#mono)" opacity="${proof ? 1 : 0.85}"` : ''}/>` : '';
-    const centerMarkup = mid2.lines.map((l) => lettering(`x="512" y="${l.y.toFixed(1)}"`, escapeXml(l.text), l.size, TRACK, !!design.bgColor)).join('');
-    const empty = !design.logo && !top && !bottom && !center;
+      <image href="${face.logo}" x="${(512 - L.w / 2).toFixed(1)}" y="${(L.cy - L.h / 2).toFixed(1)}" width="${L.w.toFixed(1)}" height="${L.h.toFixed(1)}" preserveAspectRatio="xMidYMid meet" clip-path="url(#field)"${design.color === 'none' ? ` filter="url(#mono)" opacity="${proof ? 1 : 0.85}"` : ''}/>` : '';
+    const centerMarkup = mid2.lines.map((l) => lettering(`x="512" y="${l.y.toFixed(1)}"`, escapeXml(l.text), l.size, TRACK, !!face.bgColor)).join('');
+    const empty = !face.logo && !top && !bottom && !center;
 
     return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
@@ -377,7 +396,7 @@
     <radialGradient id="enamelGloss" cx="34%" cy="28%" r="80%"><stop offset="0" stop-color="#fff" stop-opacity=".30"/><stop offset=".45" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></radialGradient>
     <pattern id="texDiamond" width="26" height="26" patternUnits="userSpaceOnUse"><path d="M0,0 L26,26 M26,0 L0,26" stroke="${proof ? '#000' : lo}" stroke-width="2.4" opacity=".42"/><path d="M-1,1 L25,27 M25,1 L-1,27" stroke="${proof ? '#fff' : hi}" stroke-width="1.2" opacity=".4"/></pattern>
     <pattern id="texSand" width="18" height="18" patternUnits="userSpaceOnUse">${[[2, 3], [9, 1], [14, 5], [5, 8], [11, 10], [16, 13], [1, 14], [7, 16], [13, 17], [4, 12], [17, 8], [8, 5]].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 1 : 1.4}" fill="${i % 2 ? (proof ? '#000' : lo) : (proof ? '#fff' : hi)}" opacity=".5"/>`).join('')}</pattern>
-    <radialGradient id="fieldFill" cx="40%" cy="35%" r="75%"><stop offset="0" stop-color="${mid}"/><stop offset="1" stop-color="${lo}"/></radialGradient>
+    <radialGradient id="fieldFill" cx="40%" cy="35%" r="75%"><stop offset="0" stop-color="${fieldMid}"/><stop offset="1" stop-color="${fieldLo}"/></radialGradient>
     <clipPath id="field"><circle cx="512" cy="512" r="${fieldR + 8}"/></clipPath>
     <filter id="mono"><feColorMatrix type="saturate" values="0"/></filter>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000" flood-opacity=".7"/></filter>
@@ -389,7 +408,7 @@
   <circle cx="512" cy="512" r="412" fill="${lo}" opacity=".55"/>
   <circle cx="512" cy="512" r="404" fill="url(#fieldFill)"/>
   ${background}
-  ${borderMarkup(ringR, hi, lo)}
+  ${borderMarkup(ringR, hi, lo, face.border)}
   ${legend('topArc', rim.top, true)}
   ${legend('bottomArc', rim.bottom, false)}
   ${dots}
@@ -401,7 +420,9 @@
   }
 
   function designSignature() {
-    return JSON.stringify({ ...design, logo: design.logo ? design.logo.length + design.logoName : null });
+    const strip = (f) => ({ ...f, logo: f.logo ? f.logo.length + f.logoName : null });
+    const { side: _tab, ...rest } = design;
+    return JSON.stringify({ ...rest, front: strip(design.front), back: twoSided() ? strip(design.back) : null });
   }
 
   let renderTimer = null;
@@ -409,6 +430,7 @@
     clearTimeout(renderTimer);
     renderTimer = setTimeout(() => {
       $('preview-svg').innerHTML = coinSvg();
+      syncSideBadge();
       // A design change puts you back on the layout; earlier renders stay in the versions strip
       const v = currentVersion();
       if (v && v.signature !== designSignature()) {
@@ -440,18 +462,23 @@
 
   // One-line summary of the choices, shown under the coin
   function specLine() {
-    return [finishOf(design.finish).label, COLOR_SHORT[design.color], SHAPES[design.shape], backgroundLabel()].filter(Boolean).join(' · ');
+    return [order.size ? `${order.size}"` : '', finishOf(design.finish).label, TWO_TONE[design.twoTone], COLOR_SHORT[design.color], SHAPES[design.shape], twoSided() ? 'Front & back' : '', backgroundLabel(), design.edge === 'reeded' ? 'Reeded edge' : ''].filter(Boolean).join(' · ');
   }
 
+  const sideReady = (f) => !!(f.logo || f.topText.trim() || f.bottomText.trim() || f.centerText.trim());
   function designReady() {
-    return !!(design.logo || design.topText.trim() || design.bottomText.trim() || design.centerText.trim());
+    return sideReady(design.front) && (!twoSided() || sideReady(design.back));
   }
   function updateDesignReady() {
     const ready = designReady();
-    $('to-options').disabled = !ready;
-    $('design-hint').textContent = ready
-      ? 'Looking good. Tap "Let AI Finish It" for a realistic render, or continue to order this design.'
-      : 'Add a logo or some text to get started.';
+    $('to-options').disabled = !(ready && order.size);
+    $('design-hint').textContent = !sideReady(design.front)
+      ? 'Add a logo or some text to the front to get started.'
+      : !ready
+        ? 'Add a logo or some text to the back, or remove the back design.'
+        : !order.size
+          ? 'Looking good. Pick a coin size above to continue to your order, or tap "Let AI Finish It" for a realistic render.'
+          : 'Looking good. Tap "Let AI Finish It" for a realistic render, or continue to order this design.';
   }
 
   // Rasterize the SVG preview to a PNG data URL (used for AI input, download, and the order record)
@@ -469,8 +496,35 @@
     });
   }
 
-  const layoutPng = () => rasterize(coinSvg());
-  const proofPng = () => rasterize(coinSvg({ proof: true }), 1536);
+  // Two 1024 squares with a dark strip between, the same arrangement the server uses for two-sided AI renders
+  function sideBySidePng(frontUrl, backUrl) {
+    return new Promise((resolve, reject) => {
+      const imgs = [frontUrl, backUrl].map((src) => { const i = new Image(); i.src = src; return i; });
+      let left = imgs.length;
+      const done = () => {
+        if (--left) return;
+        const c = document.createElement('canvas');
+        c.width = 1024 * 2 + 48; c.height = 1024;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#1c1d21'; ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(imgs[0], 0, 0, 1024, 1024);
+        ctx.drawImage(imgs[1], 1024 + 48, 0, 1024, 1024);
+        try { resolve(c.toDataURL('image/png')); } catch (e) { reject(e); }
+      };
+      for (const i of imgs) { i.onload = done; i.onerror = () => reject(new Error('Could not render the preview')); }
+    });
+  }
+  async function layoutPng() {
+    const front = await rasterize(coinSvg({ face: design.front }));
+    if (!twoSided()) return front;
+    return sideBySidePng(front, await rasterize(coinSvg({ face: design.back })));
+  }
+  // The art proof of one side as the AI receives it, plus where its center wording wraps (read off the layout just drawn)
+  async function proofFor(face) {
+    const svg = coinSvg({ proof: true, face });
+    const centerFirstLineWords = lastLayout ? lastLayout.center.firstLineWords : 0;
+    return { png: await rasterize(svg, 1536), centerFirstLineWords };
+  }
   const usingAi = () => !!(currentVersion() && ai.view === 'ai');
   async function currentImage() {
     return usingAi() ? currentVersion().image : layoutPng();
@@ -483,6 +537,10 @@
     renderCheck();
     $('preview-svg').hidden = ai.view === 'ai';
     $('preview-ai').hidden = ai.view !== 'ai';
+    // A two-sided render shows both faces in one wide photo, so the stage widens and the Front / Back badge steps aside
+    const v = currentVersion();
+    document.querySelector('.preview-stage').classList.toggle('wide', ai.view === 'ai' && !!(v && v.twoSided));
+    $('side-badge').hidden = ai.view === 'ai' || !twoSided();
     for (const b of $('preview-tabs').querySelectorAll('button')) b.classList.toggle('on', b.dataset.view === ai.view);
   }
   $('preview-tabs').addEventListener('click', (e) => {
@@ -491,7 +549,6 @@
   });
 
   // ---------- AI render ----------
-  const cloneDesign = () => ({ ...design });
 
   // Cloudflare Turnstile (only when the server has TURNSTILE_SITE_KEY): every render carries a fresh token
   // proving it came from a real browser. Invisible to genuine visitors; scripts hitting /api/generate get refused.
@@ -543,26 +600,27 @@
     const snapshot = cloneDesign();
     const signature = designSignature();
     try {
-      const [blob, token] = await Promise.all([fetch(await proofPng()).then((r) => r.blob()), turnstileToken()]);
+      const faces = twoSided() ? [snapshot.front, snapshot.back] : [snapshot.front];
+      const proofs = [];
+      for (const f of faces) proofs.push(await proofFor(f));
+      $('preview-svg').innerHTML = coinSvg(); // proofFor drew the other side last; put the open tab back on screen
+      const [blobs, token] = await Promise.all([Promise.all(proofs.map((p) => fetch(p.png).then((r) => r.blob()))), turnstileToken()]);
       const form = new FormData();
-      form.append('image', blob, 'art-proof.png');
+      form.append('image', blobs[0], 'front.png');
+      if (blobs[1]) form.append('back', blobs[1], 'back.png');
       if (token) form.append('turnstile', token);
       form.append('finish', snapshot.finish);
       form.append('color', snapshot.color);
       form.append('shape', snapshot.shape);
-      form.append('border', snapshot.border);
-      form.append('bgColor', snapshot.bgColor);
-      form.append('bgColorName', snapshot.bgColor ? bgColorName(snapshot.bgColor) : '');
-      form.append('bgTexture', snapshot.bgTexture);
-      form.append('topText', snapshot.topText);
-      form.append('bottomText', snapshot.bottomText);
-      form.append('centerText', snapshot.centerText);
-      form.append('hasLogo', snapshot.logo ? '1' : '0');
-      form.append('centerFirstLineWords', String(lastLayout ? lastLayout.center.firstLineWords : 0));
+      form.append('addons', [snapshot.twoTone, snapshot.edge === 'reeded' ? 'reeded-edge' : ''].filter(Boolean).join(','));
+      form.append('sides', JSON.stringify(faces.map((f, i) => ({
+        topText: f.topText, bottomText: f.bottomText, centerText: f.centerText, hasLogo: f.logo ? '1' : '0', border: f.border,
+        bgColor: f.bgColor, bgColorName: f.bgColor ? bgColorName(f.bgColor) : '', bgTexture: f.bgTexture, centerFirstLineWords: proofs[i].centerFirstLineWords,
+      }))));
       const res = await fetch('/api/generate', { method: 'POST', body: form });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Render failed');
-      const version = { id: 'v' + ai.nextNumber, number: ai.nextNumber++, image: data.image, renderId: data.renderId || null, check: data.check || null, demo: data.provider === 'demo', design: snapshot, signature };
+      const version = { id: 'v' + ai.nextNumber, number: ai.nextNumber++, image: data.image, renderId: data.renderId || null, check: data.check || null, demo: data.provider === 'demo', twoSided: !!data.twoSided, design: snapshot, signature };
       ai.versions.push(version);
       // Keep the strip (and the browser's memory) bounded: drop the oldest version that is not on screen
       while (ai.versions.length > MAX_VERSIONS) ai.versions.splice(ai.versions.findIndex((v) => v.id !== ai.current), 1);
@@ -584,7 +642,7 @@
     const v = ai.versions.find((x) => x.id === id);
     if (!v) return;
     if (v.signature !== designSignature()) {
-      Object.assign(design, v.design);
+      assignDesign(v.design);
       syncControls();
       $('preview-svg').innerHTML = coinSvg();
       $('shape-note').hidden = design.shape !== 'odd';
@@ -593,7 +651,7 @@
     }
     ai.current = id;
     $('preview-ai').src = v.image;
-    $('preview-ai').alt = `AI version ${v.number} of your coin`;
+    $('preview-ai').alt = `AI version ${v.number} of your coin${v.twoSided ? ', front and back' : ''}`;
     setView('ai');
     $('preview-caption').textContent = v.demo
       ? 'Demo render (add an API key on the server for real AI renders).'
@@ -643,7 +701,7 @@
       html = '<strong>✓ Wording checked.</strong><span class="more"> We read this render back letter by letter and it matches what you typed' + (c.logoMatch != null ? ', and your logo held up well.' : '.') + '</span>';
     } else if (state === 'warn') {
       const issues = [];
-      for (const l of c.lines || []) if (!l.ok) issues.push(`it wrote “${escapeHtml(l.read || 'nothing')}” where you typed “${escapeHtml(l.expected)}”`);
+      for (const l of c.lines || []) if (!l.ok) issues.push(`${/^(front|back) /.test(l.where) ? `on the ${l.where.split(' ')[0]} ` : ''}it wrote “${escapeHtml(l.read || 'nothing')}” where you typed “${escapeHtml(l.expected)}”`);
       if ((c.extraText || []).length) issues.push(`it added “${escapeHtml(c.extraText.join('”, “'))}”`);
       if (c.logoOk === false) issues.push('it changed your logo' + (c.logoIssues ? ` (${escapeHtml(c.logoIssues)})` : ''));
       html = `<strong>! This version is not quite right:</strong> ${issues.join('; ') || 'something is off'}.` +
@@ -775,8 +833,7 @@
           email, name, newsletter: send.form.elements.newsletter.checked, test: isTest(),
           renderId: v ? v.renderId : null,
           image: v && v.renderId ? null : (v ? v.image : await layoutPng()),
-          design: { finish: design.finish, color: design.color, shape: design.shape, bgColor: design.bgColor, bgColorName: design.bgColor ? bgColorName(design.bgColor) : '', bgTexture: design.bgTexture,
-            topText: design.topText, bottomText: design.bottomText, centerText: design.centerText, logoName: design.logoName },
+          design: { finish: design.finish, color: design.color, shape: design.shape, ...sidePayload(design.front), back: twoSided() ? sidePayload(design.back) : null },
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -897,10 +954,11 @@
     if (file.size > 10 * 1024 * 1024) { toast('Please keep the image under 10 MB.'); return; }
     const reader = new FileReader();
     reader.onload = async () => {
-      design.logo = await prepareLogo(reader.result);
-      design.logoAspect = await imageAspect(design.logo);
-      design.logoName = file.name;
-      $('logo-thumb').src = design.logo;
+      const f = side();
+      f.logo = await prepareLogo(reader.result);
+      f.logoAspect = await imageAspect(f.logo);
+      f.logoName = file.name;
+      $('logo-thumb').src = f.logo;
       $('logo-name').textContent = file.name;
       logoDrop.querySelector('.logo-empty').hidden = true;
       logoDrop.querySelector('.logo-have').hidden = false;
@@ -909,7 +967,8 @@
     reader.readAsDataURL(file);
   }
   function clearLogo() {
-    design.logo = null; design.logoName = ''; design.logoAspect = 1;
+    const f = side();
+    f.logo = null; f.logoName = ''; f.logoAspect = 1;
     logoDrop.querySelector('.logo-empty').hidden = false;
     logoDrop.querySelector('.logo-have').hidden = true;
     renderPreview();
@@ -920,9 +979,9 @@
   $('logo-remove').addEventListener('click', (e) => { e.stopPropagation(); clearLogo(); });
 
   for (const [id, key] of [['text-top', 'topText'], ['text-bottom', 'bottomText'], ['text-center', 'centerText']]) {
-    $(id).addEventListener('input', (e) => { design[key] = e.target.value; renderPreview(); });
+    $(id).addEventListener('input', (e) => { side()[key] = e.target.value; renderPreview(); });
   }
-  $('logo-size').addEventListener('input', (e) => { design.logoSize = +e.target.value; renderPreview(); });
+  $('logo-size').addEventListener('input', (e) => { side().logoSize = +e.target.value; renderPreview(); });
 
   const finishesEl = $('finishes');
   for (const f of FINISHES) {
@@ -934,6 +993,7 @@
     b.addEventListener('click', () => {
       design.finish = f.key;
       for (const x of finishesEl.children) x.classList.toggle('on', x === b);
+      syncTwoTone();
       renderPreview();
     });
     finishesEl.appendChild(b);
@@ -946,7 +1006,7 @@
       design[attr] = b.dataset[attr];
       for (const x of $(id).children) x.classList.toggle('on', x === b);
       // A bare-metal coin cannot have an enamel background (a struck texture is still fine)
-      if (attr === 'color' && design.color === 'none' && design.bgColor) { design.bgColor = ''; syncBackground(); toast('No Color means bare metal, so the colored background was removed. Textures still work.'); }
+      if (attr === 'color' && design.color === 'none' && (design.front.bgColor || design.back.bgColor)) { design.front.bgColor = ''; design.back.bgColor = ''; syncBackground(); toast('No Color means bare metal, so the colored background was removed. Textures still work.'); }
       renderPreview();
     });
   }
@@ -959,25 +1019,27 @@
     return (x + 0.05) / (y + 0.05);
   }
   function syncBackground() {
-    const custom = design.bgColor && !BG_COLORS.some((c) => c.hex.toLowerCase() === design.bgColor.toLowerCase());
-    for (const x of bgColorsEl.querySelectorAll('[data-bg]')) x.classList.toggle('on', x.dataset.bg.toLowerCase() === design.bgColor.toLowerCase());
+    const f = side();
+    const custom = f.bgColor && !BG_COLORS.some((c) => c.hex.toLowerCase() === f.bgColor.toLowerCase());
+    for (const x of bgColorsEl.querySelectorAll('[data-bg]')) x.classList.toggle('on', x.dataset.bg.toLowerCase() === f.bgColor.toLowerCase());
     const chip = bgColorsEl.querySelector('.bg-custom');
     chip.classList.toggle('on', !!custom);
-    chip.style.setProperty('--picked', custom ? design.bgColor : 'transparent');
-    for (const x of $('bg-textures').children) x.classList.toggle('on', x.dataset.texture === design.bgTexture);
+    chip.style.setProperty('--picked', custom ? f.bgColor : 'transparent');
+    for (const x of $('bg-textures').children) x.classList.toggle('on', x.dataset.texture === f.bgTexture);
     const note = $('bg-note');
-    const tex = BG_TEXTURES[design.bgTexture].toLowerCase(), col = bgColorName(design.bgColor).toLowerCase();
+    const tex = BG_TEXTURES[f.bgTexture].toLowerCase(), col = bgColorName(f.bgColor).toLowerCase();
     let text = '';
-    if (design.bgColor && design.bgTexture !== 'smooth') text = `Translucent ${col} enamel over a ${tex} texture: the texture shows through the color.`;
-    else if (design.bgColor) text = `Glossy ${col} enamel fills the center, with your logo and lettering standing above it in raised metal.`;
-    else if (design.bgTexture !== 'smooth') text = `A ${tex} texture is struck into the metal behind your design.`;
+    if (f.bgColor && f.bgTexture !== 'smooth') text = `Translucent ${col} enamel over a ${tex} texture: the texture shows through the color.`;
+    else if (f.bgColor) text = `Glossy ${col} enamel fills the center, with your logo and lettering standing above it in raised metal.`;
+    else if (f.bgTexture !== 'smooth') text = `A ${tex} texture is struck into the metal behind your design.`;
     // Raised metal lettering over an enamel of nearly the same brightness is hard to read on the real coin too
-    if (design.bgColor && design.centerText.trim() && contrast(finishOf(design.finish).colors[0], design.bgColor) < 1.7) text += ' Heads up: this color is close to your metal finish, so the center lettering will be hard to read.';
+    if (f.bgColor && f.centerText.trim() && contrast(finishOf(design.finish).colors[0], f.bgColor) < 1.7) text += ' Heads up: this color is close to your metal finish, so the center lettering will be hard to read.';
+    if (f.bgTexture === 'diamond') text += ' Diamond cut adds 40¢ per coin for one side, 70¢ for both sides.';
     note.textContent = text;
     note.hidden = !text;
   }
   function setBgColor(hex) {
-    design.bgColor = hex;
+    side().bgColor = hex;
     if (hex && design.color === 'none') {
       design.color = 'color-one';
       for (const x of $('colors').children) x.classList.toggle('on', x.dataset.color === design.color);
@@ -994,7 +1056,7 @@
   $('bg-textures').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-texture]');
     if (!b) return;
-    design.bgTexture = b.dataset.texture;
+    side().bgTexture = b.dataset.texture;
     syncBackground();
     renderPreview();
   });
@@ -1047,8 +1109,71 @@
   $('borders').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-border]');
     if (!b) return;
-    design.border = b.dataset.border;
+    side().border = b.dataset.border;
     for (const x of $('borders').children) x.classList.toggle('on', x === b);
+    renderPreview();
+  });
+
+  // ---------- front / back ----------
+  function syncSideBadge() {
+    const badge = $('side-badge');
+    badge.hidden = !twoSided() || ai.view === 'ai';
+    badge.textContent = design.side === 'back' ? 'Back' : 'Front';
+  }
+  // Which face is being edited, and whether the back's fields are open at all
+  function syncSidePanel() {
+    for (const b of $('side-tabs').children) b.classList.toggle('on', b.dataset.side === design.side);
+    $('back-state').textContent = twoSided() ? '' : 'optional';
+    const back = design.side === 'back';
+    $('side-title').textContent = back ? 'Back: artwork & text' : 'Front: artwork & text';
+    $('back-intro').hidden = !(back && !twoSided());
+    $('side-fields').hidden = back && !twoSided();
+    $('back-remove-wrap').hidden = !(back && twoSided());
+    syncSideBadge();
+  }
+  function setSide(name) {
+    design.side = name;
+    syncSidePanel();
+    syncControls();
+    renderPreview();
+  }
+  $('side-tabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-side]'); if (b) setSide(b.dataset.side); });
+  $('back-enable').addEventListener('click', () => {
+    design.backEnabled = true;
+    design.back.border = design.front.border; // the rim usually matches; everything else starts empty
+    setSide('back');
+    setTimeout(() => $('text-top').focus(), 50);
+    toast('Design the back the same way. The AI render will show both sides of your coin.', 4500);
+  });
+  $('back-remove').addEventListener('click', () => {
+    design.backEnabled = false;
+    design.back = newSide();
+    setSide('front');
+  });
+  // Edge: smooth unless the customer asks for reeding, which costs extra
+  function syncEdge() {
+    for (const x of $('edges').children) x.classList.toggle('on', x.dataset.edge === design.edge);
+    $('edge-note').hidden = design.edge !== 'reeded';
+  }
+  $('edges').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-edge]');
+    if (!b) return;
+    design.edge = b.dataset.edge;
+    syncEdge();
+    renderPreview();
+  });
+  // 2-tone plating: shown on the layout as a contrasting metal in the center field, and rendered that way by the AI
+  function syncTwoTone() {
+    for (const x of $('two-tone').children) x.classList.toggle('on', x.dataset.twoTone === design.twoTone);
+    const note = $('two-tone-note');
+    note.hidden = !design.twoTone;
+    if (design.twoTone) note.textContent = `${finishOf(design.finish).label} lettering, rim and logo details over a ${finishOf(contrastFinish(design.finish)).label.toLowerCase()} center.`;
+  }
+  $('two-tone').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-two-tone]');
+    if (!b) return;
+    design.twoTone = b.dataset.twoTone;
+    syncTwoTone();
     renderPreview();
   });
 
@@ -1135,6 +1260,8 @@
   function setSize(s) {
     order.size = s;
     for (const b of sizeChips.children) b.classList.toggle('on', b.dataset.size === s);
+    $('preview-spec').textContent = specLine();
+    updateDesignReady();
     updateEstimate();
   }
   $('notes').addEventListener('input', (e) => { order.notes = e.target.value; });
@@ -1218,16 +1345,23 @@
     const o = order;
     const sameAddr = o.street === o.billStreet && o.cityStateZip === o.billCityStateZip && o.country === o.billCountry;
     const edit = (step) => `<button class="link" type="button" data-edit="${step}">Edit</button>`;
-    const texts = [design.topText, design.centerText, design.bottomText].map((t) => t.trim()).filter(Boolean).map((t) => `“${escapeHtml(t.toUpperCase())}”`).join(' · ');
+    const textsOf = (f) => [f.topText, f.centerText, f.bottomText].map((t) => t.trim()).filter(Boolean).map((t) => `“${escapeHtml(t)}”`).join(' · ');
+    const texts = textsOf(design.front);
+    const backTexts = twoSided() ? textsOf(design.back) : '';
+    const rim = (f) => `${f.border} rim`;
     const rows = [
       ['Coin', `<div class="review-coin"><img id="review-img" alt="Your coin"><ul>` +
-               [finishOf(design.finish).label, COLORS[design.color], `${SHAPES[design.shape]}, ${design.border} rim`, backgroundLabel(),
-                design.logo ? `Logo: ${design.logoName}` : '',
+               [finishOf(design.finish).label, TWO_TONE[design.twoTone] ? `${TWO_TONE[design.twoTone]} (${addonOf(design.twoTone).price})` : '', COLORS[design.color],
+                `${SHAPES[design.shape]}, ${design.edge} edge${design.edge === 'reeded' ? ' (extra)' : ''}`,
+                twoSided() ? 'Two-sided design (front and back)' : 'Front designed; back to be arranged with our team',
+                `Front: ${[rim(design.front), backgroundLabel(design.front) + (design.front.bgTexture === 'diamond' ? ' (+40¢ one side, +70¢ both)' : ''), design.front.logo ? `logo ${design.front.logoName}` : ''].filter(Boolean).join(', ')}`,
+                twoSided() ? `Back: ${[rim(design.back), backgroundLabel(design.back) + (design.back.bgTexture === 'diamond' ? ' (+40¢ one side, +70¢ both)' : ''), design.back.logo ? `logo ${design.back.logoName}` : ''].filter(Boolean).join(', ')}` : '',
                 usingAi() ? `AI version ${currentVersion().number} selected` : 'Your layout selected'].filter(Boolean).map((t) => `<li>${escapeHtml(t)}</li>`).join('') +
                `</ul></div>${edit('design')}`],
-      texts ? ['Text', texts] : null,
+      texts ? [twoSided() ? 'Front text' : 'Text', texts] : null,
+      backTexts ? ['Back text', backTexts] : null,
       ['Quantity', `${o.quantity.toLocaleString()} × ${o.size}" ${edit('options')}`],
-      order.addons.length ? ['Add-ons', order.addons.map((k) => escapeHtml(addonOf(k).label) + (addonOf(k).price ? ` <small>${escapeHtml(addonOf(k).price)}</small>` : '')).join('<br>') + ` ${edit('options')}`] : null,
+      allAddons().length ? ['Add-ons', allAddons().map((k) => escapeHtml(addonOf(k).label) + (addonOf(k).price ? ` <small>${escapeHtml(addonOf(k).price)}</small>` : '')).join('<br>') + ` ${edit('options')}`] : null,
       o.estimate ? ['Estimate', `${money(o.estimate.total)} (${money(o.estimate.unit)} each)`] : null,
       ['Contact', `${escapeHtml(o.name)}<br>${escapeHtml(o.email)}${o.phone ? '<br>' + escapeHtml(o.phone) : ''}${o.company ? '<br>' + escapeHtml(o.company) : ''} ${edit('details')}`],
       ['Bill to', `${escapeHtml(o.billStreet)}<br>${escapeHtml(o.billCityStateZip)}<br>${escapeHtml(o.billCountry)}`],
@@ -1264,10 +1398,10 @@
           street: order.street, cityStateZip: order.cityStateZip, country: order.country,
           notes: order.notes,
           design: {
-            topText: design.topText, bottomText: design.bottomText, centerText: design.centerText,
-            color: design.color, shape: design.shape, addons: order.addons,
-            bgColor: design.bgColor, bgColorName: design.bgColor ? bgColorName(design.bgColor) : '', bgTexture: design.bgTexture,
-            border: design.border, logoName: design.logoName, aiRendered: usingAi(),
+            ...sidePayload(design.front),
+            back: twoSided() ? sidePayload(design.back) : null,
+            color: design.color, shape: design.shape, addons: allAddons(),
+            aiRendered: usingAi(),
             aiVersion: usingAi() ? currentVersion().number : null, renderId: usingAi() ? currentVersion().renderId : null, aiVersionsMade: ai.nextNumber - 1,
             aiWordingChecked: usingAi() && currentVersion().check && currentVersion().check.checked ? !!currentVersion().check.ok : null,
           },
@@ -1463,21 +1597,25 @@
 
   // ---------- form controls <- design state ----------
   function syncControls() {
-    $('text-top').value = design.topText; $('text-bottom').value = design.bottomText; $('text-center').value = design.centerText;
-    $('logo-size').value = design.logoSize;
-    logoDrop.querySelector('.logo-empty').hidden = !!design.logo;
-    logoDrop.querySelector('.logo-have').hidden = !design.logo;
-    if (design.logo) { $('logo-thumb').src = design.logo; $('logo-name').textContent = design.logoName; }
+    const f = side();
+    $('text-top').value = f.topText; $('text-bottom').value = f.bottomText; $('text-center').value = f.centerText;
+    $('logo-size').value = f.logoSize;
+    logoDrop.querySelector('.logo-empty').hidden = !!f.logo;
+    logoDrop.querySelector('.logo-have').hidden = !f.logo;
+    if (f.logo) { $('logo-thumb').src = f.logo; $('logo-name').textContent = f.logoName; }
+    syncSidePanel();
     for (const x of finishesEl.children) x.classList.toggle('on', x.dataset.finish === design.finish);
     for (const x of $('colors').children) x.classList.toggle('on', x.dataset.color === design.color);
     for (const x of $('shapes').children) x.classList.toggle('on', x.dataset.shape === design.shape);
-    for (const x of $('borders').children) x.classList.toggle('on', x.dataset.border === design.border);
+    for (const x of $('borders').children) x.classList.toggle('on', x.dataset.border === f.border);
+    syncEdge();
+    syncTwoTone();
     syncBackground();
   }
 
   // ---------- restart ----------
   function restart() {
-    Object.assign(design, newDesign());
+    assignDesign(newDesign());
     Object.assign(order, { quantity: null, size: null, estimate: null, notes: '', addons: [], name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
     ai.versions = []; ai.current = null; ai.nextNumber = 1;
     $('result').innerHTML = '';

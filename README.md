@@ -52,11 +52,12 @@ Image models are good at metal and bad at spelling, so the pipeline is built aro
 1. The browser draws a clean **art proof** of the layout (solid, high-contrast lettering) and sends that, not the soft on-screen preview.
    The layout includes the optional **center background**: an enamel color, a struck texture (sandblast, sunburst, diamond cut), or both, which renders as translucent enamel over the texture.
 2. `lib/prompt.js` builds the prompt on the server from the customer's actual choices. Each line of lettering is quoted, counted and spelled out letter by letter, and the logo is declared off-limits for restyling.
-3. `lib/providers.js` renders with the best model available, plus a couple of photos from `references/` for style. Only photos of finished coins belong in that folder; anything else is shown to the model as "a coin we made".
-4. `lib/verify.js` **proofreads the result**: a vision model reads the lettering off the render alone, character by character, twice, and a second pass compares the logo with the art proof. A wrong render is redone once with specific feedback; the better attempt is returned with its report.
-5. The customer sees a green "Wording checked" or an amber "not quite right" note that quotes what the AI actually wrote. Every render is kept as a **version** under the coin; picking an older version also brings back the design it was made from, so the picture and the order always match.
+3. A coin can have a **back**: the customer opens the Back tab and designs it like the front (its own artwork, lettering, background and rim; metal, shape, size and add-ons are for the whole coin). Each side is rendered on its own, at full resolution and with its own proofreading, and `lib/composite.js` then puts the two photos side by side, front on the left. A two-sided render spends two renders of the daily budget.
+4. `lib/providers.js` renders with the best model available, plus a couple of photos from `references/` for style. Only photos of finished coins belong in that folder; anything else is shown to the model as "a coin we made".
+5. `lib/verify.js` **proofreads the result**: a vision model reads the lettering off the render alone, character by character, twice, and a second pass compares the logo with the art proof. A wrong render is redone once with specific feedback; the better attempt is returned with its report.
+6. The customer sees a green "Wording checked" or an amber "not quite right" note that quotes what the AI actually wrote. Every render is kept as a **version** under the coin; picking an older version also brings back the design it was made from, so the picture and the order always match.
 
-6. **Nothing clean leaves the server.** `lib/watermark.js` keeps the original in `renders/` (git-ignored, swept after `RENDER_KEEP_DAYS`) and gives the browser only a small, lightly watermarked preview. The Download button fetches a full-size, heavily watermarked copy. When a customer orders an AI version, the order gets the clean original from the server's own copy. Right-click, long-press and drag are blocked on coin images, but that only stops casual saving; the watermark is what actually protects the artwork, because a screenshot is always possible.
+7. **Nothing clean leaves the server.** `lib/watermark.js` keeps the original in `renders/` (git-ignored, swept after `RENDER_KEEP_DAYS`) and gives the browser only a small, lightly watermarked preview. The Download button fetches a full-size, heavily watermarked copy. When a customer orders an AI version, the order gets the clean original from the server's own copy. Right-click, long-press and drag are blocked on coin images, but that only stops casual saving; the watermark is what actually protects the artwork, because a screenshot is always possible.
 
 ### Keeping the OpenAI bill in check
 
@@ -86,6 +87,16 @@ Set `TEST_MODE=1` in `.env` to force test mode for every visitor, for example on
 ## Deploy
 
 Any Node host works (Render, Railway, Fly). Set the environment variables above and use `npm start`.
+
+Set `PUBLIC_URL` to the real address (for example `https://builder.coinsforanything.com`, no trailing slash). It is used in the share-preview tags, the canonical link, the sitemap, Stripe return links and the "Order your coins" button in design emails. Without it the server falls back to the address each request arrived on, which is fine locally but wrong behind some proxies.
+
+## Share link and SEO
+
+`public/index.html` is served as a template: the server fills in `{{SITE_URL}}` so every absolute URL matches the deployment.
+
+- **Link previews.** Open Graph and Twitter tags point at `public/share.jpg` (1200 x 630), so a pasted link shows a branded card in Facebook, LinkedIn, X, iMessage, WhatsApp, Slack and Teams. The image URL carries a version hash, so networks pick up a new card after `npm run share-image` (which rebuilds the card and the icons from the logo and a coin photo in `references/coins/`). After deploying a new card, refresh Facebook's cache at https://developers.facebook.com/tools/debug/ and LinkedIn's at https://www.linkedin.com/post-inspector/.
+- **Search.** Title, meta description, canonical link, `robots.txt`, `sitemap.xml` and JSON-LD (Organization, WebApplication, WebPage) are all served. Only the builder page is indexable; `/api`, `/mail-img`, `/signups.csv`, `/healthz` and `/test` answer with `X-Robots-Tag: noindex` and are disallowed in `robots.txt`. Submit `PUBLIC_URL/sitemap.xml` in Google Search Console once deployed.
+- **Icons.** `favicon.ico`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` and `site.webmanifest` cover browser tabs, bookmarks and home-screen shortcuts.
 
 ## Structure
 

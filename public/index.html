@@ -3,15 +3,99 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Custom Challenge Coin Builder | Coins For Anything</title>
+  <meta name="description" content="Design your own custom challenge coin online. Upload your logo, add your text, pick a metal finish and see an AI preview in minutes. 100% veteran owned.">
+  <!-- {{SITE_URL}} and {{SHARE_VERSION}} are filled in by the server (PUBLIC_URL, or the address the page was requested on) -->
+  <link rel="canonical" href="{{SITE_URL}}/">
+  <meta name="robots" content="index, follow, max-image-preview:large">
   <meta name="theme-color" content="#1A1A1A">
-  <title>Coin Builder | Coins For Anything</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23F58220'/%3E%3Ccircle cx='50' cy='50' r='34' fill='none' stroke='%231A1A1A' stroke-width='6'/%3E%3C/svg%3E">
+  <meta name="application-name" content="Coin Builder">
+  <meta name="apple-mobile-web-app-title" content="Coin Builder">
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- Link preview when the builder's address is shared: Facebook, LinkedIn, iMessage, WhatsApp, Slack, Teams -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Coins For Anything">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:url" content="{{SITE_URL}}/">
+  <meta property="og:title" content="Design Your Custom Challenge Coin in Minutes">
+  <meta property="og:description" content="Upload your logo, add your text and see your coin. Free AI preview from Coins For Anything, 100% veteran owned and operated.">
+  <meta property="og:image" content="{{SITE_URL}}/share.jpg?v={{SHARE_VERSION}}">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Coins For Anything custom coin builder: design your custom challenge coin">
+  <!-- X (Twitter) -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Design Your Custom Challenge Coin in Minutes">
+  <meta name="twitter:description" content="Upload your logo, add your text and see your coin. Free AI preview from Coins For Anything, 100% veteran owned and operated.">
+  <meta name="twitter:image" content="{{SITE_URL}}/share.jpg?v={{SHARE_VERSION}}">
+  <meta name="twitter:image:alt" content="Coins For Anything custom coin builder: design your custom challenge coin">
+
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Open+Sans:wght@400;600;700&family=Yellowtail&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://www.coinsforanything.com/#organization",
+        "name": "Coins For Anything, Inc.",
+        "url": "https://www.coinsforanything.com/",
+        "logo": "{{SITE_URL}}/brand/logo.webp",
+        "slogan": "The Quality is Always Here",
+        "telephone": "+1-866-583-5434",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "1014 Prince Edward St",
+          "addressLocality": "Fredericksburg",
+          "addressRegion": "VA",
+          "postalCode": "22401",
+          "addressCountry": "US"
+        },
+        "sameAs": [
+          "https://www.facebook.com/CoinsForAnything",
+          "https://www.instagram.com/coinsforanything",
+          "https://www.pinterest.com/cfa22408"
+        ]
+      },
+      {
+        "@type": "WebApplication",
+        "@id": "{{SITE_URL}}/#app",
+        "name": "Custom Coin Builder",
+        "url": "{{SITE_URL}}/",
+        "image": "{{SITE_URL}}/share.jpg",
+        "description": "Design your own custom challenge coin online: upload your logo, add your text, pick a metal finish and see an AI-rendered preview in minutes.",
+        "applicationCategory": "DesignApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires JavaScript",
+        "provider": { "@id": "https://www.coinsforanything.com/#organization" }
+      },
+      {
+        "@type": "WebPage",
+        "@id": "{{SITE_URL}}/#webpage",
+        "url": "{{SITE_URL}}/",
+        "name": "Custom Challenge Coin Builder | Coins For Anything",
+        "description": "Design your own custom challenge coin online. Upload your logo, add your text, pick a metal finish and see an AI-rendered preview in minutes.",
+        "inLanguage": "en-US",
+        "primaryImageOfPage": "{{SITE_URL}}/share.jpg",
+        "about": { "@id": "{{SITE_URL}}/#app" },
+        "publisher": { "@id": "https://www.coinsforanything.com/#organization" }
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
+  <noscript><p class="noscript">The coin builder needs JavaScript to run. For a free quote on custom challenge coins, call <a href="tel:+18665835434">1-866-583-5434</a> or visit <a href="https://www.coinsforanything.com/quote/">coinsforanything.com/quote</a>.</p></noscript>
   <main class="app">
     <div class="topbar">100% Veteran Owned &amp; Operated &middot; <b>The Quality is Always Here</b></div>
     <header class="app-header">
@@ -51,6 +135,7 @@
         <div class="preview-stage">
           <div id="preview-svg" class="preview-svg"></div>
           <img id="preview-ai" class="preview-ai" alt="AI rendered coin" draggable="false" hidden>
+          <span id="side-badge" class="side-badge" hidden>Front</span>
           <div id="preview-busy" class="preview-busy" role="status" hidden>
             <span class="typing"><i></i><i></i><i></i></span>
             <p>Rendering your coin, then proofreading the wording… this takes a minute or two.</p>
@@ -77,8 +162,19 @@
         <div class="step" data-step="design">
           <h2><span class="script">Design</span> your coin</h2>
 
-          <section class="group">
-            <h3 class="group-title">Artwork &amp; text</h3>
+          <!-- Front / back: the artwork, text, background and rim are chosen per side; metal and shape are for the whole coin -->
+          <div id="side-tabs" class="seg side-tabs" role="group" aria-label="Side of the coin">
+            <button type="button" data-side="front" class="on">Front</button>
+            <button type="button" data-side="back">Back <small id="back-state">optional</small></button>
+          </div>
+
+          <section class="group side-group">
+            <h3 class="group-title" id="side-title">Front: artwork &amp; text</h3>
+            <div id="back-intro" class="back-intro" hidden>
+              <p>Most challenge coins carry a second design on the back: a motto, a date, a unit crest, a second logo. Design it here and the AI render will show both sides of your coin together. Skip it and our team will work out the back with you.</p>
+              <button id="back-enable" class="btn dark small" type="button">Design the Back</button>
+            </div>
+            <div id="side-fields">
             <div class="field">
               <label class="label" id="logo-label">Your logo or artwork</label>
               <div id="logo-drop" class="logo-drop" tabindex="0" role="button" aria-labelledby="logo-label">
@@ -96,21 +192,56 @@
               </div>
             </div>
             <div class="field two">
-              <label class="ff"><span class="label">Top text</span><input id="text-top" type="text" maxlength="40" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="next" placeholder="e.g. UNITED STATES ARMY"></label>
-              <label class="ff"><span class="label">Bottom text</span><input id="text-bottom" type="text" maxlength="40" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="next" placeholder="e.g. EST. 1775"></label>
+              <label class="ff"><span class="label">Top text</span><input id="text-top" type="text" maxlength="40" autocapitalize="off" autocomplete="off" spellcheck="false" enterkeyhint="next" placeholder="e.g. UNITED STATES ARMY"></label>
+              <label class="ff"><span class="label">Bottom text</span><input id="text-bottom" type="text" maxlength="40" autocapitalize="off" autocomplete="off" spellcheck="false" enterkeyhint="next" placeholder="e.g. EST. 1775"></label>
             </div>
             <div class="field two">
-              <label class="ff"><span class="label">Center text <em>(optional)</em></span><input id="text-center" type="text" maxlength="30" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="done" placeholder="e.g. 3RD BATTALION"></label>
+              <label class="ff"><span class="label">Center text <em>(optional)</em></span><input id="text-center" type="text" maxlength="30" autocapitalize="off" autocomplete="off" spellcheck="false" enterkeyhint="done" placeholder="e.g. CoinsForAnything.com"></label>
               <label class="ff"><span class="label">Logo size</span><input id="logo-size" type="range" min="50" max="100" value="82" aria-label="Logo size"></label>
             </div>
+            <p class="hint">Type your wording exactly as you want it stamped: capitals and small letters both work.</p>
             <p id="text-hint" class="hint note" role="status" hidden></p>
+            <div class="field">
+              <span class="label">Center background <em>(optional)</em></span>
+              <div id="bg-colors" class="bg-swatches" role="group" aria-label="Background color"></div>
+              <div class="bg-texture">
+                <span class="sublabel">Texture</span>
+                <div id="bg-textures" class="seg" role="group" aria-label="Background texture">
+                  <button type="button" data-texture="smooth" class="on">Smooth</button>
+                  <button type="button" data-texture="sandblast">Sandblast</button>
+                  <button type="button" data-texture="sunburst">Sunburst</button>
+                  <button type="button" data-texture="diamond">Diamond Cut <small>+40¢</small></button>
+                </div>
+              </div>
+              <p id="bg-note" class="hint" role="status" hidden></p>
+            </div>
+            <div class="field">
+              <span class="label">Rim style</span>
+              <div id="borders" class="seg" role="group" aria-label="Rim style">
+                <button type="button" data-border="plain" class="on">Plain</button>
+                <button type="button" data-border="rope">Rope</button>
+                <button type="button" data-border="beads">Beads</button>
+                <button type="button" data-border="stars">Stars</button>
+              </div>
+            </div>
+            <p id="back-remove-wrap" class="hint" hidden><button id="back-remove" class="link" type="button">Remove the back design</button> and go back to a one-sided coin.</p>
+            </div>
           </section>
 
           <section class="group">
-            <h3 class="group-title">Metal &amp; color</h3>
+            <h3 class="group-title">Metal &amp; shape <em>whole coin</em></h3>
             <div class="field">
               <span class="label">Metal finish</span>
               <div id="finishes" class="swatches" role="group" aria-label="Metal finish"></div>
+            </div>
+            <div class="field">
+              <span class="label">2-Tone plating <em>(optional)</em></span>
+              <div id="two-tone" class="seg" role="group" aria-label="2-Tone plating">
+                <button type="button" data-two-tone="" class="on">Single metal</button>
+                <button type="button" data-two-tone="two-tone-one">One Side <small>+65¢</small></button>
+                <button type="button" data-two-tone="two-tone-both">Both Sides <small>+$1.30</small></button>
+              </div>
+              <p id="two-tone-note" class="hint" role="status" hidden></p>
             </div>
             <div class="field two">
               <div>
@@ -125,36 +256,27 @@
                 <span class="label">Shape</span>
                 <div id="shapes" class="seg" role="group" aria-label="Shape">
                   <button type="button" data-shape="round" class="on">Round</button>
-                  <button type="button" data-shape="odd" title="Odd Shaped: cut to the outline of your artwork">Custom Shape</button>
+                  <button type="button" data-shape="odd" title="Odd Shaped: cut to the outline of your artwork">Odd Shaped</button>
                 </div>
               </div>
             </div>
-            <p id="shape-note" class="hint note" hidden>Custom-shaped coins are cut to the outline of your artwork. The AI render shows the idea; our artists finalize the exact outline with you before production.</p>
-            <div class="field">
-              <span class="label">Center background <em>(optional)</em></span>
-              <div id="bg-colors" class="bg-swatches" role="group" aria-label="Background color"></div>
-              <div class="bg-texture">
-                <span class="sublabel">Texture</span>
-                <div id="bg-textures" class="seg" role="group" aria-label="Background texture">
-                  <button type="button" data-texture="smooth" class="on">Smooth</button>
-                  <button type="button" data-texture="sandblast">Sandblast</button>
-                  <button type="button" data-texture="sunburst">Sunburst</button>
-                  <button type="button" data-texture="diamond">Diamond Cut</button>
+            <p id="shape-note" class="hint note" hidden>Odd-shaped coins are cut to the outline of your artwork. The AI render shows the idea; our artists finalize the exact outline with you before production.</p>
+            <div class="field two">
+              <div>
+                <span class="label">Coin size <em>(diameter)</em></span>
+                <div id="size-chips" class="seg wrap" role="group" aria-label="Coin size"></div>
+              </div>
+              <div>
+                <span class="label">Edge</span>
+                <div id="edges" class="seg" role="group" aria-label="Edge">
+                  <button type="button" data-edge="smooth" class="on">Smooth</button>
+                  <button type="button" data-edge="reeded" title="Grooves around the outside edge, like a quarter">Reeded <small>extra</small></button>
                 </div>
               </div>
-              <p id="bg-note" class="hint" role="status" hidden></p>
             </div>
-            <div class="field">
-              <span class="label">Rim style</span>
-              <div id="borders" class="seg" role="group" aria-label="Rim style">
-                <button type="button" data-border="plain" class="on">Plain</button>
-                <button type="button" data-border="rope">Rope</button>
-                <button type="button" data-border="beads">Beads</button>
-                <button type="button" data-border="stars">Stars</button>
-              </div>
-            </div>
+            <p class="hint">Most challenge coins are 1.75" or 2". Pricing depends on the size. Need another size? Tell us in the notes when you order.</p>
+            <p id="edge-note" class="hint" hidden>A reeded edge (fine grooves around the outside, like a quarter) costs extra. Coins are smooth-edged unless you choose it.</p>
           </section>
-
 
           <p id="design-hint" class="hint">Add a logo or some text to get started.</p>
           <div class="step-actions">
@@ -170,11 +292,6 @@
             <div id="qty-chips" class="seg wrap"></div>
             <input id="qty-input" class="qty-input" type="number" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" min="1" max="100000" placeholder="Or type a quantity" aria-label="Custom quantity">
             <p class="hint">We recommend a minimum of 25 coins. The price per coin drops as quantity goes up.</p>
-          </div>
-          <div class="field">
-            <span class="label">Coin size</span>
-            <div id="size-chips" class="seg wrap"></div>
-            <p class="hint">Most challenge coins are 1.75" or 2". Need a different size? Tell us in the notes.</p>
           </div>
           <section class="group">
             <h3 class="group-title">Add-ons <em>optional</em></h3>
@@ -247,7 +364,10 @@
       </section>
     </div>
 
-    <div class="foot">Over <b>20 million coins</b> minted &middot; <b>60,000+</b> designs &middot; Trusted by <b>50,000+</b> companies</div>
+    <footer class="foot">
+      <p>Over <b>20 million coins</b> minted &middot; <b>60,000+</b> designs &middot; Trusted by <b>50,000+</b> companies</p>
+      <p class="foot-links"><a href="https://www.coinsforanything.com/">Coins For Anything, Inc.</a> &middot; 1014 Prince Edward St, Fredericksburg, VA 22401 &middot; <a href="tel:+18665835434">1-866-583-5434</a></p>
+    </footer>
     <div id="drop" class="drop" hidden>Drop your logo to upload</div>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   </main>

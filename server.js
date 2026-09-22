@@ -1,7 +1,9 @@
 'use strict';
 
 require('dotenv').config();
+const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
 const { getProvider } = require('./lib/providers');
@@ -12,6 +14,8 @@ const { saveOrder, updateOrder, notifyWebhook, createCheckout } = require('./lib
 const { watermark, saveOriginal, readOriginal } = require('./lib/watermark');
 const { mailConfigured, sendDesignEmail, sendOrderEmail, sendAlertEmail, readMailImage, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
 const guard = require('./lib/guard');
+const { sideBySide } = require('./lib/composite');
+const { siteUrl } = require('./lib/site');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,7 +23,7 @@ const ORDER_RATE_LIMIT = Number(process.env.ORDER_LIMIT_PER_HOUR || 20);
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  limits: { fileSize: 10 * 1024 * 1024, files: 2 }, // front and, for a two-sided coin, back
   fileFilter: (_req, file, cb) => {
     const ok = /^image\/(png|jpe?g|webp)$/i.test(file.mimetype);
     cb(ok ? null : new Error('Please upload a PNG, JPG, or WEBP image.'), ok);
@@ -43,10 +47,70 @@ function rateLimited(ip) {
 
 app.set('trust proxy', 1);
 guard.onAlert(sendAlertEmail);
-app.use(express.static(path.join(__dirname, 'public'), {
+
+// ---------- the page, share previews and search engines ----------
+// index.html is a template: {{SITE_URL}} becomes the deployment's address so the canonical link and the
+// share-preview (Open Graph / Twitter) tags are absolute, as Facebook, LinkedIn, iMessage and Google require.
+// {{SHARE_VERSION}} changes whenever share.jpg does, so social networks fetch the new card instead of a cached one.
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const INDEX_FILE = path.join(PUBLIC_DIR, 'index.html');
+const SHARE_VERSION = (() => {
+  try { return crypto.createHash('sha1').update(fs.readFileSync(path.join(PUBLIC_DIR, 'share.jpg'))).digest('hex').slice(0, 8); } catch (_) { return '1'; }
+})();
+let indexCache = { mtime: 0, html: '' };
+function renderIndex(req) {
+  const mtime = fs.statSync(INDEX_FILE).mtimeMs;
+  if (mtime !== indexCache.mtime) indexCache = { mtime, html: fs.readFileSync(INDEX_FILE, 'utf8') };
+  return indexCache.html.replace(/\{\{SITE_URL\}\}/g, siteUrl(req)).replace(/\{\{SHARE_VERSION\}\}/g, SHARE_VERSION);
+}
+app.get(['/', '/index.html'], (req, res) => {
+  res.set('Cache-Control', 'no-cache, must-revalidate');
+  res.type('html').send(renderIndex(req));
+});
+// Only the builder page is meant to be indexed. Everything else the server answers is data, admin, or staff-only.
+app.use((req, res, next) => {
+  if (/^\/(api|mail-img|signups\.csv|healthz|test)(\/|$)/.test(req.path)) res.set('X-Robots-Tag', 'noindex, nofollow');
+  next();
+});
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send([
+    'User-agent: *',
+    'Allow: /',
+    'Disallow: /api/',
+    'Disallow: /mail-img/',
+    'Disallow: /signups.csv',
+    'Disallow: /healthz',
+    'Disallow: /test',
+    '',
+    `Sitemap: ${siteUrl(req)}/sitemap.xml`,
+    '',
+  ].join('\n'));
+});
+app.get('/sitemap.xml', (req, res) => {
+  const lastmod = new Date(Math.max(fs.statSync(INDEX_FILE).mtimeMs, fs.statSync(path.join(PUBLIC_DIR, 'app.js')).mtimeMs)).toISOString().slice(0, 10);
+  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>${siteUrl(req)}/</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>${siteUrl(req)}/share.jpg</image:loc>
+      <image:title>Custom Coin Builder by Coins For Anything</image:title>
+    </image:image>
+  </url>
+</urlset>
+`);
+});
+
+app.use(express.static(PUBLIC_DIR, {
+  index: false, // "/" is rendered above so the share tags carry the right address
   setHeaders: (res, filePath) => {
     // Always revalidate the app files so a plain refresh picks up changes
-    if (/\.(html|js|css)$/.test(filePath)) res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    if (/\.(html|js|css|webmanifest)$/.test(filePath)) res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    // Icons and the share card change rarely and carry a version in the URL when they do
+    else if (/\.(ico|png|jpg|webp)$/.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=86400');
   },
 }));
 app.use(express.json({ limit: '12mb' }));
@@ -112,6 +176,15 @@ app.post('/api/orders', async (req, res) => {
     // center background: enamel color (hex + name) and / or a struck texture
     background: normalizeBackground({ color: d.bgColor, colorName: d.bgColorName, texture: d.bgTexture }),
     logoName: String(d.logoName || '').trim().slice(0, 120),
+    // The back of a two-sided coin, described the same way as the front (null for a one-sided design)
+    back: d.back && typeof d.back === 'object' ? {
+      topText: String(d.back.topText || '').trim().slice(0, 60),
+      bottomText: String(d.back.bottomText || '').trim().slice(0, 60),
+      centerText: String(d.back.centerText || '').trim().slice(0, 60),
+      border: String(d.back.border || '').trim().slice(0, 20),
+      background: normalizeBackground({ color: d.back.bgColor, colorName: d.back.bgColorName, texture: d.back.bgTexture }),
+      logoName: String(d.back.logoName || '').trim().slice(0, 120),
+    } : null,
     aiRendered: d.aiRendered === true,
     aiVersion: Number.isInteger(d.aiVersion) ? d.aiVersion : null,
     renderId: /^[0-9a-f]{32}$/.test(String(d.renderId || '')) ? d.renderId : null,
@@ -163,8 +236,7 @@ app.post('/api/orders', async (req, res) => {
 
     let checkoutUrl = null;
     try {
-      const baseUrl = process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
-      checkoutUrl = await createCheckout(record, baseUrl);
+      checkoutUrl = await createCheckout(record, siteUrl(req));
     } catch (e) {
       console.error('[coin-builder] stripe error:', e.message);
     }
@@ -208,25 +280,63 @@ app.post('/api/orders/:id/paid', (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/generate', (req, res) => {
-  upload.single('image')(req, res, async (err) => {
-    if (err) return res.status(400).json({ error: err.message });
-    if (!req.file) return res.status(400).json({ error: 'No image received.' });
+// One side of a coin as the browser describes it. `sides` (JSON) carries one entry for the front and, for a
+// two-sided coin, a second for the back; the older flat fields are still accepted for a one-sided render.
+function sideOptions(src) {
+  src = src && typeof src === 'object' ? src : {};
+  return {
+    texts: normalizeTexts({ top: src.topText, bottom: src.bottomText, center: src.centerText }),
+    hasLogo: src.hasLogo === '1' || src.hasLogo === 'true' || src.hasLogo === true,
+    border: normalizeBorder(src.border),
+    background: normalizeBackground({ color: src.bgColor, colorName: src.bgColorName, texture: src.bgTexture }),
+    centerFirstLineWords: Math.max(0, parseInt(src.centerFirstLineWords, 10) || 0),
+  };
+}
 
+// Proofreading results of the two sides, folded into one report for the badge under the coin
+function mergeChecks(front, back) {
+  const both = [front, back];
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+  const logos = both.map((c) => num(c.logoMatch)).filter((v) => v !== null);
+  return {
+    checked: both.every((c) => c.checked),
+    ok: both.every((c) => !c.checked || c.ok) && both.some((c) => c.checked),
+    textOk: both.every((c) => c.textOk !== false),
+    logoOk: both.every((c) => c.logoOk !== false),
+    borderOk: both.every((c) => c.borderOk !== false),
+    lines: [...(front.lines || []).map((l) => ({ ...l, where: `front ${l.where}` })), ...(back.lines || []).map((l) => ({ ...l, where: `back ${l.where}` }))],
+    extraText: [...(front.extraText || []), ...(back.extraText || [])],
+    logoMatch: logos.length ? Math.min(...logos) : null,
+    logoIssues: [front.logoIssues, back.logoIssues].filter(Boolean).join('; '),
+    sides: [front, back],
+  };
+}
+
+const uploadSides = upload.fields([{ name: 'image', maxCount: 1 }, { name: 'back', maxCount: 1 }]);
+app.post('/api/generate', (req, res) => {
+  uploadSides(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    const files = req.files || {};
+    const front = files.image && files.image[0];
+    const back = files.back && files.back[0];
+    if (!front) return res.status(400).json({ error: 'No image received.' });
+
+    // Coin-wide choices, then one entry per side
     const finish = normalizeFinish(req.body.finish);
     const color = normalizeColor(req.body.color);
     const shape = normalizeShape(req.body.shape);
     const addons = normalizeAddons(req.body.addons);
-    const texts = normalizeTexts({ top: req.body.topText, bottom: req.body.bottomText, center: req.body.centerText });
-    const border = normalizeBorder(req.body.border);
-    const hasLogo = req.body.hasLogo === '1' || req.body.hasLogo === 'true';
-    const centerFirstLineWords = Math.max(0, parseInt(req.body.centerFirstLineWords, 10) || 0);
-    const background = normalizeBackground({ color: req.body.bgColor, colorName: req.body.bgColorName, texture: req.body.bgTexture });
-    const options = { finish, color, shape, addons, texts, hasLogo, border, background, centerFirstLineWords };
+    let sides = [];
+    try { sides = JSON.parse(req.body.sides || '[]'); } catch (_) { sides = []; }
+    if (!Array.isArray(sides) || !sides.length) sides = [req.body];
+    sides = sides.slice(0, back ? 2 : 1).map(sideOptions);
+    if (back && sides.length < 2) sides.push(sideOptions({}));
+    const twoSided = !!back && sides.length === 2;
+    const coin = { finish, color, shape, addons };
 
     // Every render below this line costs money, so the cheap checks come first.
-    // 1. The very same proof and options were rendered recently: hand back that result for free.
-    const key = guard.fingerprint(req.file.buffer, options);
+    // 1. The very same proof(s) and options were rendered recently: hand back that result for free.
+    const key = guard.fingerprint(Buffer.concat([front.buffer, back ? back.buffer : Buffer.alloc(0)]), { coin, sides });
     const repeat = guard.cached(key);
     if (repeat) {
       console.log('[coin-builder] repeat render served from cache');
@@ -237,37 +347,52 @@ app.post('/api/generate', (req, res) => {
       return res.status(403).json({ error: 'We could not confirm this request came from a browser. Please reload the page and try again.' });
     }
     // 3. Per-visitor and site-wide limits. From here on the render is counted, so release() must run.
-    const gate = guard.admit(req.ip);
+    const gate = guard.admit(req.ip, twoSided ? 2 : 1);
     if (!gate.ok) return res.status(gate.status).json({ error: gate.error });
 
     // DEBUG_PROOF_DIR=some/folder saves the art proof exactly as the AI receives it, for troubleshooting a bad render
     if (process.env.DEBUG_PROOF_DIR) {
-      try { require('fs').writeFileSync(path.join(process.env.DEBUG_PROOF_DIR, `proof-${Date.now()}.png`), req.file.buffer); } catch (_) {}
+      try {
+        require('fs').writeFileSync(path.join(process.env.DEBUG_PROOF_DIR, `proof-${Date.now()}-front.png`), front.buffer);
+        if (back) require('fs').writeFileSync(path.join(process.env.DEBUG_PROOF_DIR, `proof-${Date.now()}-back.png`), back.buffer);
+      } catch (_) {}
     }
 
     try {
       const provider = getProvider();
       const started = Date.now();
-      const result = await provider.generate({ buffer: req.file.buffer, mimetype: req.file.mimetype, ...options });
-      console.log(`[coin-builder] ${provider.name} generated coin (${[finish, color, shape, ...addons].join(', ')}) in ${Date.now() - started}ms, ${result.attempts} attempt(s), model ${result.model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
+      // Each side is rendered on its own, at full resolution and with its own proofreading; the photo is assembled after
+      const inputs = twoSided ? [front, back] : [front];
+      const results = await Promise.all(inputs.map((file, i) => provider.generate({ buffer: file.buffer, mimetype: file.mimetype, ...coin, ...sides[i] })));
+      const attempts = results.reduce((n, r) => n + r.attempts, 0);
+      console.log(`[coin-builder] ${provider.name} generated ${twoSided ? 'two-sided ' : ''}coin (${[finish, color, shape, ...addons].join(', ')}) in ${Date.now() - started}ms, ${attempts} attempt(s), model ${results[0].model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
+
       // The clean render stays on the server. The browser gets a small, lightly watermarked preview; the download
       // endpoint below hands out a heavily watermarked full-size copy. If watermarking fails, nothing is sent.
-      let image = `data:${result.mimetype};base64,${result.base64}`;
-      let renderId = null;
-      if (result.mimetype === 'image/png') {
-        const clean = Buffer.from(result.base64, 'base64');
+      let image, renderId = null, mimetype = results[0].mimetype;
+      if (twoSided) {
+        const clean = await sideBySide(...results.map((r) => Buffer.from(r.base64, 'base64')));
+        mimetype = 'image/png';
+        const preview = await watermark(clean, { strength: 'preview', size: 1400 });
+        renderId = saveOriginal(clean);
+        image = `data:image/png;base64,${preview.toString('base64')}`;
+      } else if (mimetype === 'image/png') {
+        const clean = Buffer.from(results[0].base64, 'base64');
         const preview = await watermark(clean, { strength: 'preview', size: 768 });
         renderId = saveOriginal(clean);
         image = `data:image/png;base64,${preview.toString('base64')}`;
+      } else {
+        image = `data:${mimetype};base64,${results[0].base64}`;
       }
       const response = {
         provider: provider.name,
         finish,
+        twoSided,
         image,
         renderId,
-        // Proofreading result: which lettering matched, stray text, how well the logo held up
-        check: result.check,
-        attempts: result.attempts,
+        // Proofreading result: which lettering matched, stray text, how well the logo held up (both sides folded together)
+        check: twoSided ? mergeChecks(results[0].check, results[1].check) : results[0].check,
+        attempts,
       };
       if (provider.name !== 'demo') guard.remember(key, response);
       res.json(response);
@@ -342,6 +467,12 @@ app.post('/api/send-design', async (req, res) => {
     ['Top text', texts.top], ['Center text', texts.center], ['Bottom text', texts.bottom],
     ['Logo', clip(d.logoName, 120)],
   ];
+  if (d.back && typeof d.back === 'object') {
+    const bt = normalizeTexts({ top: d.back.topText, bottom: d.back.bottomText, center: d.back.centerText });
+    const bb = normalizeBackground({ color: d.back.bgColor, colorName: d.back.bgColorName, texture: d.back.bgTexture });
+    summary.push(['Back top text', bt.top], ['Back center text', bt.center], ['Back bottom text', bt.bottom],
+      ['Back background', [bb.name || bb.color, bb.texture !== 'smooth' ? bb.texture : ''].filter(Boolean).join(', ')], ['Back logo', clip(d.back.logoName, 120)]);
+  }
 
   const lead = { email, name, newsletter: b.newsletter === true, test: isTest, ip: req.ip, renderId: fromRender ? b.renderId : null, design: Object.fromEntries(summary.filter(([, v]) => v)) };
 
@@ -360,7 +491,7 @@ app.post('/api/send-design', async (req, res) => {
       return res.status(429).json({ error: 'That is a lot of emails in a short time. Please try again in an hour.' });
     }
     const image = await watermark(source, { strength: 'download', size: 1600 }); // throws rather than send a clean image
-    await sendDesignEmail({ to: email, name, image, summary, siteUrl: process.env.PUBLIC_URL || '' });
+    await sendDesignEmail({ to: email, name, image, summary, siteUrl: siteUrl(req) });
     const record = saveLead({ ...lead, emailed: true });
     notifyLead(record);
     console.log(`[coin-builder] design emailed to ${email}`);

@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "check-models": "node scripts/check-models.js",
-    "bakeoff": "node scripts/bakeoff.js"
+    "bakeoff": "node scripts/bakeoff.js",
+    "share-image": "node scripts/make-share-image.js"
   },
   "engines": {
     "node": ">=20"
