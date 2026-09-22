@@ -38,7 +38,7 @@ Without an API key the server runs in **demo mode** and returns a local SVG mock
 | `LEAD_WEBHOOK_URL` | | Every lead is POSTed here as JSON |
 | `MAIL_PREVIEW_DIR` | | Testing: write emails to `.eml` files here instead of sending |
 | `TEST_MODE` | | `1` forces test mode for everyone (see below) |
-| `RENDERS_PER_HOUR`, `RENDERS_PER_DAY` | `6`, `15` | AI renders one visitor (IP) may make |
+| `RENDERS_PER_HOUR`, `RENDERS_PER_DAY` | `10`, `25` | AI renders one visitor (IP) may make |
 | `RENDERS_PER_DAY_TOTAL` | `300` | AI renders the whole site may make per day (ET); the team is emailed at 80% and 100% |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET` | | Cloudflare Turnstile: every render must come from a real browser (recommended in production) |
 | `ORDER_LIMIT_PER_HOUR` | `20` | Order submissions per IP per hour |
