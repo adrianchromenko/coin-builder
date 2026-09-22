@@ -23,7 +23,8 @@
         </div>
       </div>
       <div class="header-actions">
-        <button id="test-toggle" class="test-toggle" type="button" aria-pressed="false" title="Test mode: no AI render, no real payment. Orders are saved as TEST orders.">
+        <!-- Staff only: hidden unless test mode is on (open /?test=1 to turn it on, /test/off to turn it off) -->
+        <button id="test-toggle" class="test-toggle" type="button" aria-pressed="false" hidden title="Test mode: no AI render, no real payment. Orders are saved as TEST orders.">
           <span class="test-toggle-label">Test Mode</span>
           <span class="test-toggle-state">Off</span>
           <span class="test-toggle-track"><span class="test-toggle-knob"></span></span>

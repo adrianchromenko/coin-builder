@@ -103,6 +103,7 @@
     testState.on = !!on;
     testToggle.setAttribute('aria-pressed', testState.on ? 'true' : 'false');
     testToggle.querySelector('.test-toggle-state').textContent = testState.on ? 'On' : 'Off';
+    testToggle.hidden = !testState.on; // customers never see the switch; staff get it once /?test=1 turns test mode on
     $('review-test').hidden = !testState.on;
     if (persist) {
       try { on ? sessionStorage.setItem('cfaTestMode', '1') : sessionStorage.removeItem('cfaTestMode'); } catch (_) {}
