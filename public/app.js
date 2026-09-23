@@ -26,7 +26,7 @@
   };
   // Every AI render is kept as a version: the picture, the proofreading result, and the description it was made from
   const MAX_VERSIONS = 8;
-  const ai = { versions: [], current: null, nextNumber: 1, busy: false, tried: false }; // tried: a render was attempted, so ordering may begin
+  const ai = { versions: [], current: null, nextNumber: 1, busy: false };
   const currentVersion = () => ai.versions.find((v) => v.id === ai.current) || null;
   let busy = false;
   const purposeLabel = () => config.purposes[design.purpose] || PURPOSES[design.purpose] || '';
@@ -142,23 +142,22 @@
       renderVersions();
     }
     const ready = designReady();
-    // The order begins once the coin has been generated (or a render was attempted and failed, so nobody is stuck)
-    const rendered = ai.tried || ai.versions.length > 0;
+    // The order begins only once this exact design has been generated: the render on screen is what gets ordered.
+    // Changing the description after a render brings "Generate This Coin" back until it is rendered again.
+    const rendered = !!currentVersion();
     $('generate-btn').disabled = !ready || ai.busy;
-    $('generate-btn').hidden = rendered && !!currentVersion();
+    $('generate-btn').hidden = rendered;
     $('to-options').hidden = !rendered;
-    $('to-options').disabled = !(ready && order.size);
+    $('to-options').disabled = !(rendered && order.size);
     $('design-hint').textContent = !design.purpose
       ? 'Pick what the coin is for to get started.'
       : !design.front.trim()
         ? 'Describe the front of your coin: what goes on it, and where.'
         : !rendered
-          ? 'Looking good. Tap "Generate This Coin" to see it rendered, then continue to your order.'
+          ? (ai.versions.length ? 'The description changed. Tap "Generate This Coin" to render it again before you order.' : 'Looking good. Tap "Generate This Coin" to see it rendered, then continue to your order.')
           : !order.size
             ? 'Pick a coin size to continue to your order.'
-            : currentVersion()
-              ? 'Happy with it? Continue to your order. Not quite? Change the description or make another version.'
-              : 'Generate the coin again to see this design, or continue to order it as described.';
+            : 'Happy with it? Continue to your order. Not quite? Change the description or make another version.';
   }
   const designSignature = () => JSON.stringify({ ...designPayload(), logo: design.logo ? design.logo.length : 0 });
 
@@ -392,7 +391,6 @@
     if (ai.busy) return;
     if (!designReady()) { toast('Pick what the coin is for and describe the front first.'); return; }
     ai.busy = true;
-    ai.tried = true;
     $('ai-btn').disabled = true;
     $('generate-btn').disabled = true;
     $('generate-btn').textContent = 'Generating…';
@@ -472,6 +470,7 @@
       $('preview-caption').textContent = 'Your AI render appears here.';
     }
     renderVersions();
+    syncDesign(); // without a render on screen, the order has to wait for a new one
   }
 
   const checkState = (v) => (!v.check || !v.check.checked ? 'unchecked' : v.check.ok ? 'ok' : 'warn');
