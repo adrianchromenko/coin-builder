@@ -129,7 +129,7 @@
 
   const designReady = () => !!(design.purpose && design.front.trim());
   function specLine() {
-    return [order.size ? `${order.size}"` : '', purposeLabel(), twoSided() ? 'Front & back' : 'Front', design.logoName ? 'Your logo' : ''].filter(Boolean).join(' · ');
+    return [order.size ? `${order.size}"` : '', purposeLabel(), twoSided() ? 'Front & back' : 'Same both sides', design.logoName ? 'Your logo' : ''].filter(Boolean).join(' · ');
   }
   // A design change means the render on screen no longer matches; earlier versions stay in the strip
   function syncDesign() {
@@ -273,7 +273,7 @@
   function showImage(v) {
     $('preview-empty').hidden = true;
     $('preview-ai').src = v.image;
-    $('preview-ai').alt = `AI version ${v.number} of your coin${v.twoSided ? ', front and back' : ''}`;
+    $('preview-ai').alt = `AI version ${v.number} of your coin${v.twoSided ? ', front and back' : ''}`; // the back is the front again unless it was described
     $('preview-ai').hidden = false;
     document.querySelector('.preview-stage').classList.toggle('wide', !!v.twoSided);
     renderCheck();
@@ -734,7 +734,7 @@
     const edit = (step) => `<button class="link" type="button" data-edit="${step}">Edit</button>`;
     const rows = [
       ['Coin', `<div class="review-coin">${v ? '<img id="review-img" alt="Your coin">' : ''}<ul>` +
-               [purposeLabel(), `Front: ${design.front.trim()}`, twoSided() ? `Back: ${design.back.trim()}` : 'Back: to be arranged with our team',
+               [purposeLabel(), `Front: ${design.front.trim()}`, twoSided() ? `Back: ${design.back.trim()}` : 'Back: same design as the front',
                 design.style.trim() ? `Style: ${design.style.trim()}` : '', design.logoName ? `Logo: ${design.logoName}` : '',
                 v ? `AI version ${v.number} selected` : 'No AI render: our artists draw it from your description'].filter(Boolean).map((t) => `<li>${escapeHtml(t)}</li>`).join('') +
                `</ul></div>${edit('design')}`],

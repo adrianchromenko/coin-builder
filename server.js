@@ -257,7 +257,8 @@ app.post('/api/orders/:id/paid', (req, res) => {
 });
 
 // The coin as the customer describes it: what it is for, their words for each face, style notes, and an optional logo.
-// Each face is rendered on its own; the front's description is required, the back's optional.
+// Each face is rendered on its own; the front's description is required. An empty back means the back is the
+// same design as the front, so the front render is reused for it and no second render is paid for.
 function describedDesign(body) {
   return {
     purpose: normalizePurpose(body.purpose),
@@ -292,8 +293,8 @@ app.post('/api/generate', (req, res) => {
     const logo = req.file ? { buffer: req.file.buffer, mimetype: req.file.mimetype } : null;
     const design = describedDesign(req.body || {});
     if (!design.front) return res.status(400).json({ error: 'Please describe the front of your coin first.' });
-    const twoSided = !!design.back;
-    const sides = [{ sideName: 'front', description: design.front }, ...(twoSided ? [{ sideName: 'back', description: design.back }] : [])];
+    const ownBack = !!design.back; // described separately, so it gets its own render
+    const sides = [{ sideName: 'front', description: design.front }, ...(ownBack ? [{ sideName: 'back', description: design.back }] : [])];
 
     // Every render below this line costs money, so the cheap checks come first.
     // 1. The very same description and logo were rendered recently: hand back that result for free.
@@ -316,20 +317,18 @@ app.post('/api/generate', (req, res) => {
       const started = Date.now();
       const results = await Promise.all(sides.map((side) => provider.generate({ mode: 'described', logo, purpose: design.purpose, style: design.style, ...side })));
       const attempts = results.reduce((n, r) => n + r.attempts, 0);
-      console.log(`[coin-builder] ${provider.name} generated ${twoSided ? 'two-sided ' : ''}described coin (${design.purpose || 'no purpose'}) in ${Date.now() - started}ms, ${attempts} attempt(s), model ${results[0].model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
+      console.log(`[coin-builder] ${provider.name} generated ${ownBack ? 'two-sided ' : 'same-both-sides '}described coin (${design.purpose || 'no purpose'}) in ${Date.now() - started}ms, ${attempts} attempt(s), model ${results[0].model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
 
       // The clean render stays on the server. The browser gets a small, lightly watermarked preview; the download
       // endpoint below hands out a heavily watermarked full-size copy. If watermarking fails, nothing is sent.
-      let image, renderId = null, mimetype = results[0].mimetype;
-      if (twoSided) {
-        const clean = await sideBySide(...results.map((r) => Buffer.from(r.base64, 'base64')));
+      // The finished photo always shows both faces: the back's own render, or the front again when the back was not described.
+      let image, renderId = null, mimetype = results[0].mimetype, composed = false;
+      if (results[0].mimetype === 'image/png' || ownBack) {
+        composed = true;
+        const faces = results.map((r) => Buffer.from(r.base64, 'base64'));
+        const clean = await sideBySide(faces[0], ownBack ? faces[1] : faces[0]);
         mimetype = 'image/png';
         const preview = await watermark(clean, { strength: 'preview', size: 1400 });
-        renderId = saveOriginal(clean);
-        image = `data:image/png;base64,${preview.toString('base64')}`;
-      } else if (mimetype === 'image/png') {
-        const clean = Buffer.from(results[0].base64, 'base64');
-        const preview = await watermark(clean, { strength: 'preview', size: 768 });
         renderId = saveOriginal(clean);
         image = `data:image/png;base64,${preview.toString('base64')}`;
       } else {
@@ -337,11 +336,12 @@ app.post('/api/generate', (req, res) => {
       }
       const response = {
         provider: provider.name,
-        twoSided,
+        twoSided: composed, // the photo shows both faces (the demo provider's single drawing is the exception)
+        sameBack: !ownBack, // the back is the front design again
         image,
         renderId,
         // Proofreading result: which quoted wording matched, how well the logo held up (both sides folded together)
-        check: twoSided ? mergeChecks(results[0].check, results[1].check) : results[0].check,
+        check: ownBack ? mergeChecks(results[0].check, results[1].check) : results[0].check,
         phrases: { front: quotedPhrases(design.front), back: quotedPhrases(design.back) },
         attempts,
       };
