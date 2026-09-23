@@ -15,6 +15,7 @@ const { watermark, saveOriginal, readOriginal } = require('./lib/watermark');
 const { mailConfigured, sendOrderEmail, sendAlertEmail, sendContactEmail, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
 const guard = require('./lib/guard');
 const { sideBySide } = require('./lib/composite');
+const progress = require('./lib/progress');
 const { siteUrl } = require('./lib/site');
 
 const app = express();
@@ -285,9 +286,15 @@ function mergeChecks(front, back) {
   };
 }
 
+// Live stages of a render in flight (see lib/progress.js); the page opens this before posting the render
+app.get('/api/progress/:id', progress.subscribe);
+
 app.post('/api/generate', (req, res) => {
   upload.single('logo')(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.message });
+    const progressId = progress.valid(req.body && req.body.progressId) ? req.body.progressId : null;
+    const report = (event) => { if (progressId) progress.emit(progressId, event); };
+    const finish = (event) => { if (!progressId) return; progress.emit(progressId, event); setTimeout(() => progress.close(progressId), 2000); };
     const logo = req.file ? { buffer: req.file.buffer, mimetype: req.file.mimetype } : null;
     const design = describedDesign(req.body || {});
     if (!design.front) return res.status(400).json({ error: 'Please describe the front of your coin first.' });
@@ -295,25 +302,33 @@ app.post('/api/generate', (req, res) => {
     const sides = [{ sideName: 'front', description: design.front }, ...(ownBack ? [{ sideName: 'back', description: design.back }] : [])];
 
     // Every render below this line costs money, so the cheap checks come first.
-    // 1. The very same description and logo were rendered recently: hand back that result for free.
+    // 1. The very same description and logo were rendered recently: hand back that result for free. Not when the
+    //    customer asked for another version of the same design: a new version has to be a new render.
     const key = guard.fingerprint(logo ? logo.buffer : Buffer.alloc(0), design);
-    const repeat = guard.cached(key);
+    const repeat = req.body.fresh === '1' ? null : guard.cached(key);
     if (repeat) {
       console.log('[coin-builder] repeat render served from cache');
+      finish({ stage: 'done' });
       return res.json(repeat);
     }
     // 2. Real browser? (only when Turnstile is configured)
     if (!(await guard.verifyTurnstile(req.body.turnstile, req.ip))) {
+      finish({ stage: 'failed' });
       return res.status(403).json({ error: 'We could not confirm this request came from a browser. Please reload the page and try again.' });
     }
     // 3. Per-visitor and site-wide limits. From here on the render is counted, so release() must run.
     const gate = guard.admit(req.ip, sides.length);
-    if (!gate.ok) return res.status(gate.status).json({ error: gate.error });
+    if (!gate.ok) { finish({ stage: 'failed' }); return res.status(gate.status).json({ error: gate.error }); }
 
     try {
       const provider = getProvider();
       const started = Date.now();
-      const results = await Promise.all(sides.map((side) => provider.generate({ mode: 'described', logo, purpose: design.purpose, style: design.style, ...side })));
+      report({ stage: 'starting', sides: sides.length });
+      const results = await Promise.all(sides.map((side) => provider.generate({
+        mode: 'described', logo, purpose: design.purpose, style: design.style, ...side,
+        onProgress: (event) => report({ side: side.sideName, ...event }),
+      })));
+      report({ stage: 'finishing' });
       const attempts = results.reduce((n, r) => n + r.attempts, 0);
       console.log(`[coin-builder] ${provider.name} generated ${ownBack ? 'two-sided ' : 'same-both-sides '}described coin (${design.purpose || 'no purpose'}) in ${Date.now() - started}ms, ${attempts} attempt(s), model ${results[0].model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
 
@@ -344,8 +359,10 @@ app.post('/api/generate', (req, res) => {
         attempts,
       };
       if (provider.name !== 'demo') guard.remember(key, response);
+      finish({ stage: 'done' });
       res.json(response);
     } catch (e) {
+      finish({ stage: 'failed' });
       console.error('[coin-builder] generation error:', e.message);
       res.status(502).json({ error: 'Sorry, I could not generate the coin right now. Please try again.' });
     } finally {

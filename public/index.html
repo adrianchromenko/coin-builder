@@ -135,8 +135,9 @@
           </div>
           <img id="preview-ai" class="preview-ai" alt="AI rendered coin" draggable="false" hidden>
           <div id="preview-busy" class="preview-busy" role="status" hidden>
-            <span class="typing"><i></i><i></i><i></i></span>
-            <p>Rendering your coin, then checking the wording… this takes a minute or two.</p>
+            <div class="progress" role="progressbar" aria-label="Generating your coin" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-bar" class="progress-bar"></div></div>
+            <p id="progress-text">Sending your design to the AI…</p>
+            <p id="progress-sub" class="progress-sub">Usually takes one to two minutes.</p>
           </div>
         </div>
         <p id="preview-spec" class="preview-spec"></p>

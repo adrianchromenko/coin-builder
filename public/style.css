@@ -187,6 +187,9 @@ body {
 }
 .preview-busy[hidden] { display: none; }
 .preview-busy p { margin: 0; }
+.progress { width: 100%; max-width: 260px; height: 10px; border-radius: 5px; background: rgba(255,255,255,.18); overflow: hidden; }
+.progress-bar { height: 100%; width: 0; border-radius: 5px; background: var(--orange); transition: width .5s ease-out; }
+.progress-sub { font-size: 12px; opacity: .7; }
 .preview-spec { margin: 2px 0 0; font-family: var(--font-head); font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; color: #e8e8e8; text-align: center; }
 .preview-spec:empty { display: none; }
 .builder[data-step="result"] #ai-btn { display: none; }
@@ -545,7 +548,8 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
   .preview-actions .btn { font-size: 12px; padding: 8px 12px; letter-spacing: 1px; }
   .preview-tabs button { padding: 5px 10px; font-size: 11px; }
   .preview-busy { padding: 6px; }
-  .preview-busy p { display: none; }
+  .preview-busy .progress-sub { display: none; }
+  .preview-busy p { font-size: 12px; }
   .app-header { flex-wrap: wrap; }
   .brand-text h1 { font-size: 18px; }
 }

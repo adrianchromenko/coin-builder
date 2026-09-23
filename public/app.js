@@ -337,6 +337,57 @@
     return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
   }
 
+  // ---------- progress bar ----------
+  // The server reports stages as it reaches them (see lib/progress.js). Within a stage the bar creeps toward that
+  // stage's ceiling on a timer, so it keeps moving during the long AI calls without ever running ahead of the truth.
+  const STAGES = {
+    starting: { from: 2, to: 8, seconds: 4, text: 'Sending your design to the AI…' },
+    rendering: { from: 8, to: 55, seconds: 45, text: 'Rendering your coin…' },
+    checking: { from: 55, to: 75, seconds: 15, text: 'Reading the wording back, letter by letter…' },
+    retrying: { from: 60, to: 88, seconds: 45, text: 'The wording was off, so the AI is drawing it again…' },
+    finishing: { from: 90, to: 97, seconds: 6, text: 'Adding the finishing touches…' },
+    done: { from: 100, to: 100, seconds: 1, text: 'Done!' },
+  };
+  const progress = { sides: new Map(), overall: null, timer: null, source: null };
+  function progressReset() {
+    progress.sides.clear(); progress.overall = null;
+    progressSet('starting');
+    progressTick();
+    clearInterval(progress.timer);
+    progress.timer = setInterval(progressTick, 250);
+  }
+  function progressSet(stage, side) {
+    const s = STAGES[stage] || STAGES.starting;
+    const entry = { stage, from: s.from, to: s.to, seconds: s.seconds, started: Date.now() };
+    if (side) progress.sides.set(side, entry); else progress.overall = entry;
+    if (stage === 'checking' && progress.sides.size > 1) $('progress-text').textContent = 'Reading the wording on both sides, letter by letter…';
+    else if (stage === 'rendering' && progress.sides.size > 1) $('progress-text').textContent = 'Rendering the front and the back…';
+    else $('progress-text').textContent = s.text;
+  }
+  const stagePct = (e) => e.from + (e.to - e.from) * (1 - Math.exp(-((Date.now() - e.started) / 1000) / (e.seconds / 2)));
+  function progressTick() {
+    // Once the sides report in, they carry the bar; before that (and at the end) the overall stage does
+    const entries = progress.overall && ['finishing', 'done'].includes(progress.overall.stage) ? [progress.overall] : progress.sides.size ? [...progress.sides.values()] : [progress.overall];
+    const pct = Math.round(entries.reduce((n, e) => n + stagePct(e), 0) / entries.length);
+    $('progress-bar').style.width = pct + '%';
+    $('progress-bar').parentElement.setAttribute('aria-valuenow', pct);
+  }
+  function progressListen(id) {
+    if (!('EventSource' in window)) return null;
+    const es = new EventSource('/api/progress/' + id);
+    es.onmessage = (m) => {
+      let ev; try { ev = JSON.parse(m.data); } catch (_) { return; }
+      if (ev.stage === 'failed') return;
+      progressSet(ev.stage, ev.side);
+      progressTick();
+    };
+    return es;
+  }
+  function progressEnd() {
+    clearInterval(progress.timer);
+    if (progress.source) { progress.source.close(); progress.source = null; }
+  }
+
   async function aiRender() {
     if (ai.busy) return;
     if (!designReady()) { toast('Pick what the coin is for and describe the front first.'); return; }
@@ -346,26 +397,35 @@
     $('generate-btn').disabled = true;
     $('generate-btn').textContent = 'Generating…';
     $('preview-busy').hidden = false;
+    progressReset();
     const snapshot = { ...designPayload(), logo: design.logo };
     const signature = designSignature();
+    // Another version of a design already rendered: tell the server not to hand back the cached one
+    const fresh = ai.versions.some((v) => v.signature === signature);
     try {
       let data;
       if (isTest()) {
-        await sleep(600);
+        for (const stage of ['rendering', 'checking', 'finishing']) { progressSet(stage); progressTick(); await sleep(700); }
         data = { image: testRenderSvg(snapshot.front, 'FRONT'), renderId: null, twoSided: false, check: null, provider: 'test' };
       } else {
         const token = await turnstileToken();
+        const progressId = (Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^a-z0-9]/g, '');
+        progress.source = progressListen(progressId);
         const form = new FormData();
         if (snapshot.logo) form.append('logo', await (await fetch(snapshot.logo)).blob(), 'logo.png');
         form.append('purpose', snapshot.purpose);
         form.append('front', snapshot.front);
         form.append('back', snapshot.back);
         form.append('style', snapshot.style);
+        form.append('progressId', progressId);
+        if (fresh) form.append('fresh', '1');
         if (token) form.append('turnstile', token);
         const res = await fetch('/api/generate', { method: 'POST', body: form });
         data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || 'Render failed');
       }
+      progressSet('done'); progressTick();
+      await sleep(350); // let the bar reach the end before the coin replaces it
       const version = { id: 'v' + ai.nextNumber, number: ai.nextNumber++, image: data.image, renderId: data.renderId || null, check: data.check || null, demo: data.provider === 'demo' || data.provider === 'test', twoSided: !!data.twoSided, design: snapshot, signature };
       ai.versions.push(version);
       // Keep the strip (and the browser's memory) bounded: drop the oldest version that is not on screen
@@ -376,6 +436,7 @@
     } catch (e) {
       toast(escapeHtml(e.message || 'Sorry, the AI render failed. Please try again.'), 5000);
     } finally {
+      progressEnd();
       ai.busy = false;
       $('ai-btn').disabled = false;
       $('generate-btn').textContent = 'Generate This Coin';
