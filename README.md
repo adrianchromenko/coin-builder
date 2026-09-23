@@ -1,8 +1,8 @@
 # Coin Builder
 
-A chat-style web app that turns an uploaded image into an AI-rendered custom coin.
+A web app where a customer describes a custom coin in plain words, sees it AI-rendered, and orders it.
 
-The bot asks for an image, lets the customer pick a metal finish, takes optional notes, generates the coin, and then offers to order it or edit it. Ordering collects quantity and size, then a single in-chat form for contact, billing and shipping details, saves the order under `orders/`, and hands off to Stripe Checkout when pricing and a Stripe key are configured.
+The customer says what the coin is for (celebration, corporate branding, anniversary, event souvenir), optionally uploads a logo, describes the front and (optionally) the back in their own words, adds style notes, and picks a size. The AI renders it, the wording is proofread, and a standing note says AI can misspell things with a **Contact Us to Fix My Design** popup that emails the designers. Ordering collects quantity, then one form for contact, billing and shipping details, saves the order under `orders/`, and hands off to Stripe Checkout when pricing and a Stripe key are configured.
 
 ## Run locally
 
@@ -43,22 +43,19 @@ Without an API key the server runs in **demo mode** and returns a local SVG mock
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET` | | Cloudflare Turnstile: every render must come from a real browser (recommended in production) |
 | `ORDER_LIMIT_PER_HOUR` | `20` | Order submissions per IP per hour |
 | `PORT` | `3000` | HTTP port |
-| `RATE_LIMIT_PER_HOUR` | `20` | Generations per IP per hour |
 
 ## How a render is made
 
 Image models are good at metal and bad at spelling, so the pipeline is built around not trusting them:
 
-1. The browser draws a clean **art proof** of the layout (solid, high-contrast lettering) and sends that, not the soft on-screen preview.
-   The layout includes the optional **center background**: an enamel color, a struck texture (sandblast, sunburst, diamond cut), or both, which renders as translucent enamel over the texture.
-2. `lib/prompt.js` builds the prompt on the server from the customer's actual choices. Each line of lettering is quoted, counted and spelled out letter by letter, and the logo is declared off-limits for restyling.
-3. **Shapes.** Besides round, the customer can pick a preset outline (shield, star, hexagon, octagon, square, heart, arrowhead, dog tag) or **Cut to my artwork**, where `public/shapes.js` traces the outline of the front design (logo plus lettering), pads it with a rim and uses that as the die line. Shaped coins put the top and bottom lettering on straight lines inside the outline. The art proof shows the exact outline and the prompt names the shape, so the render follows it. The quote form calls all of these "Odd Shaped"; orders record which one.
-4. A coin can have a **back**: the customer opens the Back tab and designs it like the front (its own artwork, lettering, background and rim; metal, shape, size and add-ons are for the whole coin). Each side is rendered on its own, at full resolution and with its own proofreading, and `lib/composite.js` then puts the two photos side by side, front on the left. A two-sided render spends two renders of the daily budget.
-5. `lib/providers.js` renders with the best model available, plus a couple of photos from `references/` for style. Only photos of finished coins belong in that folder; anything else is shown to the model as "a coin we made".
-6. `lib/verify.js` **proofreads the result**: a vision model reads the lettering off the render alone, character by character, twice, and a second pass compares the logo with the art proof. A wrong render is redone once with specific feedback; the better attempt is returned with its report.
-7. The customer sees a green "Wording checked" or an amber "not quite right" note that quotes what the AI actually wrote. Every render is kept as a **version** under the coin; picking an older version also brings back the design it was made from, so the picture and the order always match.
+1. The customer's answers (purpose, front and back descriptions, style notes) become the prompt in `lib/prompt.js` (`buildDescribedPrompt`). Anything the customer put in **double quotes** is treated as exact lettering: it is quoted, counted and spelled out letter by letter, and the prompt forbids any other wording. The logo, when given, is the first input image and declared off-limits for restyling. A metal finish named in the style notes also picks matching factory photos from `references/` for realism.
+2. A **back** described by the customer is rendered on its own, at full resolution and with its own proofreading, and `lib/composite.js` puts the two photos side by side, front on the left. A two-sided render spends two renders of the daily budget.
+3. `lib/providers.js` renders with the best model available (image edits when there is a logo or reference photos, plain generation otherwise).
+4. `lib/verify.js` **proofreads the result**: a vision model reads the lettering off the render alone, character by character, twice, and every quoted phrase must come back in both readings; a second pass compares the logo with the uploaded artwork. A wrong render is redone once with specific feedback; the better attempt is returned with its report.
+5. The customer sees a green "Wording checked" or an amber "not quite right" note that quotes what the AI actually wrote, always followed by the note that AI can misspell wording and the **Contact Us to Fix My Design** button (`/api/contact`: the message, the design in their words and the latest render go to `ORDER_NOTIFY_TO`, and the lead is saved). Every render is kept as a **version** under the coin; picking an older version also brings back the description it was made from, so the picture and the order always match.
+6. **Nothing clean leaves the server.** `lib/watermark.js` keeps the original in `renders/` (git-ignored, swept after `RENDER_KEEP_DAYS`) and gives the browser only a small, lightly watermarked preview. When a customer orders an AI version, the order gets the clean original from the server's own copy. Right-click, long-press and drag are blocked on coin images, but that only stops casual saving; the watermark is what actually protects the artwork, because a screenshot is always possible.
 
-8. **Nothing clean leaves the server.** `lib/watermark.js` keeps the original in `renders/` (git-ignored, swept after `RENDER_KEEP_DAYS`) and gives the browser only a small, lightly watermarked preview. The Download button fetches a full-size, heavily watermarked copy. When a customer orders an AI version, the order gets the clean original from the server's own copy. Right-click, long-press and drag are blocked on coin images, but that only stops casual saving; the watermark is what actually protects the artwork, because a screenshot is always possible.
+The earlier option-based builder (finish, color, shape, rim, background, per-side layout engine) is in git history up to commit `17bc279` if it is ever wanted back.
 
 ### Keeping the OpenAI bill in check
 
@@ -73,13 +70,13 @@ The proofreader reads the render without seeing the art proof on purpose. When i
 
 ## Test mode
 
-Click the **Test Mode** switch in the header (it turns yellow when on) to walk through the order flow without rendering a coin or taking payment. You can also open `/test` or `/?test=1`, or type **test mode** into the chat. Switching it does not clear the chat, so you can flip it on right before placing an order. It stays on for that browser tab until you switch it off, open `/test/off`, or type **test mode off**.
+Open `/test` or `/?test=1` to turn test mode on for that browser tab (the header switch then appears; `/test/off` turns it off). Switching it does not clear the form, so you can flip it on right before placing an order.
 
 In test mode:
 
-- The image upload is optional (a **Skip Image** button goes straight to the finish picker).
-- No image is sent to the AI provider; a placeholder coin marked TEST is shown instead.
-- The order flow runs as normal: quantity, size, then one form for contact details, billing address and shipping address, then review.
+- Nothing is sent to the AI provider; a placeholder coin marked TEST RENDER is shown instead.
+- The design email and the "fix my design" message are saved as leads but not sent.
+- The order flow runs as normal: quantity, then one form for contact details, billing address and shipping address, then review.
 - Orders are saved to `orders/` with a `TEST-` id and `"status": "test"`. Stripe Checkout and `ORDER_WEBHOOK_URL` are never called.
 - After the order is saved a **test checkout popup** opens: order summary, card form, Pay button, success screen. Use `4242 4242 4242 4242`, any future expiry, any CVC. Nothing is charged and the card number never leaves the browser; only the last four digits are saved with the order, which moves to `"status": "test_paid"`. When no `PRICE_TABLE` is set a sample price is shown.
 

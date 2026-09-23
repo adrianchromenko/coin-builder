@@ -3,99 +3,40 @@
 
   const $ = (id) => document.getElementById(id);
 
-  // Finish, color, shape and add-on choices match the quote form at coinsforanything.com/quote
-  const FINISHES = [
-    { key: 'antique-brass', label: 'Antique Brass', colors: ['#cdb26a', '#8c6d2c', '#3f2f12'] },
-    { key: 'antique-copper', label: 'Antique Copper', colors: ['#c98f6b', '#8a4a26', '#3d1f10'] },
-    { key: 'shiny-copper', label: 'Shiny Copper', colors: ['#f2b58c', '#b8622e', '#6e3416'] },
-    { key: 'antique-gold', label: 'Antique Gold', colors: ['#d9c27a', '#9a7a2a', '#4a3810'] },
-    { key: 'shiny-gold', label: 'Shiny Gold', colors: ['#f8e27a', '#c9971c', '#7a5510'] },
-    { key: 'satin-gold', label: 'Satin Gold', colors: ['#ead79a', '#c4a550', '#8a6c28'] },
-    { key: 'antique-silver', label: 'Antique Silver', colors: ['#d7d9dc', '#8f949a', '#44484d'] },
-    { key: 'shiny-silver', label: 'Shiny Silver', colors: ['#f4f4f4', '#b9bcc2', '#6b6f75'] },
-    { key: 'satin-silver', label: 'Satin Silver', colors: ['#e3e4e6', '#b4b7bb', '#7d8186'] },
-    { key: 'shiny-nickel', label: 'Shiny Nickel', colors: ['#ecebe6', '#aeada6', '#62615b'] },
-    { key: 'satin-nickel', label: 'Satin Nickel', colors: ['#d9d8d2', '#a6a59e', '#706f69'] },
-    { key: 'black-nickel', label: 'Black Nickel', colors: ['#8a8f96', '#3f444b', '#15181c'] },
-  ];
-  const DEFAULT_FINISH = 'shiny-gold';
-  const COLORS = { 'color-one': 'Unlimited color, one side', 'color-both': 'Unlimited color, both sides', none: 'No color' };
-  // Round plus the preset outlines in shapes.js, plus "cut to my artwork" (the outline is traced from the front design)
-  const SHAPES = { round: 'Round', artwork: 'Cut to my artwork' };
-  for (const [k, v] of Object.entries(window.CoinShapes.PRESETS)) SHAPES[k] = v.label;
-  // Center background: enamel colors a mint would stock, and textures that are struck into the metal.
-  // Color and texture combine: translucent enamel over a textured field, so the texture shows through.
-  const BG_COLORS = [
-    { name: 'Black', hex: '#111111' }, { name: 'Navy', hex: '#14284B' }, { name: 'Royal Blue', hex: '#1F4FA3' }, { name: 'Sky Blue', hex: '#4A90D9' },
-    { name: 'Red', hex: '#B71C1C' }, { name: 'Maroon', hex: '#6D1220' }, { name: 'Forest Green', hex: '#1E5631' }, { name: 'Kelly Green', hex: '#2E8B3D' },
-    { name: 'Yellow', hex: '#F2C200' }, { name: 'Orange', hex: '#E8730C' }, { name: 'Purple', hex: '#4B2A7B' }, { name: 'White', hex: '#F2F2EE' },
-  ];
-  const BG_TEXTURES = { smooth: 'Smooth', sandblast: 'Sandblast', sunburst: 'Sunburst', diamond: 'Diamond Cut' };
-  const bgColorName = (hex) => { const c = BG_COLORS.find((x) => x.hex.toLowerCase() === String(hex).toLowerCase()); return c ? c.name : 'Custom color'; };
-  const hasBackground = (f = side()) => !!(f.bgColor || f.bgTexture !== 'smooth');
-  const backgroundLabel = (f = side()) => (!hasBackground(f) ? '' : f.bgColor && f.bgTexture !== 'smooth'
-    ? `Translucent ${bgColorName(f.bgColor).toLowerCase()} over ${BG_TEXTURES[f.bgTexture].toLowerCase()}`
-    : f.bgColor ? `${bgColorName(f.bgColor)} enamel background` : `${BG_TEXTURES[f.bgTexture]} background`);
-  const COLOR_SHORT = { 'color-one': 'Color, one side', 'color-both': 'Color, both sides', none: 'No color' };
-  // Add-ons with a `group` are the one-side / both-sides versions of the same thing (pick one or neither)
-  const ADDONS = [
-    { key: 'epoxy-one', label: 'Epoxy Dome, One Side', group: 'epoxy', option: 'One Side', price: '+35¢' },
-    { key: 'epoxy-both', label: 'Epoxy Dome, Both Sides', group: 'epoxy', option: 'Both Sides', price: '+40¢' },
-    { key: 'two-tone-one', label: '2-Tone Plating, One Side', group: 'two-tone', option: 'One Side', price: '+65¢' },
-    { key: 'two-tone-both', label: '2-Tone Plating, Both Sides', group: 'two-tone', option: 'Both Sides', price: '+$1.30' },
-    { key: 'bottle-opener', label: 'Bottle Opener', desc: 'A working opener cut into the coin' },
-    { key: 'key-chain', label: 'Key Chain', desc: 'Loop and split ring at the top', price: '+75¢ each · $75 set-up' },
-    { key: 'numbering', label: 'Numbering', desc: 'Every coin individually numbered', price: '+35¢ each' },
-    { key: 'edge-text', label: 'Rolling Edge Text', desc: 'Your words engraved around the edge' },
-    { key: 'reeded-edge', label: 'Reeded Edge', group: 'edge', price: 'extra' },
-  ];
-  // Groups listed here get a None / One Side / Both Sides row on the order step. 2-tone plating and the reeded
-  // edge are chosen on the design step instead, because they change how the coin looks and is rendered.
-  const ADDON_GROUPS = {
-    epoxy: { label: 'Epoxy Dome', desc: 'A clear, glossy dome that protects the artwork' },
-  };
-  const TWO_TONE = { '': '', 'two-tone-one': '2-tone plating, one side', 'two-tone-both': '2-tone plating, both sides' };
-  // The second metal of a 2-tone coin: whatever contrasts with the main finish (matches lib/prompt.js)
-  const contrastFinish = (finish) => (/gold|brass|copper/.test(finish) ? 'shiny-silver' : 'shiny-gold');
+  // The customer tells us what the coin is for and describes each face in their own words. There are no option
+  // grids: the server turns the description into the AI prompt, and the artists finish the coin before production.
+  const PURPOSES = { celebration: 'Celebration', branding: 'Corporate branding', anniversary: 'Anniversary', souvenir: 'Event souvenir' };
   const SIZES = ['1.5', '1.75', '2', '2.5', '3'];
   const QUANTITIES = [50, 100, 250, 500, 1000];
 
-  const finishOf = (key) => FINISHES.find((f) => f.key === key) || FINISHES.find((f) => f.key === DEFAULT_FINISH);
-  const addonOf = (key) => ADDONS.find((a) => a.key === key);
   const money = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const escapeXml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
 
   // ---------- state ----------
-  const config = { pricing: false, payments: false, testMode: false, provider: '' };
-  // A coin has two faces. Artwork, lettering, background and rim belong to a side; metal, color, shape, size,
-  // 2-tone and edge belong to the whole coin. `side` is the face being edited; the back only counts once `backEnabled`.
-  const newSide = () => ({ logo: null, logoName: '', logoAspect: 1, logoSize: 82, topText: '', bottomText: '', centerText: '', bgColor: '', bgTexture: 'smooth', border: 'plain' });
-  const newDesign = () => ({ finish: DEFAULT_FINISH, color: 'color-one', shape: 'round', twoTone: '', edge: 'smooth', side: 'front', backEnabled: false, front: newSide(), back: newSide() });
+  const config = { pricing: false, payments: false, testMode: false, provider: '', purposes: PURPOSES };
+  const newDesign = () => ({ purpose: '', front: '', back: '', style: '', logo: null, logoName: '' });
   const design = newDesign();
-  const side = () => design[design.side];
-  const twoSided = () => design.backEnabled;
-  const cloneDesign = () => ({ ...design, front: { ...design.front }, back: { ...design.back } });
-  const assignDesign = (src) => { Object.assign(design, src); design.front = { ...src.front }; design.back = { ...src.back }; };
   const order = {
-    quantity: null, size: null, estimate: null, notes: '', addons: [],
+    quantity: null, size: null, estimate: null, notes: '',
     name: '', email: '', phone: '', company: '',
     billStreet: '', billCityStateZip: '', billCountry: 'United States',
     street: '', cityStateZip: '', country: 'United States',
   };
-  // Every AI render is kept as a version: the picture, the proofreading result, and the design that produced it
+  // Every AI render is kept as a version: the picture, the proofreading result, and the description it was made from
   const MAX_VERSIONS = 8;
-  const ai = { versions: [], current: null, nextNumber: 1, view: 'layout', busy: false };
+  const ai = { versions: [], current: null, nextNumber: 1, busy: false };
   const currentVersion = () => ai.versions.find((v) => v.id === ai.current) || null;
   let busy = false;
-  // Everything that goes on the order as an add-on: the order-step add-ons plus the design-step choices that are priced as add-ons
-  const allAddons = () => [...order.addons, design.twoTone, design.edge === 'reeded' ? 'reeded-edge' : ''].filter(Boolean);
-  // One side of the coin as the server records it on orders and leads
-  const sidePayload = (f) => ({ topText: f.topText, bottomText: f.bottomText, centerText: f.centerText, border: f.border, bgColor: f.bgColor, bgColorName: f.bgColor ? bgColorName(f.bgColor) : '', bgTexture: f.bgTexture, logoName: f.logoName });
+  const purposeLabel = () => config.purposes[design.purpose] || PURPOSES[design.purpose] || '';
+  const twoSided = () => !!design.back.trim();
+  // The design as the server records it on renders, orders and leads
+  const designPayload = () => ({ purpose: design.purpose, front: design.front.trim(), back: design.back.trim(), style: design.style.trim(), logoName: design.logoName });
 
   const configReady = fetch('/api/config').then((r) => r.json()).then((c) => {
     Object.assign(config, c);
+    if (c.purposes && Object.keys(c.purposes).length) { config.purposes = c.purposes; buildPurposes(); }
     if (c.testMode) setTestMode(true, { persist: false });
     updateOrderButton();
   }).catch(() => {});
@@ -112,7 +53,7 @@
 
   // ---------- test mode ----------
   // ?test=1 (sticks for this tab), the header switch, or TEST_MODE=1 on the server.
-  // In test mode: no AI call (your layout is used as the coin), orders are saved as
+  // In test mode: no AI call (a placeholder stands in for the render), orders are saved as
   // TEST- orders, and payment goes through the in-page test checkout instead of Stripe.
   const testState = { on: false };
   const isTest = () => testState.on;
@@ -147,557 +88,198 @@
       : 'Test mode is off. Coins render for real and orders go to the Coins for Anything team.');
   });
 
-  // ---------- coin SVG (the "drop it in place" preview) ----------
-  // ---------- lettering layout ----------
-  // Everything here works in the coin's own 1024 x 1024 coordinate space, centered on (512, 512).
-  // Lettering is MEASURED with the real font, never estimated: a "W" is half again as wide as an "I",
-  // so guessing from the character count is what used to push long wording off its path or into the inner ring.
-  const FONT = "Georgia, 'Times New Roman', serif";
-  const CAP = 0.69;      // height of the capitals as a fraction of the font size
-  const TRACK = 0.06;    // normal letter-spacing, in em
-  const SAFETY = 1.04;   // browsers differ a little in how they space bold serif type
-  const measureCtx = document.createElement('canvas').getContext('2d');
-  function textWidth(text, size, track = TRACK) {
-    measureCtx.font = `bold ${size}px ${FONT}`;
-    return (measureCtx.measureText(text).width + text.length * size * track) * SAFETY;
-  }
-  const deg = (rad) => (rad * 180) / Math.PI;
-
-  // The two legends share one ring around the coin (radius 352 to 400).
-  const RIM = { mid: 376, max: 54, min: 18, maxSpan: 210, gap: 22, shortSpan: 62, maxTrack: 0.3 };
-  function rimLegend(text, size, outward) {
-    // Letters stand on the baseline: growing outward for the top legend, inward for the bottom one,
-    // so both read left to right. Either way the lettering is centered in the ring.
-    const r = outward ? RIM.mid - (size * CAP) / 2 : RIM.mid + (size * CAP) / 2;
-    return { text, size, r, track: TRACK, span: deg(textWidth(text, size) / r) };
-  }
-  function layoutRim(top, bottom) {
-    const fits = (size) => {
-      const t = top ? rimLegend(top, size, true) : null;
-      const b = bottom ? rimLegend(bottom, size, false) : null;
-      const total = (t ? t.span : 0) + (b ? b.span : 0);
-      const room = t && b ? 360 - 2 * RIM.gap : RIM.maxSpan;
-      return total <= room && (!t || t.span <= RIM.maxSpan) && (!b || b.span <= RIM.maxSpan) ? { t, b } : null;
-    };
-    // One size for both legends, as on a real coin: the largest that lets them share the ring
-    let size = RIM.max, found = null;
-    for (; size >= RIM.min; size -= 0.5) { found = fits(size); if (found) break; }
-    if (!found) found = fits(RIM.min) || { t: top ? rimLegend(top, RIM.min, true) : null, b: bottom ? rimLegend(bottom, RIM.min, false) : null };
-    let { t, b } = found;
-
-    // A short legend next to a long one may be a little larger, as long as they still look like a pair
-    if (t && b) {
-      const grow = (short, long, outward) => {
-        let best = short;
-        for (let sz = short.size + 0.5; sz <= Math.min(RIM.max, long.size * 1.2); sz += 0.5) {
-          const c = rimLegend(short.text, sz, outward);
-          if (c.span + long.span > 360 - 2 * RIM.gap || c.span > long.span) break;
-          best = c;
-        }
-        return best;
-      };
-      if (t.span < b.span) t = grow(t, b, true); else if (b.span < t.span) b = grow(b, t, false);
-    }
-    // Very short wording ("EST. 1775") is opened up with wider letter-spacing so it holds its place on the ring
-    for (const l of [t, b]) {
-      if (!l || l.text.length < 2 || l.span >= RIM.shortSpan) continue;
-      const extraPx = ((RIM.shortSpan - l.span) * Math.PI / 180) * l.r;
-      l.track = Math.min(RIM.maxTrack, TRACK + extraPx / (l.text.length * l.size * SAFETY));
-      l.span = deg(textWidth(l.text, l.size, l.track) / l.r);
-    }
-    // Separator dots sit in the middle of the two gaps between the legends
-    const dots = t && b ? [1, -1].map((side) => {
-      const a = (side * ((t.span / 2) + (180 - b.span / 2)) / 2) * Math.PI / 180;
-      return { x: 512 + RIM.mid * Math.sin(a), y: 512 - RIM.mid * Math.cos(a) };
-    }) : [];
-    return { top: t, bottom: b, dots };
-  }
-
-  // Best place to break wording into two balanced lines, or null if it is a single word
-  function splitBalanced(text) {
-    const words = text.split(' ');
-    if (words.length < 2) return null;
-    let best = null;
-    for (let i = 1; i < words.length; i++) {
-      const lines = [words.slice(0, i).join(' '), words.slice(i).join(' ')];
-      const widest = Math.max(textWidth(lines[0], 40), textWidth(lines[1], 40));
-      if (!best || widest < best.widest) best = { lines, widest, firstLineWords: i };
-    }
-    return best;
-  }
-
-  // The middle of the coin: a logo, straight lettering, or the logo with lettering under it, inside a circle of
-  // radius R. A circle is narrower away from its middle, so every line is checked against the chord at ITS height.
-  function layoutCenter(text, hasLogo, aspect, scale, R) {
-    const LINE = 1.22; // line pitch, in font sizes
-    const inCircle = (halfW, y0, y1) => halfW * halfW + Math.max(Math.abs(y0 - 512), Math.abs(y1 - 512)) ** 2 <= R * R;
-    const options = [];
-    if (text) {
-      options.push({ lines: [text], firstLineWords: 0 });
-      const two = splitBalanced(text);
-      if (two) options.push({ lines: two.lines, firstLineWords: two.firstLineWords });
-    }
-    const blockOf = (lines, size) => ({ h: (lines.length - 1) * size * LINE + size * CAP, widths: lines.map((l) => textWidth(l, size)) });
-    const placeLines = (lines, size, widths, topY) => lines.map((t, i) => ({ text: t, size, w: widths[i], y: topY + i * size * LINE + size * CAP }));
-    const linesFit = (lines, size, widths, topY) => lines.every((_, i) => inCircle(widths[i] / 2, topY + i * size * LINE, topY + i * size * LINE + size * CAP));
-    // The largest logo box of this shape whose corners stay inside the circle when its middle is `cy`
-    const logoAlone = { w: (2 * R * aspect) / Math.sqrt(1 + aspect * aspect) * 0.96, h: (2 * R) / Math.sqrt(1 + aspect * aspect) * 0.96 };
-
-    if (!text) {
-      return { logo: hasLogo ? { w: logoAlone.w * scale, h: logoAlone.h * scale, cy: 512 } : null, lines: [], size: 0, firstLineWords: 0 };
-    }
-
-    if (!hasLogo) {
-      // Lettering on its own, centered. Two lines only win when they are clearly bigger than one.
-      const fitted = options.map((o) => {
-        for (let size = o.lines.length === 1 ? 64 : 56; size >= 16; size -= 1) {
-          const b = blockOf(o.lines, size);
-          if (linesFit(o.lines, size, b.widths, 512 - b.h / 2)) return { ...o, size, b };
-        }
-        const b = blockOf(o.lines, 16);
-        return { ...o, size: 16, b };
-      });
-      const pick = fitted[1] && fitted[1].size > fitted[0].size * 1.3 ? fitted[1] : fitted[0];
-      return { logo: null, lines: placeLines(pick.lines, pick.size, pick.b.widths, 512 - pick.b.h / 2), size: pick.size, firstLineWords: pick.firstLineWords };
-    }
-
-    // Logo with lettering under it, stacked and centered as one block. Bigger lettering costs logo size and the
-    // other way round, so every combination is scored and the best balance wins.
-    let best = null;
-    for (const o of options) {
-      for (let size = 46; size >= 16; size -= 1) {
-        const b = blockOf(o.lines, size);
-        const gap = size * 0.55;
-        const stackFits = (h) => {
-          const w = h * aspect, total = h + gap + b.h, top = 512 - total / 2;
-          return inCircle(w / 2, top, top + h) && linesFit(o.lines, size, b.widths, top + h + gap);
-        };
-        let lo = 0, hi = logoAlone.h;
-        for (let i = 0; i < 18; i++) { const mid = (lo + hi) / 2; if (stackFits(mid)) lo = mid; else hi = mid; }
-        if (lo < 24) continue; // no room left for a logo at this lettering size
-        const score = Math.sqrt((lo * lo * aspect) / (logoAlone.w * logoAlone.h)) * 0.6 + (size / 46) * 0.4 - (o.lines.length - 1) * 0.02;
-        if (!best || score > best.score) best = { ...o, size, b, gap, h: lo, score };
-      }
-    }
-    if (!best) { // pathological wording: fall back to the smallest lettering and whatever logo fits
-      const o = options[options.length - 1], b = blockOf(o.lines, 16);
-      best = { ...o, size: 16, b, gap: 9, h: 24 };
-    }
-    const h = best.h * scale, w = h * aspect;
-    const total = h + best.gap + best.b.h, top = 512 - total / 2;
-    return { logo: { w, h, cy: top + h / 2 }, lines: placeLines(best.lines, best.size, best.b.widths, top + h + best.gap), size: best.size, firstLineWords: best.firstLineWords };
-  }
-
-  // What the last drawn coin looked like: the AI prompt and the "small lettering" hint read it
-  let lastLayout = null;
-
-  // The decorative border just inside the rim, drawn along any outline (`d` is SVG path data)
-  function borderMarkup(d, hi, lo, border) {
-    switch (border) {
-      case 'rope':
-        return `<path d="${d}" fill="none" stroke="${lo}" stroke-width="12" stroke-dasharray="16 9" stroke-linecap="round" opacity=".85"/>` +
-               `<path d="${d}" fill="none" stroke="${hi}" stroke-width="4" stroke-dasharray="16 9" stroke-dashoffset="2" stroke-linecap="round" opacity=".7"/>`;
-      case 'beads':
-        return `<path d="${d}" fill="none" stroke="${lo}" stroke-width="14" stroke-dasharray="0 24" stroke-linecap="round" opacity=".9"/>` +
-               `<path d="${d}" fill="none" stroke="${hi}" stroke-width="6" stroke-dasharray="0 24" stroke-dashoffset="1" stroke-linecap="round" opacity=".8"/>`;
-      case 'stars': {
-        const stars = Array.from({ length: 90 }, () => '★').join(' '); // more than any outline needs; the path clips the rest
-        return `<path id="starPath" d="${d}" fill="none"/>` +
-               `<text font-family="Georgia, 'Times New Roman', serif" font-size="22" fill="${lo}" opacity=".9"><textPath href="#starPath" startOffset="0">${stars}</textPath></text>`;
-      }
-      default:
-        return `<path d="${d}" fill="none" stroke="${lo}" stroke-width="3" opacity=".6"/>`;
+  // ---------- the design form ----------
+  function buildPurposes() {
+    const el = $('purposes');
+    el.innerHTML = '';
+    for (const [key, label] of Object.entries(config.purposes)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.purpose = key;
+      b.textContent = label;
+      b.className = key === design.purpose ? 'on' : '';
+      el.appendChild(b);
     }
   }
-
-  // Straight lines of lettering above and below, logo and center wording in a circle between them: the layout for
-  // every coin that is not round. Ri is the radius of the content circle, cy its center.
-  function layoutStacked(top, bottom, center, hasLogo, aspect, logoScale, Ri, cy) {
-    const chord = (dy) => 2 * Math.sqrt(Math.max(0, Ri * Ri - dy * dy)) * 0.92;
-    const fit = (text, maxW, maxSize) => { for (let sz = maxSize; sz >= 14; sz -= 1) if (textWidth(text, sz) <= maxW) return sz; return 14; };
-    const dy = Ri * 0.72;
-    let size = 0;
-    if (top || bottom) size = Math.min(top ? fit(top, chord(dy), 50) : 99, bottom ? fit(bottom, chord(dy), 50) : 99);
-    const topLine = top ? { text: top, size, y: cy - dy + (size * CAP) / 2 } : null;
-    const bottomLine = bottom ? { text: bottom, size, y: cy + dy + (size * CAP) / 2 } : null;
-    const topEdge = top ? cy - dy + (size * CAP) / 2 + size * 0.4 : cy - Ri;
-    const botEdge = bottom ? cy + dy - (size * CAP) / 2 - size * 0.4 : cy + Ri;
-    const mid = (topEdge + botEdge) / 2;
-    const Rm = Math.max(40, Math.min((botEdge - topEdge) / 2, Ri * 0.95));
-    const c = layoutCenter(center, hasLogo, aspect, logoScale, Rm); // laid out around (512, 512)
-    const shift = mid - 512;
-    return {
-      rim: { top: topLine, bottom: bottomLine, dots: [] },
-      center: { logo: c.logo ? { ...c.logo, cy: c.logo.cy + shift } : null, lines: c.lines.map((l) => ({ ...l, y: l.y + shift })), size: c.size, firstLineWords: c.firstLineWords },
-    };
+  buildPurposes();
+  $('purposes').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-purpose]');
+    if (!b) return;
+    design.purpose = b.dataset.purpose;
+    for (const x of $('purposes').children) x.classList.toggle('on', x === b);
+    syncDesign();
+  });
+  for (const [id, key] of [['desc-front', 'front'], ['desc-back', 'back'], ['desc-style', 'style']]) {
+    $(id).addEventListener('input', (e) => { design[key] = e.target.value; syncDesign(); });
   }
 
-  // "Cut to my artwork": the front's logo and lettering stacked freely in the middle; the coin is then cut around them.
-  // Returns the same structure as layoutStacked plus `items`, the solid parts the outline is traced from.
-  function layoutArtwork(face, top, bottom, center) {
-    const maxW = 740;
-    const fit = (text, max) => { for (let sz = max; sz >= 14; sz -= 1) if (textWidth(text, sz) <= maxW) return sz; return 14; };
-    const rows = [];
-    if (top) rows.push({ role: 'top', text: top, size: fit(top, 56) });
-    if (face.logo) { const aspect = face.logoAspect || 1; let w = 640 * (face.logoSize / 100); let h = w / aspect; if (h > 560) { h = 560; w = h * aspect; } rows.push({ role: 'logo', w, h }); }
-    if (center) rows.push({ role: 'center', text: center, size: fit(center, 46) });
-    if (bottom) rows.push({ role: 'bottom', text: bottom, size: fit(bottom, 56) });
-    const hOf = (r) => (r.role === 'logo' ? r.h : r.size * CAP);
-    let gap = 26;
-    let H = rows.reduce((t, r) => t + hOf(r), 0) + gap * Math.max(0, rows.length - 1);
-    const f = Math.min(1, 860 / Math.max(1, H));
-    if (f < 1) {
-      for (const r of rows) { if (r.role === 'logo') { r.w *= f; r.h *= f; } else r.size = Math.max(14, r.size * f); }
-      gap *= f;
-      H = rows.reduce((t, r) => t + hOf(r), 0) + gap * Math.max(0, rows.length - 1);
-    }
-    let y = 512 - H / 2;
-    const out = { rim: { top: null, bottom: null, dots: [] }, center: { logo: null, lines: [], size: 0, firstLineWords: 0 }, items: [] };
-    for (const r of rows) {
-      const h = hOf(r);
-      if (r.role === 'logo') {
-        out.center.logo = { w: r.w, h: r.h, cy: y + h / 2 };
-        out.items.push({ type: 'image', src: face.logo, x: 512 - r.w / 2, y, w: r.w, h: r.h });
-      } else {
-        const line = { text: r.text, size: r.size, y: y + h, w: textWidth(r.text, r.size) };
-        out.items.push({ type: 'text', text: r.text, x: 512, y: y + h, font: `bold ${r.size}px ${FONT}`, letterSpacing: `${(r.size * TRACK).toFixed(2)}px` });
-        if (r.role === 'top') out.rim.top = line;
-        else if (r.role === 'bottom') out.rim.bottom = line;
-        else { out.center.lines.push(line); out.center.size = r.size; }
-      }
-      y += h + gap;
-    }
-    return out;
+  const sizeChips = $('size-chips');
+  for (const s of SIZES) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = s + '"'; b.dataset.size = s;
+    b.addEventListener('click', () => setSize(s));
+    sizeChips.appendChild(b);
+  }
+  function setSize(s) {
+    order.size = s;
+    for (const b of sizeChips.children) b.classList.toggle('on', b.dataset.size === s);
+    syncDesign();
+    updateEstimate();
   }
 
-  // The traced outline for "cut to my artwork" is coin-wide and comes from the front. It is computed off-thread of the
-  // preview (it needs the logo decoded), cached by what it was traced from, and the preview redraws when it is ready.
-  const artwork = { key: '', result: null, promise: null };
-  const artworkKey = () => { const f = design.front; return JSON.stringify([f.logo ? f.logo.length + f.logoName : null, f.topText, f.bottomText, f.centerText, f.logoSize]); };
-  const artworkOutline = () => (design.shape === 'artwork' && artwork.key === artworkKey() && artwork.result && artwork.result.ok ? artwork.result : null);
-  function ensureArtwork() {
-    if (design.shape !== 'artwork') return Promise.resolve(null);
-    const key = artworkKey();
-    if (artwork.key === key && artwork.promise) return artwork.promise;
-    artwork.key = key;
-    artwork.result = null;
-    const f = design.front;
-    const clean = (t) => t.replace(/\s+/g, ' ').trim();
-    if (!sideReady(f)) { artwork.result = { ok: false, empty: true }; artwork.promise = Promise.resolve(artwork.result); return artwork.promise; }
-    const lay = layoutArtwork(f, clean(f.topText), clean(f.bottomText), clean(f.centerText));
-    artwork.promise = window.CoinShapes.traceArtwork(lay.items).then((result) => {
-      if (artwork.key !== key) return null; // the design moved on while this was tracing
-      artwork.result = result;
-      renderPreview();
-      syncShapeNote();
-      return result;
-    });
-    return artwork.promise;
-  }
-
-  // `proof: true` draws the art proof sent to the AI: same layout, but with solid, high-contrast lettering.
-  // The soft embossed lettering of the on-screen preview is pretty, but it is exactly what image models misread.
-  function coinSvg({ proof = false, face = side() } = {}) {
-    const [hi, mid, lo] = finishOf(design.finish).colors;
-    // 2-tone: the recessed field inside the border is plated in the contrasting metal
-    const [, fieldMid, fieldLo] = design.twoTone ? finishOf(contrastFinish(design.finish)).colors : [hi, mid, lo];
-    const lum = (hex) => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; };
-    const ink = lum(mid) < 0.38 ? '#F5F5F5' : '#111111';
-    // Lettering keeps the capitalization the customer typed ("CoinsForAnything.com" stays that way)
-    const clean = (t) => t.replace(/\s+/g, ' ').trim();
-    const top = clean(face.topText), bottom = clean(face.bottomText), center = clean(face.centerText);
-    const hasRim = !!(top || bottom);
-
-    // ---- the outline: round, a preset, or the front's traced artwork ----
-    const preset = window.CoinShapes.PRESETS[design.shape];
-    const art = design.shape === 'artwork' ? artworkOutline() : null;
-    const artFront = !!(art && face === design.front);
-    const circlePath = (r, cx = 512, cy = 512) => `M ${cx - r},${cy} A ${r},${r} 0 1,1 ${cx + r},${cy} A ${r},${r} 0 1,1 ${cx - r},${cy}`;
-    let geo; // outer, rim, ring, field, border, bg: path data; Ri / cy: the content circle
-    if (preset) {
-      const P = (k) => window.CoinShapes.presetPath(design.shape, k);
-      geo = { outer: P(1), rim: P(0.936), ring: P(0.877), field: P(0.86), border: P(0.8), bg: P(0.79), Ri: preset.inner * 470, cy: 512 + preset.cy * 470 };
-    } else if (art) {
-      geo = { outer: art.outer, rim: null, ring: null, field: art.inner, border: art.inner, bg: art.inner, Ri: Math.max(120, Math.min(art.bbox.w, art.bbox.h) / 2 - 110), cy: art.bbox.y + art.bbox.h / 2 };
-    } else {
-      // Round: the decorative ring moves out to the edge when there is no rim lettering; the middle gets the room
-      const ringR = hasRim ? 348 : 396;
-      geo = { round: true, ringR, fieldR: ringR - 24, bgR: ringR - 7 };
-    }
-
-    // ---- the layout ----
-    let rim, mid2;
-    if (geo.round) {
-      rim = layoutRim(top, bottom);
-      mid2 = layoutCenter(center, !!face.logo, face.logoAspect || 1, face.logoSize / 100, geo.fieldR);
-    } else if (artFront) {
-      ({ rim, center: mid2 } = layoutArtwork(face, top, bottom, center));
-    } else {
-      ({ rim, center: mid2 } = layoutStacked(top, bottom, center, !!face.logo, face.logoAspect || 1, face.logoSize / 100, geo.Ri, geo.cy));
-    }
-    lastLayout = { rim, center: mid2 };
-
-    // Raised lettering: a light copy nudged up-left under the dark one. The art proof uses flat ink instead.
-    // Lettering over a colored field is drawn as bright metal standing above the enamel (shadow down-right) instead.
-    const fieldInk = face.bgColor ? (lum(face.bgColor) < 0.45 ? '#F5F5F5' : '#111111') : ink;
-    const lettering = (attrs, inner, size, track, onColor = false) => {
-      const common = `${attrs} font-family="${FONT}" font-weight="bold" font-size="${size}" letter-spacing="${(size * track).toFixed(2)}" text-anchor="middle"`;
-      if (proof) return `<text ${common} fill="${onColor ? fieldInk : ink}">${inner}</text>`;
-      return onColor
-        ? `<text ${common} fill="#000" opacity=".55" transform="translate(2.5,3)">${inner}</text><text ${common} fill="${hi}">${inner}</text>`
-        : `<text ${common} fill="${hi}" opacity=".9" transform="translate(-2,-2)">${inner}</text><text ${common} fill="${lo}">${inner}</text>`;
-    };
-
-    // The center background: everything inside the decorative ring, behind the logo and the center lettering
-    const bgCx = 512, bgCy = geo.round ? 512 : geo.cy, bgR = geo.round ? geo.bgR : 470;
-    const texture = () => {
-      const light = proof ? '#fff' : hi, dark = proof ? '#000' : lo;
-      switch (face.bgTexture) {
-        case 'sunburst': {
-          const n = 96, rays = [];
-          for (let i = 0; i < n; i++) {
-            const a0 = (i / n) * 2 * Math.PI, a1 = ((i + 1) / n) * 2 * Math.PI;
-            const pt = (a) => `${(bgCx + bgR * Math.sin(a)).toFixed(1)},${(bgCy - bgR * Math.cos(a)).toFixed(1)}`;
-            rays.push(`<path d="M${bgCx},${bgCy} L${pt(a0)} A${bgR},${bgR} 0 0,1 ${pt(a1)} Z" fill="${i % 2 ? dark : light}" opacity="${i % 2 ? 0.2 : 0.16}"/>`);
-          }
-          return rays.join('');
-        }
-        case 'diamond':
-          return `<rect x="${bgCx - bgR}" y="${bgCy - bgR}" width="${2 * bgR}" height="${2 * bgR}" fill="url(#texDiamond)"/>`;
-        case 'sandblast':
-          return `<rect x="${bgCx - bgR}" y="${bgCy - bgR}" width="${2 * bgR}" height="${2 * bgR}" fill="url(#texSand)"/>`;
-        default:
-          return '';
-      }
-    };
-    const bgEl = (attrs) => (geo.round ? `<circle cx="512" cy="512" r="${geo.bgR}" ${attrs}/>` : `<path d="${geo.bg}" ${attrs}/>`);
-    const bgEdge = geo.round ? `<circle cx="512" cy="512" r="${geo.bgR - 2}" fill="none" stroke="#000" stroke-width="5" opacity=".28"/>` : `<path d="${geo.bg}" fill="none" stroke="#000" stroke-width="5" opacity=".28"/>`;
-    const background = !hasBackground(face) ? '' : `<g clip-path="url(#bgClip)">`
-      + (face.bgColor ? bgEl(`fill="${face.bgColor}"`) : '')
-      + texture()
-      // enamel is glossy: a soft highlight top-left, and a darker edge where it meets the metal wall
-      + (face.bgColor && !proof ? bgEl('fill="url(#enamelGloss)"') : '')
-      + `</g>` + (proof ? '' : bgEdge);
-
-    // A full circle that starts opposite the lettering, so the middle of the wording sits at 50% of the path
-    // and long wording can never run off the end of it (the old half-circle paths cut it off).
-    const legend = (id, l, outward) => {
-      if (!l) return '';
-      const r = l.r.toFixed(1);
-      const d = outward
-        ? `M 512,${512 + l.r} A ${r},${r} 0 1,1 512,${512 - l.r} A ${r},${r} 0 1,1 512,${512 + l.r}`
-        : `M 512,${512 - l.r} A ${r},${r} 0 1,0 512,${512 + l.r} A ${r},${r} 0 1,0 512,${512 - l.r}`;
-      return `<path id="${id}" d="${d}" fill="none"/>` + lettering('', `<textPath href="#${id}" startOffset="50%">${escapeXml(l.text)}</textPath>`, l.size, l.track);
-    };
-    const straight = (l) => (l ? lettering(`x="512" y="${l.y.toFixed(1)}"`, escapeXml(l.text), l.size, TRACK) : '');
-    const dots = (rim.dots || []).map((p) => (proof ? '' : `<circle cx="${(p.x - 1.5).toFixed(1)}" cy="${(p.y - 1.5).toFixed(1)}" r="5.5" fill="${hi}" opacity=".9"/>`) +
-      `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="5.5" fill="${proof ? ink : lo}"/>`).join('');
-
-    const L = mid2.logo;
-    const logoMarkup = L ? `
-      <image href="${face.logo}" x="${(512 - L.w / 2).toFixed(1)}" y="${(L.cy - L.h / 2).toFixed(1)}" width="${L.w.toFixed(1)}" height="${L.h.toFixed(1)}" preserveAspectRatio="xMidYMid meet" clip-path="url(#field)"${design.color === 'none' ? ` filter="url(#mono)" opacity="${proof ? 1 : 0.85}"` : ''}/>` : '';
-    const centerMarkup = mid2.lines.map((l) => lettering(`x="512" y="${l.y.toFixed(1)}"`, escapeXml(l.text), l.size, TRACK, !!face.bgColor)).join('');
-    const empty = !face.logo && !top && !bottom && !center;
-    const emptyY = geo.round ? 512 : geo.cy;
-    const placeholder = empty ? `<text x="512" y="${emptyY - 12}" font-family="${FONT}" font-size="30" letter-spacing="6" text-anchor="middle" fill="${lo}" opacity=".8">YOUR LOGO</text><text x="512" y="${emptyY + 36}" font-family="${FONT}" font-size="22" letter-spacing="4" text-anchor="middle" fill="${lo}" opacity=".6">AND TEXT HERE</text>` : '';
-
-    const defs = `<defs>
-    <radialGradient id="bg" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="#3a3d44"/><stop offset="1" stop-color="#121317"/></radialGradient>
-    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${hi}"/><stop offset=".5" stop-color="${mid}"/><stop offset="1" stop-color="${lo}"/></linearGradient>
-    <linearGradient id="metal2" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${hi}"/><stop offset=".5" stop-color="${mid}"/><stop offset="1" stop-color="${lo}"/></linearGradient>
-    <clipPath id="bgClip">${bgEl('')}</clipPath>
-    <radialGradient id="enamelGloss" cx="34%" cy="28%" r="80%"><stop offset="0" stop-color="#fff" stop-opacity=".30"/><stop offset=".45" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></radialGradient>
-    <pattern id="texDiamond" width="26" height="26" patternUnits="userSpaceOnUse"><path d="M0,0 L26,26 M26,0 L0,26" stroke="${proof ? '#000' : lo}" stroke-width="2.4" opacity=".42"/><path d="M-1,1 L25,27 M25,1 L-1,27" stroke="${proof ? '#fff' : hi}" stroke-width="1.2" opacity=".4"/></pattern>
-    <pattern id="texSand" width="18" height="18" patternUnits="userSpaceOnUse">${[[2, 3], [9, 1], [14, 5], [5, 8], [11, 10], [16, 13], [1, 14], [7, 16], [13, 17], [4, 12], [17, 8], [8, 5]].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 1 : 1.4}" fill="${i % 2 ? (proof ? '#000' : lo) : (proof ? '#fff' : hi)}" opacity=".5"/>`).join('')}</pattern>
-    <radialGradient id="fieldFill" cx="40%" cy="35%" r="75%"><stop offset="0" stop-color="${fieldMid}"/><stop offset="1" stop-color="${fieldLo}"/></radialGradient>
-    <clipPath id="field">${geo.round ? `<circle cx="512" cy="512" r="${geo.fieldR + 8}"/>` : `<path d="${geo.field}"/>`}</clipPath>
-    <filter id="mono"><feColorMatrix type="saturate" values="0"/></filter>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000" flood-opacity=".7"/></filter>
-  </defs>`;
-
-    if (geo.round) {
-      return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
-  ${defs}
-  <rect width="1024" height="1024" fill="url(#bg)"/>
-  <circle cx="512" cy="512" r="470" fill="url(#metal)" filter="url(#shadow)"/>
-  <circle cx="512" cy="512" r="470" fill="none" stroke="${lo}" stroke-width="6" stroke-dasharray="4 6" opacity=".8"/>
-  <circle cx="512" cy="512" r="440" fill="url(#metal2)"/>
-  <circle cx="512" cy="512" r="412" fill="${lo}" opacity=".55"/>
-  <circle cx="512" cy="512" r="404" fill="url(#fieldFill)"/>
-  ${background}
-  ${borderMarkup(circlePath(geo.ringR), hi, lo, face.border)}
-  ${legend('topArc', rim.top, true)}
-  ${legend('bottomArc', rim.bottom, false)}
-  ${dots}
-  ${logoMarkup}
-  ${centerMarkup}
-  ${placeholder}
-  <circle cx="512" cy="512" r="404" fill="none" stroke="${hi}" stroke-width="3" opacity=".6"/>
-</svg>`;
-    }
-
-    // A shaped coin: the same nested metal, ring and field, following the outline. A traced outline is only as big
-    // as the design it was traced from, so it is scaled up to fill the frame like every other coin.
-    let open = '', close = '';
-    if (art) {
-      const k = Math.min(940 / Math.max(art.bbox.w, art.bbox.h), 2.2);
-      const cx = art.bbox.x + art.bbox.w / 2, cy = art.bbox.y + art.bbox.h / 2;
-      open = `<g transform="translate(512 512) scale(${k.toFixed(4)}) translate(${(-cx).toFixed(1)} ${(-cy).toFixed(1)})">`;
-      close = '</g>';
-    }
-    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
-  ${defs}
-  <rect width="1024" height="1024" fill="url(#bg)"/>
-  ${open}
-  <path d="${geo.outer}" fill="url(#metal)" filter="url(#shadow)"/>
-  <path d="${geo.outer}" fill="none" stroke="${lo}" stroke-width="6" stroke-dasharray="4 6" opacity=".8"/>
-  ${geo.rim ? `<path d="${geo.rim}" fill="url(#metal2)"/>` : ''}
-  ${geo.ring ? `<path d="${geo.ring}" fill="${lo}" opacity=".55"/>` : `<path d="${geo.field}" fill="none" stroke="${lo}" stroke-width="18" opacity=".55"/>`}
-  <path d="${geo.field}" fill="url(#fieldFill)"/>
-  ${background}
-  ${borderMarkup(geo.border, hi, lo, face.border)}
-  ${straight(rim.top)}
-  ${straight(rim.bottom)}
-  ${logoMarkup}
-  ${centerMarkup}
-  ${placeholder}
-  <path d="${geo.field}" fill="none" stroke="${hi}" stroke-width="3" opacity=".6"/>
-  ${close}
-</svg>`;
-  }
-
-  function designSignature() {
-    const strip = (f) => ({ ...f, logo: f.logo ? f.logo.length + f.logoName : null });
-    const { side: _tab, ...rest } = design;
-    return JSON.stringify({ ...rest, front: strip(design.front), back: twoSided() ? strip(design.back) : null });
-  }
-
-  let renderTimer = null;
-  function renderPreview() {
-    clearTimeout(renderTimer);
-    renderTimer = setTimeout(() => {
-      $('preview-svg').innerHTML = coinSvg();
-      syncSideBadge();
-      // A design change puts you back on the layout; earlier renders stay in the versions strip
-      const v = currentVersion();
-      if (v && v.signature !== designSignature()) {
-        ai.current = null;
-        setView('layout');
-        $('preview-caption').textContent = 'Design changed. Your earlier AI versions are kept below; tap one to go back to it.';
-        renderVersions();
-      }
-      syncShapeNote();
-      if (design.shape === 'artwork') ensureArtwork();
-      $('preview-spec').textContent = specLine();
-      updateTextHint();
-      syncBackground();
-      updateDesignReady();
-    }, 60);
-  }
-
-  // Lettering shrinks to fit. On a 1.75" coin, 36 units of the 1024-unit layout is lettering about 1 mm tall,
-  // which is near the limit of what reads well in struck metal, so the customer is told before it gets smaller.
-  function updateTextHint() {
-    const l = lastLayout;
-    const small = [];
-    if (l && l.rim.top && l.rim.top.size < 36) small.push('top text');
-    if (l && l.rim.bottom && l.rim.bottom.size < 36) small.push('bottom text');
-    if (l && l.center.lines.length && l.center.size < 30) small.push('center text');
-    const hint = $('text-hint');
-    hint.hidden = !small.length;
-    if (small.length) hint.textContent = `That is a lot of lettering: the ${small.join(' and ')} had to be made small to fit. Shorter wording will be bolder and easier to read on the finished coin.`;
-  }
-
-  // One-line summary of the choices, shown under the coin
+  const designReady = () => !!(design.purpose && design.front.trim());
   function specLine() {
-    return [order.size ? `${order.size}"` : '', finishOf(design.finish).label, TWO_TONE[design.twoTone], COLOR_SHORT[design.color], SHAPES[design.shape], twoSided() ? 'Front & back' : '', backgroundLabel(), design.edge === 'reeded' ? 'Reeded edge' : ''].filter(Boolean).join(' · ');
+    return [order.size ? `${order.size}"` : '', purposeLabel(), twoSided() ? 'Front & back' : 'Front', design.logoName ? 'Your logo' : ''].filter(Boolean).join(' · ');
   }
-
-  const sideReady = (f) => !!(f.logo || f.topText.trim() || f.bottomText.trim() || f.centerText.trim());
-  function designReady() {
-    return sideReady(design.front) && (!twoSided() || sideReady(design.back));
-  }
-  function updateDesignReady() {
+  // A design change means the render on screen no longer matches; earlier versions stay in the strip
+  function syncDesign() {
+    $('preview-spec').textContent = specLine();
+    const v = currentVersion();
+    if (v && v.signature !== designSignature()) {
+      ai.current = null;
+      showEmpty();
+      $('preview-caption').textContent = 'Design changed. Your earlier AI versions are kept below; tap one to go back to it.';
+      renderVersions();
+    }
     const ready = designReady();
     $('to-options').disabled = !(ready && order.size);
-    $('design-hint').textContent = !sideReady(design.front)
-      ? 'Add a logo or some text to the front to get started.'
-      : !ready
-        ? 'Add a logo or some text to the back, or remove the back design.'
+    $('design-hint').textContent = !design.purpose
+      ? 'Pick what the coin is for to get started.'
+      : !design.front.trim()
+        ? 'Describe the front of your coin: what goes on it, and where.'
         : !order.size
-          ? 'Looking good. Pick a coin size above to continue to your order, or tap "Let AI Finish It" for a realistic render.'
-          : 'Looking good. Tap "Let AI Finish It" for a realistic render, or continue to order this design.';
+          ? 'Looking good. Pick a coin size to continue to your order, or tap "Let AI Finish It" to see it rendered.'
+          : 'Looking good. Tap "Let AI Finish It" to see your coin, or continue to order this design.';
   }
+  const designSignature = () => JSON.stringify({ ...designPayload(), logo: design.logo ? design.logo.length : 0 });
 
-  // Rasterize the SVG preview to a PNG data URL (used for AI input, download, and the order record)
-  function rasterize(svg, size = 1024) {
-    return new Promise((resolve, reject) => {
+  // ---------- logo ----------
+  const logoDrop = $('logo-drop');
+  const logoFile = $('logo-file');
+
+  // Logo files rarely arrive coin-ready: they have wide empty margins and JPGs carry a white box that would sit on
+  // the metal like a sticker. This trims the margins and makes a plain background transparent. Only background
+  // connected to the image border is removed, so white areas inside the artwork are left alone.
+  function prepareLogo(dataUrl) {
+    return new Promise((resolve) => {
       const img = new Image();
+      img.onerror = () => resolve(dataUrl);
       img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = size; c.height = size;
-        c.getContext('2d').drawImage(img, 0, 0, size, size);
-        try { resolve(c.toDataURL('image/png')); } catch (e) { reject(e); }
+        try {
+          const scale = Math.min(1, 1200 / Math.max(img.naturalWidth || 1200, img.naturalHeight || 1200));
+          const w = Math.max(1, Math.round((img.naturalWidth || 1200) * scale));
+          const h = Math.max(1, Math.round((img.naturalHeight || 1200) * scale));
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          const ctx = c.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0, w, h);
+          const px = ctx.getImageData(0, 0, w, h);
+          const d = px.data;
+          const corner = (x, y) => { const i = (y * w + x) * 4; return [d[i], d[i + 1], d[i + 2], d[i + 3]]; };
+          const corners = [corner(0, 0), corner(w - 1, 0), corner(0, h - 1), corner(w - 1, h - 1)];
+          const bg = corners[0];
+          const near = (r, g, b, tol) => Math.abs(r - bg[0]) + Math.abs(g - bg[1]) + Math.abs(b - bg[2]) <= tol;
+          const plainBg = corners.every((k) => k[3] > 250 && near(k[0], k[1], k[2], 24));
+          if (plainBg) {
+            const seen = new Uint8Array(w * h);
+            const stack = [];
+            const push = (x, y) => { const n = y * w + x; if (!seen[n]) { seen[n] = 1; stack.push(n); } };
+            for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+            for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+            while (stack.length) {
+              const n = stack.pop();
+              const i = n * 4;
+              if (d[i + 3] < 8 || !near(d[i], d[i + 1], d[i + 2], 60)) continue;
+              const dist = Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]);
+              d[i + 3] = dist <= 30 ? 0 : Math.round(((dist - 30) / 30) * 255);
+              if (dist > 30) continue;
+              const x = n % w, y = (n - x) / w;
+              if (x > 0) push(x - 1, y);
+              if (x < w - 1) push(x + 1, y);
+              if (y > 0) push(x, y - 1);
+              if (y < h - 1) push(x, y + 1);
+            }
+            ctx.putImageData(px, 0, 0);
+          }
+          let x0 = w, y0 = h, x1 = -1, y1 = -1;
+          for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+            if (d[(y * w + x) * 4 + 3] > 12) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+          }
+          if (x1 < 0) return resolve(dataUrl);
+          const pad = Math.round(Math.max(x1 - x0, y1 - y0) * 0.02);
+          x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(w - 1, x1 + pad); y1 = Math.min(h - 1, y1 + pad);
+          const out = document.createElement('canvas');
+          out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
+          out.getContext('2d').drawImage(c, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+          resolve(out.toDataURL('image/png'));
+        } catch (_) { resolve(dataUrl); }
       };
-      img.onerror = () => reject(new Error('Could not render the preview'));
-      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      img.src = dataUrl;
     });
   }
+  function setLogo(file) {
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp|svg\+xml)$/i.test(file.type)) { toast('Please use a PNG, JPG, WEBP, or SVG image.'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast('Please keep the image under 10 MB.'); return; }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      design.logo = await prepareLogo(reader.result);
+      design.logoName = file.name;
+      $('logo-thumb').src = design.logo;
+      $('logo-name').textContent = file.name;
+      logoDrop.querySelector('.logo-empty').hidden = true;
+      logoDrop.querySelector('.logo-have').hidden = false;
+      syncDesign();
+    };
+    reader.readAsDataURL(file);
+  }
+  function clearLogo() {
+    design.logo = null; design.logoName = '';
+    logoDrop.querySelector('.logo-empty').hidden = false;
+    logoDrop.querySelector('.logo-have').hidden = true;
+    syncDesign();
+  }
+  logoDrop.addEventListener('click', (e) => { if (!e.target.closest('#logo-remove')) logoFile.click(); });
+  logoDrop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); logoFile.click(); } });
+  logoFile.addEventListener('change', () => { setLogo(logoFile.files && logoFile.files[0]); logoFile.value = ''; });
+  $('logo-remove').addEventListener('click', (e) => { e.stopPropagation(); clearLogo(); });
 
-  // Two 1024 squares with a dark strip between, the same arrangement the server uses for two-sided AI renders
-  function sideBySidePng(frontUrl, backUrl) {
-    return new Promise((resolve, reject) => {
-      const imgs = [frontUrl, backUrl].map((src) => { const i = new Image(); i.src = src; return i; });
-      let left = imgs.length;
-      const done = () => {
-        if (--left) return;
-        const c = document.createElement('canvas');
-        c.width = 1024 * 2 + 48; c.height = 1024;
-        const ctx = c.getContext('2d');
-        ctx.fillStyle = '#1c1d21'; ctx.fillRect(0, 0, c.width, c.height);
-        ctx.drawImage(imgs[0], 0, 0, 1024, 1024);
-        ctx.drawImage(imgs[1], 1024 + 48, 0, 1024, 1024);
-        try { resolve(c.toDataURL('image/png')); } catch (e) { reject(e); }
-      };
-      for (const i of imgs) { i.onload = done; i.onerror = () => reject(new Error('Could not render the preview')); }
-    });
-  }
-  async function layoutPng() {
-    const front = await rasterize(coinSvg({ face: design.front }));
-    if (!twoSided()) return front;
-    return sideBySidePng(front, await rasterize(coinSvg({ face: design.back })));
-  }
-  // The art proof of one side as the AI receives it, plus where its center wording wraps (read off the layout just drawn)
-  async function proofFor(face) {
-    const svg = coinSvg({ proof: true, face });
-    const centerFirstLineWords = lastLayout ? lastLayout.center.firstLineWords : 0;
-    return { png: await rasterize(svg, 1536), centerFirstLineWords };
-  }
-  const usingAi = () => !!(currentVersion() && ai.view === 'ai');
-  async function currentImage() {
-    return usingAi() ? currentVersion().image : layoutPng();
-  }
-
-  // ---------- preview view (layout vs AI) ----------
-  function setView(view) {
-    ai.view = currentVersion() ? view : 'layout';
-    $('preview-tabs').hidden = !currentVersion();
-    renderCheck();
-    $('preview-svg').hidden = ai.view === 'ai';
-    $('preview-ai').hidden = ai.view !== 'ai';
-    // A two-sided render shows both faces in one wide photo, so the stage widens and the Front / Back badge steps aside
-    const v = currentVersion();
-    document.querySelector('.preview-stage').classList.toggle('wide', ai.view === 'ai' && !!(v && v.twoSided));
-    $('side-badge').hidden = ai.view === 'ai' || !twoSided();
-    for (const b of $('preview-tabs').querySelectorAll('button')) b.classList.toggle('on', b.dataset.view === ai.view);
-  }
-  $('preview-tabs').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-view]');
-    if (b) setView(b.dataset.view);
+  // Page-wide drag & drop and paste for the logo
+  let dragDepth = 0;
+  window.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; $('drop').hidden = false; });
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $('drop').hidden = true; });
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragDepth = 0; $('drop').hidden = true;
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) { setLogo(f); showStep('design'); }
+  });
+  window.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const it of items) {
+      if (it.kind === 'file' && it.type.startsWith('image/')) { setLogo(it.getAsFile()); showStep('design'); break; }
+    }
   });
 
-  // ---------- AI render ----------
+  // ---------- the render on screen ----------
+  function showEmpty() {
+    $('preview-empty').hidden = false;
+    $('preview-ai').hidden = true;
+    document.querySelector('.preview-stage').classList.remove('wide');
+    renderCheck();
+  }
+  function showImage(v) {
+    $('preview-empty').hidden = true;
+    $('preview-ai').src = v.image;
+    $('preview-ai').alt = `AI version ${v.number} of your coin${v.twoSided ? ', front and back' : ''}`;
+    $('preview-ai').hidden = false;
+    document.querySelector('.preview-stage').classList.toggle('wide', !!v.twoSided);
+    renderCheck();
+  }
 
+  // ---------- AI render ----------
   // Cloudflare Turnstile (only when the server has TURNSTILE_SITE_KEY): every render carries a fresh token
   // proving it came from a real browser. Invisible to genuine visitors; scripts hitting /api/generate get refused.
   const turnstile = { widget: null, loading: null };
@@ -735,48 +317,48 @@
     }));
   }
 
+  // Test mode stand-in for a render: a coin drawn in the browser with the description on it, no API call
+  function testRenderSvg(text, label) {
+    const words = escapeXml(text.replace(/\s+/g, ' ').trim().slice(0, 80));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><rect width="1024" height="1024" fill="#1c1d21"/>
+  <circle cx="512" cy="512" r="440" fill="#c9971c"/><circle cx="512" cy="512" r="380" fill="#b8871a"/><circle cx="512" cy="512" r="380" fill="none" stroke="#f8e27a" stroke-width="4" opacity=".7"/>
+  <text x="512" y="300" text-anchor="middle" font-family="Georgia, serif" font-size="40" letter-spacing="6" fill="#fff">${escapeXml(label)}</text>
+  <text x="512" y="540" text-anchor="middle" font-family="Georgia, serif" font-size="24" fill="#fff" opacity=".9">${words}</text>
+  <text x="512" y="760" text-anchor="middle" font-family="Georgia, serif" font-size="34" letter-spacing="6" fill="#f8e27a">TEST RENDER</text></svg>`;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+
   async function aiRender() {
     if (ai.busy) return;
-    if (!designReady()) { toast('Add a logo or some text first.'); return; }
-    if (isTest()) {
-      toast('<span class="test-tag">TEST</span> Test mode: AI render skipped. Your layout is used as the coin.');
-      return;
-    }
+    if (!designReady()) { toast('Pick what the coin is for and describe the front first.'); return; }
     ai.busy = true;
     $('ai-btn').disabled = true;
     $('preview-busy').hidden = false;
-    const snapshot = cloneDesign();
+    const snapshot = { ...designPayload(), logo: design.logo };
     const signature = designSignature();
     try {
-      if (design.shape === 'artwork') {
-        const r = await ensureArtwork();
-        if (!r || !r.ok) throw new Error('Your design could not be traced into a coin outline. Try a bolder logo or bigger lettering, or pick one of the preset shapes.');
+      let data;
+      if (isTest()) {
+        await sleep(600);
+        data = { image: testRenderSvg(snapshot.front, 'FRONT'), renderId: null, twoSided: false, check: null, provider: 'test' };
+      } else {
+        const token = await turnstileToken();
+        const form = new FormData();
+        if (snapshot.logo) form.append('logo', await (await fetch(snapshot.logo)).blob(), 'logo.png');
+        form.append('purpose', snapshot.purpose);
+        form.append('front', snapshot.front);
+        form.append('back', snapshot.back);
+        form.append('style', snapshot.style);
+        if (token) form.append('turnstile', token);
+        const res = await fetch('/api/generate', { method: 'POST', body: form });
+        data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Render failed');
       }
-      const faces = twoSided() ? [snapshot.front, snapshot.back] : [snapshot.front];
-      const proofs = [];
-      for (const f of faces) proofs.push(await proofFor(f));
-      $('preview-svg').innerHTML = coinSvg(); // proofFor drew the other side last; put the open tab back on screen
-      const [blobs, token] = await Promise.all([Promise.all(proofs.map((p) => fetch(p.png).then((r) => r.blob()))), turnstileToken()]);
-      const form = new FormData();
-      form.append('image', blobs[0], 'front.png');
-      if (blobs[1]) form.append('back', blobs[1], 'back.png');
-      if (token) form.append('turnstile', token);
-      form.append('finish', snapshot.finish);
-      form.append('color', snapshot.color);
-      form.append('shape', snapshot.shape);
-      form.append('addons', [snapshot.twoTone, snapshot.edge === 'reeded' ? 'reeded-edge' : ''].filter(Boolean).join(','));
-      form.append('sides', JSON.stringify(faces.map((f, i) => ({
-        topText: f.topText, bottomText: f.bottomText, centerText: f.centerText, hasLogo: f.logo ? '1' : '0', border: f.border,
-        bgColor: f.bgColor, bgColorName: f.bgColor ? bgColorName(f.bgColor) : '', bgTexture: f.bgTexture, centerFirstLineWords: proofs[i].centerFirstLineWords,
-      }))));
-      const res = await fetch('/api/generate', { method: 'POST', body: form });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Render failed');
-      const version = { id: 'v' + ai.nextNumber, number: ai.nextNumber++, image: data.image, renderId: data.renderId || null, check: data.check || null, demo: data.provider === 'demo', twoSided: !!data.twoSided, design: snapshot, signature };
+      const version = { id: 'v' + ai.nextNumber, number: ai.nextNumber++, image: data.image, renderId: data.renderId || null, check: data.check || null, demo: data.provider === 'demo' || data.provider === 'test', twoSided: !!data.twoSided, design: snapshot, signature };
       ai.versions.push(version);
       // Keep the strip (and the browser's memory) bounded: drop the oldest version that is not on screen
       while (ai.versions.length > MAX_VERSIONS) ai.versions.splice(ai.versions.findIndex((v) => v.id !== ai.current), 1);
-      // If the design was edited while this was rendering, keep the version but stay on the layout
+      // If the description was edited while this was rendering, keep the version but do not show it as current
       if (signature === designSignature()) showVersion(version.id);
       else { renderVersions(); toast(`AI version ${version.number} is ready. Tap it under the coin to see it.`, 5000); }
     } catch (e) {
@@ -788,35 +370,30 @@
     }
   }
 
-  // Show a version. If it was made from a different design, the design comes back with it,
+  // Show a version. If it was made from a different description, that description comes back with it,
   // so the picture, the form, and the order always describe the same coin.
   function showVersion(id) {
     const v = ai.versions.find((x) => x.id === id);
     if (!v) return;
     if (v.signature !== designSignature()) {
-      assignDesign(v.design);
+      Object.assign(design, { purpose: v.design.purpose, front: v.design.front, back: v.design.back, style: v.design.style, logo: v.design.logo, logoName: v.design.logoName });
       syncControls();
-      $('preview-svg').innerHTML = coinSvg();
-      syncShapeNote();
-      $('preview-spec').textContent = specLine();
-      updateDesignReady();
     }
     ai.current = id;
-    $('preview-ai').src = v.image;
-    $('preview-ai').alt = `AI version ${v.number} of your coin${v.twoSided ? ', front and back' : ''}`;
-    setView('ai');
+    showImage(v);
     $('preview-caption').textContent = v.demo
-      ? 'Demo render (add an API key on the server for real AI renders).'
+      ? (isTest() ? 'Test mode: a stand-in for the AI render.' : 'Demo render (add an API key on the server for real AI renders).')
       : `AI version ${v.number}, shown with a light preview watermark. The artwork made for your order is clean and full quality.`;
     renderVersions();
+    syncDesign();
   }
 
   function removeVersion(id) {
     ai.versions = ai.versions.filter((v) => v.id !== id);
     if (ai.current === id) {
       ai.current = null;
-      setView('layout');
-      $('preview-caption').textContent = 'Your coin updates as you type.';
+      showEmpty();
+      $('preview-caption').textContent = 'Your AI render appears here.';
     }
     renderVersions();
   }
@@ -826,7 +403,6 @@
   function renderVersions() {
     const wrap = $('versions-wrap');
     wrap.hidden = !ai.versions.length;
-    // Shorter label on phones, where the button shares a row with Download in the pinned bar
     $('ai-btn').innerHTML = ai.versions.length ? '<span class="only-wide">Make Another Version</span><span class="only-narrow">New Version</span>' : 'Let AI Finish It';
     $('versions').innerHTML = ai.versions.map((v) => {
       const state = checkState(v);
@@ -841,23 +417,24 @@
     if (b) showVersion(b.dataset.version);
   });
 
-  // The proofreading result for the version on screen, in plain words
+  // The proofreading result for the version on screen, in plain words, plus the standing offer to fix it by hand
   function renderCheck() {
     const box = $('ai-check');
     const v = currentVersion();
-    if (!v || ai.view !== 'ai') { box.hidden = true; return; }
+    $('ai-disclaimer').hidden = !v;
+    if (!v) { box.hidden = true; return; }
     const state = checkState(v);
     const c = v.check || {};
     let html = '';
     if (state === 'ok') {
-      html = '<strong>✓ Wording checked.</strong><span class="more"> We read this render back letter by letter and it matches what you typed' + (c.logoMatch != null ? ', and your logo held up well.' : '.') + '</span>';
+      html = '<strong>✓ Wording checked.</strong><span class="more"> We read this render back letter by letter and every quoted word matches' + (c.logoMatch != null ? ', and your logo held up well.' : '.') + '</span>';
     } else if (state === 'warn') {
       const issues = [];
-      for (const l of c.lines || []) if (!l.ok) issues.push(`${/^(front|back) /.test(l.where) ? `on the ${l.where.split(' ')[0]} ` : ''}it wrote “${escapeHtml(l.read || 'nothing')}” where you typed “${escapeHtml(l.expected)}”`);
+      for (const l of c.lines || []) if (!l.ok) issues.push(`${/^(front|back) /.test(l.where) ? `on the ${l.where.split(' ')[0]} ` : ''}it wrote “${escapeHtml(l.read || 'nothing')}” where you asked for “${escapeHtml(l.expected)}”`);
       if ((c.extraText || []).length) issues.push(`it added “${escapeHtml(c.extraText.join('”, “'))}”`);
       if (c.logoOk === false) issues.push('it changed your logo' + (c.logoIssues ? ` (${escapeHtml(c.logoIssues)})` : ''));
       html = `<strong>! This version is not quite right:</strong> ${issues.join('; ') || 'something is off'}.` +
-        '<span class="more"> Make another version for a fresh one. Your real coin is made from your exact wording and logo file, never from this picture.</span>';
+        '<span class="more"> Make another version for a fresh one, or ask us to fix it below. Your real coin is made from your exact words and logo file, never from this picture.</span>';
     }
     box.className = 'ai-check ' + state;
     box.innerHTML = html + (html ? ' ' : '') + `<button type="button" class="link" id="remove-version">Remove version ${v.number}</button>`;
@@ -867,100 +444,39 @@
 
   $('ai-btn').addEventListener('click', aiRender);
 
-  // ---------- download & image protection ----------
-  // AI renders are watermarked on the server (the clean file never reaches the browser). The flat layout is drawn
-  // here, so it is watermarked here: it is only a mock-up, but it should still carry the name.
-  function watermarkLayout(dataUrl) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('Could not prepare the image'));
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = img.naturalWidth; c.height = img.naturalHeight;
-        const ctx = c.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        const u = c.width / 1024;
-        ctx.save();
-        ctx.translate(c.width / 2, c.height / 2);
-        ctx.rotate((-28 * Math.PI) / 180);
-        ctx.textAlign = 'center';
-        ctx.lineJoin = 'round';
-        for (let row = -6; row <= 6; row++) {
-          for (let col = -3; col <= 3; col++) {
-            const x = col * 520 * u + (row % 2 ? 260 * u : 0), y = row * 150 * u;
-            const big = row % 2 === 0;
-            ctx.font = `bold ${Math.round((big ? 38 : 24) * u)}px Arial, Helvetica, sans-serif`;
-            ctx.lineWidth = 3 * u;
-            ctx.strokeStyle = 'rgba(0,0,0,.30)';
-            ctx.fillStyle = 'rgba(255,255,255,.34)';
-            const text = big ? 'COINS FOR ANYTHING' : 'coinsforanything.com';
-            ctx.strokeText(text, x, y);
-            ctx.fillText(text, x, y);
-          }
-        }
-        ctx.restore();
-        const band = Math.round(46 * u);
-        ctx.fillStyle = 'rgba(0,0,0,.84)'; ctx.fillRect(0, c.height - band, c.width, band);
-        ctx.fillStyle = '#F58220'; ctx.fillRect(0, c.height - band, c.width, Math.max(2, Math.round(3 * u)));
-        ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
-        ctx.font = `bold ${Math.round(18 * u)}px Arial, Helvetica, sans-serif`;
-        ctx.fillText('PREVIEW ONLY  ·  COINS FOR ANYTHING  ·  coinsforanything.com  ·  NOT FOR PRODUCTION', c.width / 2, c.height - band / 2 + 6 * u);
-        resolve(c.toDataURL('image/png'));
-      };
-      img.src = dataUrl;
-    });
+  // ---------- popups shared plumbing ----------
+  function openDialog(root, focusEl) {
+    root.hidden = false;
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => focusEl && focusEl.focus(), 50);
   }
-
-  function saveAs(url, name) {
-    const a = document.createElement('a');
-    a.href = url; a.download = name;
-    document.body.appendChild(a); a.click(); a.remove();
-  }
-
-  // Used only when the server has no email set up: a watermarked file straight to the device
-  async function downloadDesign() {
-    const name = `coins-for-anything-${design.finish}-preview.png`;
-    const v = usingAi() ? currentVersion() : null;
-    if (v && v.renderId) {
-      const res = await fetch(`/api/renders/${v.renderId}/download`);
-      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Could not prepare the download.'); }
-      const url = URL.createObjectURL(await res.blob());
-      saveAs(url, name);
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-    } else {
-      saveAs(await watermarkLayout(v ? v.image : await layoutPng()), name);
-    }
-    toast('Downloaded with a preview watermark. The artwork for your order is clean and full quality.', 4500);
+  function closeDialog(root, opener) {
+    root.hidden = true;
+    document.body.style.overflow = '';
+    if (opener && opener.focus) opener.focus();
   }
 
   // ---------- "email me this design" ----------
   // The design is sent to the customer's inbox in exchange for their address (a lead for the sales team), instead of
   // being handed to the browser. The server watermarks whatever it sends.
   const send = { root: $('send'), form: $('send-form'), done: $('send-done'), error: $('send-error'), submit: $('send-submit'), opener: null, busy: false };
-  async function openSend() {
-    if (!designReady()) { toast('Add a logo or some text first.'); return; }
+  function openSend() {
+    const v = currentVersion();
+    if (!v) { toast('Tap "Let AI Finish It" first, then email the render to yourself.'); return; }
     send.opener = document.activeElement;
     send.form.hidden = false; send.done.hidden = true; send.error.hidden = true;
     send.form.elements.email.classList.remove('bad');
     if (!send.form.elements.email.value) send.form.elements.email.value = order.email || '';
     if (!send.form.elements.name.value) send.form.elements.name.value = (order.name || '').split(' ')[0];
-    try { $('send-coin').src = await currentImage(); } catch (_) {}
-    send.root.hidden = false;
-    document.body.style.overflow = 'hidden';
-    setTimeout(() => send.form.elements.email.focus(), 50);
+    $('send-coin').src = v.image;
+    openDialog(send.root, send.form.elements.email);
   }
-  function closeSend() {
-    send.root.hidden = true;
-    document.body.style.overflow = '';
-    if (send.opener && send.opener.focus) send.opener.focus();
-  }
+  const closeSend = () => closeDialog(send.root, send.opener);
   $('download-btn').addEventListener('click', openSend);
   $('send-close').addEventListener('click', closeSend);
   $('send-finish').addEventListener('click', closeSend);
   send.root.addEventListener('click', (e) => { if (e.target === send.root) closeSend(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !send.root.hidden) closeSend(); });
   send.form.addEventListener('input', () => { send.form.elements.email.classList.remove('bad'); send.error.hidden = true; });
-
   send.form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (send.busy) return;
@@ -977,25 +493,23 @@
     send.submit.disabled = true;
     send.submit.innerHTML = 'Sending… <span class="typing"><i></i><i></i><i></i></span>';
     try {
-      const v = usingAi() ? currentVersion() : null;
+      const v = currentVersion();
       const res = await fetch('/api/send-design', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email, name, newsletter: send.form.elements.newsletter.checked, test: isTest(),
           renderId: v ? v.renderId : null,
-          image: v && v.renderId ? null : (v ? v.image : await layoutPng()),
-          design: { finish: design.finish, color: design.color, shape: design.shape, ...sidePayload(design.front), back: twoSided() ? sidePayload(design.back) : null },
+          image: v && v.renderId ? null : (v ? v.image : null),
+          design: designPayload(),
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not send the email.');
-
       // They will not have to type it again at checkout
       if (!order.email) { order.email = email; if (!form.elements.email.value) form.elements.email.value = email; }
       if (name && !order.name && !form.elements.name.value) form.elements.name.value = name;
-
-      if (data.fallback === 'download') { closeSend(); await downloadDesign(); return; }
+      if (data.fallback === 'download') { closeSend(); toast('Email is not set up on this server yet, so nothing was sent. Your request was saved for our team.', 5000); return; }
       $('send-done-text').innerHTML = data.test
         ? `<span class="test-tag">TEST</span> Test mode: no email was sent. The request for <strong>${escapeHtml(email)}</strong> was saved in leads/.`
         : `We sent your design to <strong>${escapeHtml(email)}</strong>. It can take a minute; if you do not see it, check your spam folder.`;
@@ -1012,375 +526,75 @@
     }
   });
 
+  // ---------- "contact us to fix my design" ----------
+  const contact = { root: $('contact'), form: $('contact-form'), done: $('contact-done'), error: $('contact-error'), submit: $('contact-submit'), opener: null, busy: false };
+  function openContact() {
+    contact.opener = document.activeElement;
+    contact.form.hidden = false; contact.done.hidden = true; contact.error.hidden = true;
+    for (const i of contact.form.querySelectorAll('input, textarea')) i.classList.remove('bad');
+    const f = contact.form.elements;
+    if (!f.email.value) f.email.value = order.email || send.form.elements.email.value || '';
+    if (!f.name.value) f.name.value = order.name || '';
+    const v = currentVersion();
+    $('contact-coin').src = v ? v.image : '';
+    $('contact-coin').hidden = !v;
+    openDialog(contact.root, f.message.value ? f.email : f.message);
+  }
+  const closeContact = () => closeDialog(contact.root, contact.opener);
+  $('contact-btn').addEventListener('click', openContact);
+  $('contact-close').addEventListener('click', closeContact);
+  $('contact-finish').addEventListener('click', closeContact);
+  contact.root.addEventListener('click', (e) => { if (e.target === contact.root) closeContact(); });
+  contact.form.addEventListener('input', (e) => { if (e.target.classList) e.target.classList.remove('bad'); contact.error.hidden = true; });
+  contact.form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (contact.busy) return;
+    const f = contact.form.elements;
+    const email = f.email.value.trim(), message = f.message.value.trim();
+    const problems = [];
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { f.email.classList.add('bad'); problems.push('a valid email address'); }
+    if (!message) { f.message.classList.add('bad'); problems.push('what you would like changed'); }
+    if (problems.length) { contact.error.textContent = 'Please add ' + problems.join(' and ') + '.'; contact.error.hidden = false; return; }
+    contact.busy = true;
+    contact.submit.disabled = true;
+    contact.submit.innerHTML = 'Sending… <span class="typing"><i></i><i></i><i></i></span>';
+    try {
+      const v = currentVersion();
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name: f.name.value.trim(), phone: f.phone.value.trim(), message, test: isTest(), renderId: v ? v.renderId : null, design: designPayload() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not send your message.');
+      if (!order.email) order.email = email;
+      if (f.name.value.trim() && !order.name) order.name = f.name.value.trim();
+      $('contact-done-text').innerHTML = data.test
+        ? `<span class="test-tag">TEST</span> Test mode: nothing was sent. The request from <strong>${escapeHtml(email)}</strong> was saved in leads/.`
+        : `Thanks! A designer will look at your coin and email <strong>${escapeHtml(email)}</strong> a corrected proof within one business day.`;
+      contact.form.hidden = true;
+      contact.done.hidden = false;
+      $('contact-finish').focus();
+    } catch (err) {
+      contact.error.textContent = err.message || 'Could not send your message. Please try again.';
+      contact.error.hidden = false;
+    } finally {
+      contact.busy = false;
+      contact.submit.disabled = false;
+      contact.submit.textContent = 'Send to Our Designers';
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!send.root.hidden) closeSend();
+    if (!contact.root.hidden) closeContact();
+  });
+
   // Coin images cannot be right-clicked, long-pressed or dragged out of the page. This only stops casual saving
   // (a screenshot is always possible), which is why everything that reaches the browser is watermarked already.
   const isCoinImage = (t) => !!(t && t.closest && t.closest('.preview-col, .review-coin, .co-summary, .versions'));
   document.addEventListener('contextmenu', (e) => { if (isCoinImage(e.target)) e.preventDefault(); });
   document.addEventListener('dragstart', (e) => { if (e.target.tagName === 'IMG' || isCoinImage(e.target)) e.preventDefault(); });
-
-  // ---------- design controls ----------
-  const logoDrop = $('logo-drop');
-  const logoFile = $('logo-file');
-
-  // Logo files rarely arrive coin-ready: they have wide empty margins (so the logo lands tiny on the coin)
-  // and JPGs carry a white box that would sit on the metal like a sticker. This trims the margins and makes a
-  // plain background transparent. Only background connected to the image border is removed, so white areas
-  // inside the artwork are left alone. If anything goes wrong the original file is used untouched.
-  function prepareLogo(dataUrl) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onerror = () => resolve(dataUrl);
-      img.onload = () => {
-        try {
-          const scale = Math.min(1, 1200 / Math.max(img.naturalWidth || 1200, img.naturalHeight || 1200));
-          const w = Math.max(1, Math.round((img.naturalWidth || 1200) * scale));
-          const h = Math.max(1, Math.round((img.naturalHeight || 1200) * scale));
-          const c = document.createElement('canvas');
-          c.width = w; c.height = h;
-          const ctx = c.getContext('2d', { willReadFrequently: true });
-          ctx.drawImage(img, 0, 0, w, h);
-          const px = ctx.getImageData(0, 0, w, h);
-          const d = px.data;
-
-          // A plain background shows up as four opaque corners of (nearly) the same color
-          const corner = (x, y) => { const i = (y * w + x) * 4; return [d[i], d[i + 1], d[i + 2], d[i + 3]]; };
-          const corners = [corner(0, 0), corner(w - 1, 0), corner(0, h - 1), corner(w - 1, h - 1)];
-          const bg = corners[0];
-          const near = (r, g, b, tol) => Math.abs(r - bg[0]) + Math.abs(g - bg[1]) + Math.abs(b - bg[2]) <= tol;
-          const plainBg = corners.every((k) => k[3] > 250 && near(k[0], k[1], k[2], 24));
-          if (plainBg) {
-            // Flood fill inward from every border pixel
-            const seen = new Uint8Array(w * h);
-            const stack = [];
-            const push = (x, y) => { const n = y * w + x; if (!seen[n]) { seen[n] = 1; stack.push(n); } };
-            for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
-            for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
-            while (stack.length) {
-              const n = stack.pop();
-              const i = n * 4;
-              if (d[i + 3] < 8 || !near(d[i], d[i + 1], d[i + 2], 60)) continue;
-              // Soft edge: pixels close to the background color fade out instead of leaving a hard halo
-              const dist = Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]);
-              d[i + 3] = dist <= 30 ? 0 : Math.round(((dist - 30) / 30) * 255);
-              if (dist > 30) continue;
-              const x = n % w, y = (n - x) / w;
-              if (x > 0) push(x - 1, y);
-              if (x < w - 1) push(x + 1, y);
-              if (y > 0) push(x, y - 1);
-              if (y < h - 1) push(x, y + 1);
-            }
-            ctx.putImageData(px, 0, 0);
-          }
-
-          // Trim to the artwork
-          let x0 = w, y0 = h, x1 = -1, y1 = -1;
-          for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-            if (d[(y * w + x) * 4 + 3] > 12) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-          }
-          if (x1 < 0) return resolve(dataUrl); // nothing visible left: keep the original
-          const pad = Math.round(Math.max(x1 - x0, y1 - y0) * 0.02);
-          x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(w - 1, x1 + pad); y1 = Math.min(h - 1, y1 + pad);
-          const out = document.createElement('canvas');
-          out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
-          out.getContext('2d').drawImage(c, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
-          resolve(out.toDataURL('image/png'));
-        } catch (_) { resolve(dataUrl); }
-      };
-      img.src = dataUrl;
-    });
-  }
-
-  // Width / height of the prepared logo, kept within sane bounds
-  function imageAspect(url) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve(Math.max(0.2, Math.min(5, (img.naturalWidth || 1) / (img.naturalHeight || 1))));
-      img.onerror = () => resolve(1);
-      img.src = url;
-    });
-  }
-
-  function setLogo(file) {
-    if (!file) return;
-    if (!/^image\/(png|jpe?g|webp|svg\+xml)$/i.test(file.type)) { toast('Please use a PNG, JPG, WEBP, or SVG image.'); return; }
-    if (file.size > 10 * 1024 * 1024) { toast('Please keep the image under 10 MB.'); return; }
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const f = side();
-      f.logo = await prepareLogo(reader.result);
-      f.logoAspect = await imageAspect(f.logo);
-      f.logoName = file.name;
-      $('logo-thumb').src = f.logo;
-      $('logo-name').textContent = file.name;
-      logoDrop.querySelector('.logo-empty').hidden = true;
-      logoDrop.querySelector('.logo-have').hidden = false;
-      renderPreview();
-    };
-    reader.readAsDataURL(file);
-  }
-  function clearLogo() {
-    const f = side();
-    f.logo = null; f.logoName = ''; f.logoAspect = 1;
-    logoDrop.querySelector('.logo-empty').hidden = false;
-    logoDrop.querySelector('.logo-have').hidden = true;
-    renderPreview();
-  }
-  logoDrop.addEventListener('click', (e) => { if (!e.target.closest('#logo-remove')) logoFile.click(); });
-  logoDrop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); logoFile.click(); } });
-  logoFile.addEventListener('change', () => { setLogo(logoFile.files && logoFile.files[0]); logoFile.value = ''; });
-  $('logo-remove').addEventListener('click', (e) => { e.stopPropagation(); clearLogo(); });
-
-  for (const [id, key] of [['text-top', 'topText'], ['text-bottom', 'bottomText'], ['text-center', 'centerText']]) {
-    $(id).addEventListener('input', (e) => { side()[key] = e.target.value; renderPreview(); });
-  }
-  $('logo-size').addEventListener('input', (e) => { side().logoSize = +e.target.value; renderPreview(); });
-
-  const finishesEl = $('finishes');
-  for (const f of FINISHES) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'swatch-btn' + (f.key === design.finish ? ' on' : '');
-    b.dataset.finish = f.key;
-    b.innerHTML = `<span class="dot" style="background:linear-gradient(135deg,${f.colors[0]},${f.colors[1]} 55%,${f.colors[2]})"></span>${f.label}`;
-    b.addEventListener('click', () => {
-      design.finish = f.key;
-      for (const x of finishesEl.children) x.classList.toggle('on', x === b);
-      syncTwoTone();
-      renderPreview();
-    });
-    finishesEl.appendChild(b);
-  }
-  // Shape chips: round, the presets from shapes.js, and "cut to my artwork"
-  (function buildShapes() {
-    const ICONS = {
-      round: '<circle cx="12" cy="12" r="9.5" fill="currentColor"/>',
-      artwork: '<path d="M4.5 13.5c-2.2-4 .6-9 4.6-9 2 0 2.9 1.4 4.4 1.4S15.8 4 17.8 4.6c3.2 1 3.7 5.6 1.6 8.2-2 2.6-1.2 6.2-4.3 6.2-2.1 0-3-1.6-5-1.6s-3.9 1.4-5.6-3.9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="3 2.2"/>',
-    };
-    const el = $('shapes');
-    for (const key of Object.keys(SHAPES)) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.dataset.shape = key;
-      b.className = key === design.shape ? 'on' : '';
-      b.title = key === 'artwork' ? 'The coin is cut to the outline of your own design' : key === 'round' ? 'Round' : `Odd Shaped: ${SHAPES[key].toLowerCase()}`;
-      const icon = ICONS[key] || `<path d="${window.CoinShapes.PRESETS[key].icon}" fill="currentColor"/>`;
-      b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${escapeHtml(SHAPES[key])}`;
-      el.appendChild(b);
-    }
-  })();
-  function syncShapeNote() {
-    const note = $('shape-note');
-    let text = '';
-    if (design.shape === 'artwork') {
-      const r = artwork.key === artworkKey() ? artwork.result : null;
-      if (!sideReady(design.front)) text = 'Add a logo or some text on the front first; the coin is cut to the outline of that design.';
-      else if (!r) text = 'Tracing the outline of your design…';
-      else if (r.ok) text = 'Your coin is cut to the outline of your design, with a metal rim around it. The back is cut to the same outline. Our artists finalize the exact die line with you before production.';
-      else text = 'This design is too thin or spread out to cut a coin around, so the preview stays round. Try a bolder logo or bigger lettering, or pick one of the preset shapes.';
-    } else if (design.shape !== 'round') {
-      text = `Odd-shaped coins are cut to this outline; rim lettering runs straight above and below your artwork. Our team confirms the die-cut charge with you before production.`;
-    }
-    note.textContent = text;
-    note.hidden = !text;
-  }
-  // Single-choice segmented controls: color and shape
-  for (const [id, attr] of [['colors', 'color'], ['shapes', 'shape']]) {
-    $(id).addEventListener('click', (e) => {
-      const b = e.target.closest(`button[data-${attr}]`);
-      if (!b) return;
-      design[attr] = b.dataset[attr];
-      for (const x of $(id).children) x.classList.toggle('on', x === b);
-      if (attr === 'shape') syncShapeNote();
-      // A bare-metal coin cannot have an enamel background (a struck texture is still fine)
-      if (attr === 'color' && design.color === 'none' && (design.front.bgColor || design.back.bgColor)) { design.front.bgColor = ''; design.back.bgColor = ''; syncBackground(); toast('No Color means bare metal, so the colored background was removed. Textures still work.'); }
-      renderPreview();
-    });
-  }
-
-  // Center background: color chips (None, the enamel palette, any custom color) and a texture choice
-  const bgColorsEl = $('bg-colors');
-  function contrast(a, b) {
-    const L = (hex) => { const n = parseInt(hex.slice(1), 16); const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(n >> 16) + 0.7152 * f((n >> 8) & 255) + 0.0722 * f(n & 255); };
-    const [x, y] = [L(a), L(b)].sort((p, q) => q - p);
-    return (x + 0.05) / (y + 0.05);
-  }
-  function syncBackground() {
-    const f = side();
-    const custom = f.bgColor && !BG_COLORS.some((c) => c.hex.toLowerCase() === f.bgColor.toLowerCase());
-    for (const x of bgColorsEl.querySelectorAll('[data-bg]')) x.classList.toggle('on', x.dataset.bg.toLowerCase() === f.bgColor.toLowerCase());
-    const chip = bgColorsEl.querySelector('.bg-custom');
-    chip.classList.toggle('on', !!custom);
-    chip.style.setProperty('--picked', custom ? f.bgColor : 'transparent');
-    for (const x of $('bg-textures').children) x.classList.toggle('on', x.dataset.texture === f.bgTexture);
-    const note = $('bg-note');
-    const tex = BG_TEXTURES[f.bgTexture].toLowerCase(), col = bgColorName(f.bgColor).toLowerCase();
-    let text = '';
-    if (f.bgColor && f.bgTexture !== 'smooth') text = `Translucent ${col} enamel over a ${tex} texture: the texture shows through the color.`;
-    else if (f.bgColor) text = `Glossy ${col} enamel fills the center, with your logo and lettering standing above it in raised metal.`;
-    else if (f.bgTexture !== 'smooth') text = `A ${tex} texture is struck into the metal behind your design.`;
-    // Raised metal lettering over an enamel of nearly the same brightness is hard to read on the real coin too
-    if (f.bgColor && f.centerText.trim() && contrast(finishOf(design.finish).colors[0], f.bgColor) < 1.7) text += ' Heads up: this color is close to your metal finish, so the center lettering will be hard to read.';
-    if (f.bgTexture === 'diamond') text += ' Diamond cut adds 40¢ per coin for one side, 70¢ for both sides.';
-    note.textContent = text;
-    note.hidden = !text;
-  }
-  function setBgColor(hex) {
-    side().bgColor = hex;
-    if (hex && design.color === 'none') {
-      design.color = 'color-one';
-      for (const x of $('colors').children) x.classList.toggle('on', x.dataset.color === design.color);
-      toast('A colored background needs color, so Color was switched to One Side.');
-    }
-    syncBackground();
-    renderPreview();
-  }
-  bgColorsEl.innerHTML = `<button type="button" class="bg-swatch bg-none" data-bg="" aria-label="No background color" title="None"></button>`
-    + BG_COLORS.map((c) => `<button type="button" class="bg-swatch" data-bg="${c.hex}" style="--chip:${c.hex}" aria-label="${c.name}" title="${c.name}"></button>`).join('')
-    + `<label class="bg-swatch bg-custom" title="Pick any color"><input id="bg-custom" type="color" value="#1F4FA3" aria-label="Custom background color"><span aria-hidden="true">+</span></label>`;
-  bgColorsEl.addEventListener('click', (e) => { const b = e.target.closest('[data-bg]'); if (b) setBgColor(b.dataset.bg); });
-  $('bg-custom').addEventListener('input', (e) => setBgColor(e.target.value));
-  $('bg-textures').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-texture]');
-    if (!b) return;
-    side().bgTexture = b.dataset.texture;
-    syncBackground();
-    renderPreview();
-  });
-  const addonsEl = $('addons');
-  function syncAddons() {
-    for (const x of addonsEl.querySelectorAll('button')) {
-      const on = x.dataset.addon ? order.addons.includes(x.dataset.addon)
-        : !order.addons.some((k) => (addonOf(k) || {}).group === x.dataset.none);
-      x.classList.toggle('on', on);
-      x.setAttribute('aria-pressed', on ? 'true' : 'false');
-    }
-  }
-  function setAddon(key, on) {
-    const a = addonOf(key);
-    // Turning one on clears the other option in its group
-    order.addons = order.addons.filter((k) => k !== key && !(on && a.group && addonOf(k).group === a.group));
-    if (on) order.addons.push(key);
-    order.addons.sort((x, y) => ADDONS.indexOf(addonOf(x)) - ADDONS.indexOf(addonOf(y))); // catalog order, not click order
-    syncAddons();
-  }
-  (function buildAddons() {
-    const price = (a) => (a.price ? `<small>${escapeHtml(a.price)}</small>` : '');
-    for (const [group, g] of Object.entries(ADDON_GROUPS)) {
-      const row = document.createElement('div');
-      row.className = 'addon-row';
-      row.innerHTML = `<div class="addon-info"><strong>${escapeHtml(g.label)}</strong><span>${escapeHtml(g.desc)}</span></div>` +
-        `<div class="seg" role="group" aria-label="${escapeHtml(g.label)}"><button type="button" data-none="${group}">None</button>` +
-        ADDONS.filter((a) => a.group === group).map((a) => `<button type="button" data-addon="${a.key}">${escapeHtml(a.option)} ${price(a)}</button>`).join('') + '</div>';
-      addonsEl.appendChild(row);
-    }
-    const tiles = document.createElement('div');
-    tiles.className = 'addon-tiles';
-    tiles.innerHTML = ADDONS.filter((a) => !a.group).map((a) =>
-      `<button type="button" class="addon-tile" data-addon="${a.key}"><span class="tick" aria-hidden="true"></span>` +
-      `<span class="addon-info"><strong>${escapeHtml(a.label)}</strong><span>${escapeHtml(a.desc)}</span>${price(a)}</span></button>`).join('');
-    addonsEl.appendChild(tiles);
-    addonsEl.addEventListener('click', (e) => {
-      const b = e.target.closest('button');
-      if (!b) return;
-      if (b.dataset.none) {
-        order.addons = order.addons.filter((k) => addonOf(k).group !== b.dataset.none);
-        syncAddons();
-      } else {
-        const a = addonOf(b.dataset.addon);
-        setAddon(a.key, a.group ? true : !order.addons.includes(a.key));
-      }
-    });
-    syncAddons();
-  })();
-  $('borders').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-border]');
-    if (!b) return;
-    side().border = b.dataset.border;
-    for (const x of $('borders').children) x.classList.toggle('on', x === b);
-    renderPreview();
-  });
-
-  // ---------- front / back ----------
-  function syncSideBadge() {
-    const badge = $('side-badge');
-    badge.hidden = !twoSided() || ai.view === 'ai';
-    badge.textContent = design.side === 'back' ? 'Back' : 'Front';
-  }
-  // Which face is being edited, and whether the back's fields are open at all
-  function syncSidePanel() {
-    for (const b of $('side-tabs').children) b.classList.toggle('on', b.dataset.side === design.side);
-    $('back-state').textContent = twoSided() ? '' : 'optional';
-    const back = design.side === 'back';
-    $('side-title').textContent = back ? 'Back: artwork & text' : 'Front: artwork & text';
-    $('back-intro').hidden = !(back && !twoSided());
-    $('side-fields').hidden = back && !twoSided();
-    $('back-remove-wrap').hidden = !(back && twoSided());
-    syncSideBadge();
-  }
-  function setSide(name) {
-    design.side = name;
-    syncSidePanel();
-    syncControls();
-    renderPreview();
-  }
-  $('side-tabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-side]'); if (b) setSide(b.dataset.side); });
-  $('back-enable').addEventListener('click', () => {
-    design.backEnabled = true;
-    design.back.border = design.front.border; // the rim usually matches; everything else starts empty
-    setSide('back');
-    setTimeout(() => $('text-top').focus(), 50);
-    toast('Design the back the same way. The AI render will show both sides of your coin.', 4500);
-  });
-  $('back-remove').addEventListener('click', () => {
-    design.backEnabled = false;
-    design.back = newSide();
-    setSide('front');
-  });
-  // Edge: smooth unless the customer asks for reeding, which costs extra
-  function syncEdge() {
-    for (const x of $('edges').children) x.classList.toggle('on', x.dataset.edge === design.edge);
-    $('edge-note').hidden = design.edge !== 'reeded';
-  }
-  $('edges').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-edge]');
-    if (!b) return;
-    design.edge = b.dataset.edge;
-    syncEdge();
-    renderPreview();
-  });
-  // 2-tone plating: shown on the layout as a contrasting metal in the center field, and rendered that way by the AI
-  function syncTwoTone() {
-    for (const x of $('two-tone').children) x.classList.toggle('on', x.dataset.twoTone === design.twoTone);
-    const note = $('two-tone-note');
-    note.hidden = !design.twoTone;
-    if (design.twoTone) note.textContent = `${finishOf(design.finish).label} lettering, rim and logo details over a ${finishOf(contrastFinish(design.finish)).label.toLowerCase()} center.`;
-  }
-  $('two-tone').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-two-tone]');
-    if (!b) return;
-    design.twoTone = b.dataset.twoTone;
-    syncTwoTone();
-    renderPreview();
-  });
-
-  // Page-wide drag & drop and paste for the logo
-  let dragDepth = 0;
-  window.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; $('drop').hidden = false; });
-  window.addEventListener('dragover', (e) => e.preventDefault());
-  window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $('drop').hidden = true; });
-  window.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dragDepth = 0; $('drop').hidden = true;
-    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if (f) { setLogo(f); showStep('design'); }
-  });
-  window.addEventListener('paste', (e) => {
-    const items = e.clipboardData && e.clipboardData.items;
-    if (!items) return;
-    for (const it of items) {
-      if (it.kind === 'file' && it.type.startsWith('image/')) { setLogo(it.getAsFile()); showStep('design'); break; }
-    }
-  });
 
   // ---------- steps ----------
   const STEPS = ['design', 'options', 'details', 'review'];
@@ -1399,7 +613,7 @@
     }
     $('builder').dataset.step = name;
     if (!currentVersion()) {
-      $('preview-caption').textContent = name === 'design' ? 'Your coin updates as you type.' : 'This is the design you are ordering.';
+      $('preview-caption').textContent = name === 'design' ? 'Your AI render appears here.' : 'Our artists will draw this coin from your description.';
     }
     if (name === 'review') renderReview();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1419,7 +633,7 @@
   $('to-options').addEventListener('click', () => showStep('options'));
   $('to-details').addEventListener('click', () => { if (order.quantity && order.size) showStep('details'); });
 
-  // ---------- step 2: quantity & size ----------
+  // ---------- step 2: quantity ----------
   const qtyChips = $('qty-chips');
   for (const q of QUANTITIES) {
     const b = document.createElement('button');
@@ -1434,20 +648,6 @@
   function setQuantity(q) {
     order.quantity = q;
     for (const b of qtyChips.children) b.classList.toggle('on', +b.dataset.qty === q);
-    updateEstimate();
-  }
-  const sizeChips = $('size-chips');
-  for (const s of SIZES) {
-    const b = document.createElement('button');
-    b.type = 'button'; b.textContent = s + '"'; b.dataset.size = s;
-    b.addEventListener('click', () => setSize(s));
-    sizeChips.appendChild(b);
-  }
-  function setSize(s) {
-    order.size = s;
-    for (const b of sizeChips.children) b.classList.toggle('on', b.dataset.size === s);
-    $('preview-spec').textContent = specLine();
-    updateDesignReady();
     updateEstimate();
   }
   $('notes').addEventListener('input', (e) => { order.notes = e.target.value; });
@@ -1470,7 +670,7 @@
       const d = await r.json();
       if (d.estimate) {
         order.estimate = d.estimate;
-        box.innerHTML = `<div class="big">${money(d.estimate.total)}</div><small>${order.quantity.toLocaleString()} × ${order.size}" ${escapeHtml(finishOf(design.finish).label)} coins at ${money(d.estimate.unit)} each. Shipping and any setup fees are confirmed by our team.</small>`;
+        box.innerHTML = `<div class="big">${money(d.estimate.total)}</div><small>${order.quantity.toLocaleString()} × ${order.size}" coins at ${money(d.estimate.unit)} each. Shipping and any setup fees are confirmed by our team.</small>`;
         box.hidden = false;
       }
     } catch (_) { box.hidden = true; }
@@ -1526,28 +726,19 @@
     $('place-order').textContent = isTest() ? 'Place Test Order' : (config.payments && order.estimate ? 'Pay Now' : 'Send to Coins for Anything');
   }
 
-  async function renderReview() {
+  function renderReview() {
     updateOrderButton();
     const o = order;
+    const v = currentVersion();
     const sameAddr = o.street === o.billStreet && o.cityStateZip === o.billCityStateZip && o.country === o.billCountry;
     const edit = (step) => `<button class="link" type="button" data-edit="${step}">Edit</button>`;
-    const textsOf = (f) => [f.topText, f.centerText, f.bottomText].map((t) => t.trim()).filter(Boolean).map((t) => `“${escapeHtml(t)}”`).join(' · ');
-    const texts = textsOf(design.front);
-    const backTexts = twoSided() ? textsOf(design.back) : '';
-    const rim = (f) => `${f.border} rim`;
     const rows = [
-      ['Coin', `<div class="review-coin"><img id="review-img" alt="Your coin"><ul>` +
-               [finishOf(design.finish).label, TWO_TONE[design.twoTone] ? `${TWO_TONE[design.twoTone]} (${addonOf(design.twoTone).price})` : '', COLORS[design.color],
-                `${SHAPES[design.shape]}, ${design.edge} edge${design.edge === 'reeded' ? ' (extra)' : ''}`,
-                twoSided() ? 'Two-sided design (front and back)' : 'Front designed; back to be arranged with our team',
-                `Front: ${[rim(design.front), backgroundLabel(design.front) + (design.front.bgTexture === 'diamond' ? ' (+40¢ one side, +70¢ both)' : ''), design.front.logo ? `logo ${design.front.logoName}` : ''].filter(Boolean).join(', ')}`,
-                twoSided() ? `Back: ${[rim(design.back), backgroundLabel(design.back) + (design.back.bgTexture === 'diamond' ? ' (+40¢ one side, +70¢ both)' : ''), design.back.logo ? `logo ${design.back.logoName}` : ''].filter(Boolean).join(', ')}` : '',
-                usingAi() ? `AI version ${currentVersion().number} selected` : 'Your layout selected'].filter(Boolean).map((t) => `<li>${escapeHtml(t)}</li>`).join('') +
+      ['Coin', `<div class="review-coin">${v ? '<img id="review-img" alt="Your coin">' : ''}<ul>` +
+               [purposeLabel(), `Front: ${design.front.trim()}`, twoSided() ? `Back: ${design.back.trim()}` : 'Back: to be arranged with our team',
+                design.style.trim() ? `Style: ${design.style.trim()}` : '', design.logoName ? `Logo: ${design.logoName}` : '',
+                v ? `AI version ${v.number} selected` : 'No AI render: our artists draw it from your description'].filter(Boolean).map((t) => `<li>${escapeHtml(t)}</li>`).join('') +
                `</ul></div>${edit('design')}`],
-      texts ? [twoSided() ? 'Front text' : 'Text', texts] : null,
-      backTexts ? ['Back text', backTexts] : null,
       ['Quantity', `${o.quantity.toLocaleString()} × ${o.size}" ${edit('options')}`],
-      allAddons().length ? ['Add-ons', allAddons().map((k) => escapeHtml(addonOf(k).label) + (addonOf(k).price ? ` <small>${escapeHtml(addonOf(k).price)}</small>` : '')).join('<br>') + ` ${edit('options')}`] : null,
       o.estimate ? ['Estimate', `${money(o.estimate.total)} (${money(o.estimate.unit)} each)`] : null,
       ['Contact', `${escapeHtml(o.name)}<br>${escapeHtml(o.email)}${o.phone ? '<br>' + escapeHtml(o.phone) : ''}${o.company ? '<br>' + escapeHtml(o.company) : ''} ${edit('details')}`],
       ['Bill to', `${escapeHtml(o.billStreet)}<br>${escapeHtml(o.billCityStateZip)}<br>${escapeHtml(o.billCountry)}`],
@@ -1555,9 +746,9 @@
       o.notes.trim() ? ['Notes', escapeHtml(o.notes.trim())] : null,
     ].filter(Boolean);
     const table = $('review-table');
-    table.innerHTML = rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('');
+    table.innerHTML = rows.map(([k, val]) => `<tr><th>${k}</th><td>${val}</td></tr>`).join('');
     table.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => showStep(b.dataset.edit)));
-    try { $('review-img').src = await currentImage(); } catch (_) {}
+    if (v) $('review-img').src = v.image;
   }
 
   $('place-order').addEventListener('click', placeOrder);
@@ -1571,12 +762,12 @@
     btn.textContent = 'Sending…';
     $('review-error').hidden = true;
     try {
-      const image = await currentImage();
+      const v = currentVersion();
+      const image = v ? v.image : null;
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          finish: design.finish,
           size: order.size,
           quantity: order.quantity,
           name: order.name, email: order.email, phone: order.phone, company: order.company,
@@ -1584,14 +775,12 @@
           street: order.street, cityStateZip: order.cityStateZip, country: order.country,
           notes: order.notes,
           design: {
-            ...sidePayload(design.front),
-            back: twoSided() ? sidePayload(design.back) : null,
-            color: design.color, shape: design.shape, addons: allAddons(),
-            aiRendered: usingAi(),
-            aiVersion: usingAi() ? currentVersion().number : null, renderId: usingAi() ? currentVersion().renderId : null, aiVersionsMade: ai.nextNumber - 1,
-            aiWordingChecked: usingAi() && currentVersion().check && currentVersion().check.checked ? !!currentVersion().check.ok : null,
+            ...designPayload(),
+            aiRendered: !!v,
+            aiVersion: v ? v.number : null, renderId: v ? v.renderId : null, aiVersionsMade: ai.nextNumber - 1,
+            aiWordingChecked: v && v.check && v.check.checked ? !!v.check.ok : null,
           },
-          image,
+          image: v && v.renderId ? null : image,
           test: isTest(),
         }),
       });
@@ -1611,7 +800,7 @@
       showResult(
         `<p class="head"><span class="script">Thank you</span> so much for your business!</p>` +
         `<p>Your coin request <strong>${escapeHtml(data.orderId)}</strong> has been sent to the <strong>Coins for Anything team for review</strong>. ` +
-        `We'll be in touch at <strong>${escapeHtml(order.email)}</strong> ${order.estimate ? 'with your invoice and next steps' : 'with pricing and next steps'} within one business day.</p>` +
+        `We'll be in touch at <strong>${escapeHtml(order.email)}</strong> ${order.estimate ? 'with your invoice, a proof to approve, and next steps' : 'with pricing, a proof to approve, and next steps'} within one business day.</p>` +
         '<p>The Quality is Always Here.</p>'
       );
     } catch (e) {
@@ -1672,7 +861,7 @@
       const sample = !o.estimate;
       const amount = o.estimate ? o.estimate.total : Math.round(o.quantity * 6.95 * 100) / 100;
       $('co-coin').src = image || '';
-      $('co-item').innerHTML = `<strong>${o.quantity.toLocaleString()} × Custom ${escapeHtml(o.size)}" ${escapeHtml(finishOf(design.finish).label)} Coin</strong><br>` +
+      $('co-item').innerHTML = `<strong>${o.quantity.toLocaleString()} × Custom ${escapeHtml(o.size)}" Coin</strong><br>` +
         `<span style="color:#999">Order ${escapeHtml(orderId)}${o.estimate ? ` &middot; ${money(o.estimate.unit)} each` : ''}</span>`;
       $('co-subtotal').textContent = money(amount);
       $('co-total').textContent = money(amount);
@@ -1783,54 +972,45 @@
 
   // ---------- form controls <- design state ----------
   function syncControls() {
-    const f = side();
-    $('text-top').value = f.topText; $('text-bottom').value = f.bottomText; $('text-center').value = f.centerText;
-    $('logo-size').value = f.logoSize;
-    logoDrop.querySelector('.logo-empty').hidden = !!f.logo;
-    logoDrop.querySelector('.logo-have').hidden = !f.logo;
-    if (f.logo) { $('logo-thumb').src = f.logo; $('logo-name').textContent = f.logoName; }
-    syncSidePanel();
-    for (const x of finishesEl.children) x.classList.toggle('on', x.dataset.finish === design.finish);
-    for (const x of $('colors').children) x.classList.toggle('on', x.dataset.color === design.color);
-    for (const x of $('shapes').children) x.classList.toggle('on', x.dataset.shape === design.shape);
-    for (const x of $('borders').children) x.classList.toggle('on', x.dataset.border === f.border);
-    syncEdge();
-    syncTwoTone();
-    syncBackground();
+    $('desc-front').value = design.front; $('desc-back').value = design.back; $('desc-style').value = design.style;
+    for (const x of $('purposes').children) x.classList.toggle('on', x.dataset.purpose === design.purpose);
+    logoDrop.querySelector('.logo-empty').hidden = !!design.logo;
+    logoDrop.querySelector('.logo-have').hidden = !design.logo;
+    if (design.logo) { $('logo-thumb').src = design.logo; $('logo-name').textContent = design.logoName; }
+    for (const b of sizeChips.children) b.classList.toggle('on', b.dataset.size === order.size);
   }
 
   // ---------- restart ----------
   function restart() {
-    assignDesign(newDesign());
-    Object.assign(order, { quantity: null, size: null, estimate: null, notes: '', addons: [], name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
+    Object.assign(design, newDesign());
+    Object.assign(order, { quantity: null, size: null, estimate: null, notes: '', name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
     ai.versions = []; ai.current = null; ai.nextNumber = 1;
     $('result').innerHTML = '';
     $('notes').value = ''; $('qty-input').value = '';
     syncControls();
-    syncAddons();
     for (const b of qtyChips.children) b.classList.remove('on');
-    for (const b of sizeChips.children) b.classList.remove('on');
     $('estimate').hidden = true;
     $('to-details').disabled = true;
     form.reset(); syncShip();
     $('details-error').hidden = true; $('review-error').hidden = true;
-    setView('layout');
+    showEmpty();
     renderVersions();
-    $('preview-caption').textContent = 'Your coin updates as you type.';
-    renderPreview();
+    $('preview-caption').textContent = 'Your AI render appears here.';
+    syncDesign();
     showStep('design');
   }
   $('restart').addEventListener('click', restart);
   $('another').addEventListener('click', restart);
 
   // Choice buttons show their state with the `on` class; mirror it to aria-pressed for screen readers
-  const CHOICES = '.seg button, .swatch-btn, .addon-tile, .preview-tabs button, .version, button.bg-swatch';
+  const CHOICES = '.seg button, .preview-tabs button, .version';
   const markPressed = (b) => b.setAttribute('aria-pressed', b.classList.contains('on') ? 'true' : 'false');
   new MutationObserver((muts) => { for (const m of muts) if (m.target.matches && m.target.matches(CHOICES)) markPressed(m.target); })
     .observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
   document.querySelectorAll(CHOICES).forEach(markPressed);
 
   // ---------- boot ----------
-  renderPreview();
+  syncDesign();
+  showEmpty();
   if (!handleReturnFromCheckout()) showStep('design');
 })();

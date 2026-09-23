@@ -674,3 +674,19 @@ html { -webkit-text-size-adjust: 100%; }
 .shape-chips button:hover { border-color: #ccc; }
 .shape-chips button.on { border-color: var(--orange); background: #fff7ef; }
 .shape-chips button.on svg { color: var(--orange); }
+
+/* ---------- the described coin ---------- */
+.lead { margin: -6px 0 18px; font-size: 15px; line-height: 1.55; color: var(--text); }
+.ff textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 15px; line-height: 1.5; padding: 10px 12px; border: 1px solid #CFCAC2; border-radius: 0; background: var(--white); color: var(--text-dark); resize: vertical; min-height: 44px; }
+.ff textarea:focus { outline: 2px solid var(--orange); outline-offset: -1px; border-color: var(--orange); }
+.ff textarea.bad { border-color: #c62828; }
+.preview-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 28px; text-align: center; color: #aaa; font-size: 14px; line-height: 1.5; }
+.preview-empty[hidden] { display: none; }
+.preview-empty p { margin: 0; max-width: 260px; }
+.preview-empty b { color: var(--white); }
+.coin-mark { width: 120px; height: 120px; border-radius: 50%; background: radial-gradient(circle at 38% 32%, #f8e27a, #c9971c 55%, #7a5510); box-shadow: inset 0 0 0 10px rgba(0,0,0,.18), 0 14px 30px rgba(0,0,0,.5); opacity: .9; }
+.ai-disclaimer { width: 100%; max-width: 400px; box-sizing: border-box; padding: 12px 14px; background: #2a2a2a; border-left: 3px solid var(--orange); color: #ccc; font-size: 13px; line-height: 1.5; }
+.ai-disclaimer[hidden] { display: none; }
+.ai-disclaimer p { margin: 0 0 10px; }
+.ai-disclaimer strong { color: var(--white); }
+#contact-coin[hidden] { display: none; }

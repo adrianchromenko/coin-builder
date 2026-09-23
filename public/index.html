@@ -103,7 +103,7 @@
         <img class="brand-logo" src="brand/logo.webp" alt="Coins for Anything, Inc.">
         <div class="brand-text">
           <h1><span class="script">Custom</span>Coin Builder</h1>
-          <p class="sub">Upload your logo, add your text, see your coin.</p>
+          <p class="sub">Describe your coin, see it rendered, order it.</p>
         </div>
       </div>
       <div class="header-actions">
@@ -119,30 +119,28 @@
 
     <ol id="stepper" class="stepper" aria-label="Progress">
       <li data-step="design" class="current"><span>1</span><b>Design</b></li>
-      <li data-step="options"><span>2</span><b>Order Options</b></li>
+      <li data-step="options"><span>2</span><b>Quantity</b></li>
       <li data-step="details"><span>3</span><b>Your Details</b></li>
       <li data-step="review"><span>4</span><b>Review &amp; Pay</b></li>
     </ol>
 
     <div class="builder" id="builder" data-step="design">
-      <!-- ============ live preview ============ -->
+      <!-- ============ the render ============ -->
       <div class="preview-col">
       <section class="preview" aria-label="Coin preview">
-        <div class="preview-tabs" id="preview-tabs" hidden>
-          <button type="button" data-view="layout" class="on">My Layout</button>
-          <button type="button" data-view="ai">AI Render</button>
-        </div>
         <div class="preview-stage">
-          <div id="preview-svg" class="preview-svg"></div>
+          <div id="preview-empty" class="preview-empty">
+            <span class="coin-mark" aria-hidden="true"></span>
+            <p>Describe your coin, then tap <b>Let AI Finish It</b>. Your render shows up here in a minute or two.</p>
+          </div>
           <img id="preview-ai" class="preview-ai" alt="AI rendered coin" draggable="false" hidden>
-          <span id="side-badge" class="side-badge" hidden>Front</span>
           <div id="preview-busy" class="preview-busy" role="status" hidden>
             <span class="typing"><i></i><i></i><i></i></span>
-            <p>Rendering your coin, then proofreading the wording… this takes a minute or two.</p>
+            <p>Rendering your coin, then checking the wording… this takes a minute or two.</p>
           </div>
         </div>
         <p id="preview-spec" class="preview-spec"></p>
-        <p id="preview-caption" class="preview-caption">Your coin updates as you type.</p>
+        <p id="preview-caption" class="preview-caption">Your AI render appears here.</p>
         <div class="preview-actions">
           <button id="ai-btn" class="btn navy" type="button">Let AI Finish It</button>
           <button id="download-btn" class="btn dark small plain" type="button"><span class="only-wide">Email Me This Design</span><span class="only-narrow">Email It</span></button>
@@ -152,32 +150,30 @@
           <div id="versions" class="versions" role="group" aria-label="AI versions of your coin"></div>
         </div>
         <div id="ai-check" class="ai-check" role="status" hidden></div>
+        <div id="ai-disclaimer" class="ai-disclaimer" hidden>
+          <p><strong>Heads up:</strong> AI renders can misspell or misplace wording. That never reaches production: our artists redraw your coin from your exact words and logo file before anything is minted. Want it fixed now?</p>
+          <button id="contact-btn" class="btn small" type="button">Contact Us to Fix My Design</button>
+        </div>
       </section>
       </div>
 
       <!-- ============ step panels ============ -->
       <section class="panel">
 
-        <!-- Step 1: design -->
+        <!-- Step 1: describe the coin -->
         <div class="step" data-step="design">
           <h2><span class="script">Design</span> your coin</h2>
+          <p class="lead">Tell us about your coin in plain words. Our AI drafts it in a minute, and our artists finish it before production.</p>
 
-          <!-- Front / back: the artwork, text, background and rim are chosen per side; metal and shape are for the whole coin -->
-          <div id="side-tabs" class="seg side-tabs" role="group" aria-label="Side of the coin">
-            <button type="button" data-side="front" class="on">Front</button>
-            <button type="button" data-side="back">Back <small id="back-state">optional</small></button>
-          </div>
+          <section class="group">
+            <h3 class="group-title">1. What is this coin for?</h3>
+            <div id="purposes" class="seg wrap" role="group" aria-label="Design purpose"></div>
+          </section>
 
-          <section class="group side-group">
-            <h3 class="group-title" id="side-title">Front: artwork &amp; text</h3>
-            <div id="back-intro" class="back-intro" hidden>
-              <p>Most challenge coins carry a second design on the back: a motto, a date, a unit crest, a second logo. Design it here and the AI render will show both sides of your coin together. Skip it and our team will work out the back with you.</p>
-              <button id="back-enable" class="btn dark small" type="button">Design the Back</button>
-            </div>
-            <div id="side-fields">
+          <section class="group">
+            <h3 class="group-title">2. Your logo or artwork <em>optional</em></h3>
             <div class="field">
-              <label class="label" id="logo-label">Your logo or artwork</label>
-              <div id="logo-drop" class="logo-drop" tabindex="0" role="button" aria-labelledby="logo-label">
+              <div id="logo-drop" class="logo-drop" tabindex="0" role="button" aria-label="Upload your logo or artwork">
                 <input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
                 <div class="logo-empty">
                   <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path fill="currentColor" d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/></svg>
@@ -186,100 +182,44 @@
                 </div>
                 <div class="logo-have" hidden>
                   <img id="logo-thumb" alt="">
-                  <div class="logo-meta"><strong id="logo-name"></strong><span>Placed on your coin · <span class="only-mouse">click</span><span class="only-touch">tap</span> to replace</span></div>
+                  <div class="logo-meta"><strong id="logo-name"></strong><span>Goes on your coin exactly as uploaded · <span class="only-mouse">click</span><span class="only-touch">tap</span> to replace</span></div>
                   <button id="logo-remove" class="link" type="button">Remove</button>
                 </div>
               </div>
             </div>
-            <div class="field two">
-              <label class="ff"><span class="label">Top text</span><input id="text-top" type="text" maxlength="40" autocapitalize="off" autocomplete="off" spellcheck="false" enterkeyhint="next" placeholder="e.g. UNITED STATES ARMY"></label>
-              <label class="ff"><span class="label">Bottom text</span><input id="text-bottom" type="text" maxlength="40" autocapitalize="off" autocomplete="off" spellcheck="false" enterkeyhint="next" placeholder="e.g. EST. 1775"></label>
-            </div>
-            <div class="field two">
-              <label class="ff"><span class="label">Center text <em>(optional)</em></span><input id="text-center" type="text" maxlength="30" autocapitalize="off" autocomplete="off" spellcheck="false" enterkeyhint="done" placeholder="e.g. CoinsForAnything.com"></label>
-              <label class="ff"><span class="label">Logo size</span><input id="logo-size" type="range" min="50" max="100" value="82" aria-label="Logo size"></label>
-            </div>
-            <p class="hint">Type your wording exactly as you want it stamped: capitals and small letters both work.</p>
-            <p id="text-hint" class="hint note" role="status" hidden></p>
-            <div class="field">
-              <span class="label">Center background <em>(optional)</em></span>
-              <div id="bg-colors" class="bg-swatches" role="group" aria-label="Background color"></div>
-              <div class="bg-texture">
-                <span class="sublabel">Texture</span>
-                <div id="bg-textures" class="seg" role="group" aria-label="Background texture">
-                  <button type="button" data-texture="smooth" class="on">Smooth</button>
-                  <button type="button" data-texture="sandblast">Sandblast</button>
-                  <button type="button" data-texture="sunburst">Sunburst</button>
-                  <button type="button" data-texture="diamond">Diamond Cut <small>+40¢</small></button>
-                </div>
-              </div>
-              <p id="bg-note" class="hint" role="status" hidden></p>
-            </div>
-            <div class="field">
-              <span class="label">Rim style</span>
-              <div id="borders" class="seg" role="group" aria-label="Rim style">
-                <button type="button" data-border="plain" class="on">Plain</button>
-                <button type="button" data-border="rope">Rope</button>
-                <button type="button" data-border="beads">Beads</button>
-                <button type="button" data-border="stars">Stars</button>
-              </div>
-            </div>
-            <p id="back-remove-wrap" class="hint" hidden><button id="back-remove" class="link" type="button">Remove the back design</button> and go back to a one-sided coin.</p>
-            </div>
           </section>
 
           <section class="group">
-            <h3 class="group-title">Metal &amp; shape <em>whole coin</em></h3>
-            <div class="field">
-              <span class="label">Metal finish</span>
-              <div id="finishes" class="swatches" role="group" aria-label="Metal finish"></div>
-            </div>
-            <div class="field">
-              <span class="label">2-Tone plating <em>(optional)</em></span>
-              <div id="two-tone" class="seg" role="group" aria-label="2-Tone plating">
-                <button type="button" data-two-tone="" class="on">Single metal</button>
-                <button type="button" data-two-tone="two-tone-one">One Side <small>+65¢</small></button>
-                <button type="button" data-two-tone="two-tone-both">Both Sides <small>+$1.30</small></button>
-              </div>
-              <p id="two-tone-note" class="hint" role="status" hidden></p>
-            </div>
-            <div class="field">
-              <span class="label">Color</span>
-              <div id="colors" class="seg" role="group" aria-label="Color">
-                <button type="button" data-color="color-one" class="on" title="Unlimited Color, One Side">One Side</button>
-                <button type="button" data-color="color-both" title="Unlimited Color, Both Sides">Both Sides</button>
-                <button type="button" data-color="none" title="No Color: bare metal only">No Color</button>
-              </div>
-            </div>
-            <div class="field">
-              <span class="label">Shape</span>
-              <div id="shapes" class="shape-chips" role="group" aria-label="Shape"></div>
-              <p id="shape-note" class="hint note" role="status" hidden></p>
-            </div>
-            <div class="field two">
-              <div>
-                <span class="label">Coin size <em>(diameter)</em></span>
-                <div id="size-chips" class="seg wrap" role="group" aria-label="Coin size"></div>
-              </div>
-              <div>
-                <span class="label">Edge</span>
-                <div id="edges" class="seg" role="group" aria-label="Edge">
-                  <button type="button" data-edge="smooth" class="on">Smooth</button>
-                  <button type="button" data-edge="reeded" title="Grooves around the outside edge, like a quarter">Reeded <small>extra</small></button>
-                </div>
-              </div>
-            </div>
-            <p class="hint">Most challenge coins are 1.75" or 2". Pricing depends on the size. Need another size? Tell us in the notes when you order.</p>
-            <p id="edge-note" class="hint" hidden>A reeded edge (fine grooves around the outside, like a quarter) costs extra. Coins are smooth-edged unless you choose it.</p>
+            <h3 class="group-title">3. Describe the front</h3>
+            <label class="ff"><span class="label">What goes on the front, and where</span><textarea id="desc-front" rows="4" maxlength="600" placeholder='Example: Our logo in the middle. "FIRE DEPT" curved around the top, "EST. 1990" along the bottom. Navy blue background behind the logo.'></textarea></label>
+            <p class="hint">Put the exact wording in double quotes and say where it goes. We read every quoted word back off the render, letter by letter.</p>
           </section>
 
-          <p id="design-hint" class="hint">Add a logo or some text to get started.</p>
+          <section class="group">
+            <h3 class="group-title">4. Describe the back <em>optional</em></h3>
+            <label class="ff"><span class="label">What goes on the back, and where</span><textarea id="desc-back" rows="3" maxlength="600" placeholder='Example: A bald eagle over a waving flag. "THE QUALITY IS ALWAYS HERE" curved around the top. Leave this empty for a one-sided design.'></textarea></label>
+            <p class="hint">Describe the back and the render shows both sides of your coin together.</p>
+          </section>
+
+          <section class="group">
+            <h3 class="group-title">5. Style, finish and theme <em>optional</em></h3>
+            <label class="ff"><span class="label">Anything you would tell our designer</span><textarea id="desc-style" rows="2" maxlength="300" placeholder="Example: antique silver, rope border, red and blue enamel, patriotic feel"></textarea></label>
+            <p class="hint">Metal finish, colors, border, texture, shape, mood. Leave it blank and we go with shiny gold and a plain rim.</p>
+          </section>
+
+          <section class="group">
+            <h3 class="group-title">6. Coin size <em>diameter, needed for pricing</em></h3>
+            <div id="size-chips" class="seg wrap" role="group" aria-label="Coin size"></div>
+            <p class="hint">Most challenge coins are 1.75" or 2". Need another size? Tell us in the notes when you order.</p>
+          </section>
+
+          <p id="design-hint" class="hint">Pick what the coin is for and describe the front to get started.</p>
           <div class="step-actions">
             <button id="to-options" class="btn" type="button" disabled>Continue to Order</button>
           </div>
         </div>
 
-        <!-- Step 2: quantity & size -->
+        <!-- Step 2: quantity -->
         <div class="step" data-step="options" hidden>
           <h2><span class="script">How many</span> coins?</h2>
           <div class="field">
@@ -288,14 +228,9 @@
             <input id="qty-input" class="qty-input" type="number" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" min="1" max="100000" placeholder="Or type a quantity" aria-label="Custom quantity">
             <p class="hint">We recommend a minimum of 25 coins. The price per coin drops as quantity goes up.</p>
           </div>
-          <section class="group">
-            <h3 class="group-title">Add-ons <em>optional</em></h3>
-            <div id="addons" class="addons"></div>
-            <p class="hint">Add-ons are priced into your quote by our team. They are not drawn on the coin preview.</p>
-          </section>
           <div id="estimate" class="estimate" hidden></div>
           <div class="field">
-            <label class="ff"><span class="label">Notes for our team <em>(optional)</em></span><textarea id="notes" rows="2" maxlength="1000" placeholder="Colors, enamel, a second side, a deadline…"></textarea></label>
+            <label class="ff"><span class="label">Notes for our team <em>(optional)</em></span><textarea id="notes" rows="2" maxlength="1000" placeholder="Add-ons like epoxy, key chains or numbering, a deadline, anything else…"></textarea></label>
           </div>
           <div class="step-actions">
             <button class="btn dark back" type="button" data-back="design">Back</button>
@@ -345,7 +280,7 @@
             <button class="btn dark back" type="button" data-back="details">Back</button>
             <button id="place-order" class="btn" type="button">Send to Coins for Anything</button>
           </div>
-          <p class="hint">Our team reviews every design before production and confirms shipping and any setup fees.</p>
+          <p class="hint">Our artists draw up every design and send you a proof to approve before production. Shipping and any setup fees are confirmed by our team.</p>
         </div>
 
         <!-- Result -->
@@ -432,7 +367,31 @@
     </div>
   </div>
 
-  <script src="shapes.js"></script>
+  <!-- "Contact us to fix my design": the message and the latest render go to the designers -->
+  <div id="contact" class="checkout send" hidden role="dialog" aria-modal="true" aria-labelledby="contact-title">
+    <div class="co-card send-card">
+      <button id="contact-close" class="co-close" type="button" aria-label="Close">&times;</button>
+      <form id="contact-form" class="send-form" novalidate>
+        <img id="contact-coin" class="send-coin" alt="" draggable="false">
+        <h2 id="contact-title"><span class="script">Fix</span> my design</h2>
+        <p class="send-lead">Tell us what to change. A real designer fixes it and emails you a corrected proof, free of charge.</p>
+        <label class="ff"><span class="ff-label">Email <i>*</i></span><input type="email" name="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com"></label>
+        <label class="ff"><span class="ff-label">Name</span><input type="text" name="name" autocomplete="name" autocapitalize="words"></label>
+        <label class="ff"><span class="ff-label">Phone <em>(optional)</em></span><input type="tel" name="phone" inputmode="tel" autocomplete="tel"></label>
+        <label class="ff"><span class="ff-label">What should we fix? <i>*</i></span><textarea name="message" rows="3" maxlength="1500" placeholder="e.g. The bottom text should read EST. 1990, and the eagle should face left."></textarea></label>
+        <p id="contact-error" class="ff-error" role="alert" hidden></p>
+        <button id="contact-submit" class="btn" type="submit">Send to Our Designers</button>
+        <p class="co-secure">Or call <a href="tel:+18665835434">1-866-583-5434</a>. We reply within one business day.</p>
+      </form>
+      <div id="contact-done" class="send-done" hidden>
+        <div class="co-check">&#10003;</div>
+        <h2>Got it</h2>
+        <p id="contact-done-text"></p>
+        <button id="contact-finish" class="btn" type="button">Back to My Coin</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>

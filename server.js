@@ -7,12 +7,12 @@ const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
 const { getProvider } = require('./lib/providers');
-const { FINISHES, COLORS, SHAPES, ADDONS, normalizeFinish, normalizeColor, normalizeShape, normalizeAddons, normalizeBorder, normalizeTexts, normalizeBackground, finishLabel } = require('./lib/prompt');
+const { PURPOSES, normalizePurpose, freeText, quotedPhrases } = require('./lib/prompt');
 const { countReferences } = require('./lib/references');
 const { SIZES, hasPricing, estimate } = require('./lib/pricing');
 const { saveOrder, updateOrder, notifyWebhook, createCheckout } = require('./lib/orders');
 const { watermark, saveOriginal, readOriginal } = require('./lib/watermark');
-const { mailConfigured, sendDesignEmail, sendOrderEmail, sendAlertEmail, readMailImage, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
+const { mailConfigured, sendDesignEmail, sendOrderEmail, sendAlertEmail, sendContactEmail, readMailImage, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
 const guard = require('./lib/guard');
 const { sideBySide } = require('./lib/composite');
 const { siteUrl } = require('./lib/site');
@@ -119,10 +119,7 @@ app.get('/api/config', (_req, res) => {
   const provider = getProvider();
   res.json({
     provider: provider.name,
-    finishes: Object.keys(FINISHES),
-    colors: Object.keys(COLORS),
-    shapes: Object.keys(SHAPES),
-    addons: Object.keys(ADDONS),
+    purposes: Object.fromEntries(Object.entries(PURPOSES).map(([k, v]) => [k, v.label])),
     references: countReferences(),
     sizes: SIZES,
     pricing: hasPricing(),
@@ -149,7 +146,6 @@ app.post('/api/orders', async (req, res) => {
   const b = req.body || {};
   const quantity = parseInt(b.quantity, 10);
   const size = String(b.size || '');
-  const finish = normalizeFinish(b.finish);
   const name = String(b.name || '').trim().slice(0, 120);
   const email = String(b.email || '').trim().slice(0, 200);
   const phone = String(b.phone || '').trim().slice(0, 40);
@@ -163,39 +159,20 @@ app.post('/api/orders', async (req, res) => {
   const billCountry = String(b.billCountry || '').trim().slice(0, 80);
   // Test orders: saved for inspection, but never sent to Stripe or the order webhook
   const isTest = b.test === true || process.env.TEST_MODE === '1';
-  // What the customer built: rim/center text, rim style, logo file name, whether AI rendered it
+  // What the customer described, plus whether and how the AI rendered it
   const d = b.design && typeof b.design === 'object' ? b.design : {};
   const design = {
-    topText: String(d.topText || '').trim().slice(0, 60),
-    bottomText: String(d.bottomText || '').trim().slice(0, 60),
-    centerText: String(d.centerText || '').trim().slice(0, 60),
-    border: String(d.border || '').trim().slice(0, 20),
-    color: normalizeColor(d.color),
-    shape: normalizeShape(d.shape),
-    addons: normalizeAddons(d.addons),
-    // center background: enamel color (hex + name) and / or a struck texture
-    background: normalizeBackground({ color: d.bgColor, colorName: d.bgColorName, texture: d.bgTexture }),
+    ...describedDesign(d),
     logoName: String(d.logoName || '').trim().slice(0, 120),
-    // The back of a two-sided coin, described the same way as the front (null for a one-sided design)
-    back: d.back && typeof d.back === 'object' ? {
-      topText: String(d.back.topText || '').trim().slice(0, 60),
-      bottomText: String(d.back.bottomText || '').trim().slice(0, 60),
-      centerText: String(d.back.centerText || '').trim().slice(0, 60),
-      border: String(d.back.border || '').trim().slice(0, 20),
-      background: normalizeBackground({ color: d.back.bgColor, colorName: d.back.bgColorName, texture: d.back.bgTexture }),
-      logoName: String(d.back.logoName || '').trim().slice(0, 120),
-    } : null,
     aiRendered: d.aiRendered === true,
     aiVersion: Number.isInteger(d.aiVersion) ? d.aiVersion : null,
     renderId: /^[0-9a-f]{32}$/.test(String(d.renderId || '')) ? d.renderId : null,
     aiVersionsMade: Number.isInteger(d.aiVersionsMade) ? d.aiVersionsMade : 0,
-    // true / false from the proofreader, null when the render was not checked or the layout was ordered
+    // true / false from the proofreader, null when the render was not checked or there was no render
     aiWordingChecked: typeof d.aiWordingChecked === 'boolean' ? d.aiWordingChecked : null,
   };
-  // The same choices as they are worded on the coinsforanything.com quote form
-  design.colorLabel = COLORS[design.color].label;
-  design.shapeLabel = SHAPES[design.shape].label;
-  design.addonLabels = design.addons.map((k) => ADDONS[k].label);
+  design.purposeLabel = design.purpose ? PURPOSES[design.purpose].label : '';
+  if (!design.front) return res.status(400).json({ error: 'Please describe the front of your coin.' });
 
   if (!quantity || quantity < 1 || quantity > 100000) return res.status(400).json({ error: 'Please enter a valid quantity.' });
   if (!SIZES.includes(size)) return res.status(400).json({ error: 'Please choose a valid coin size.' });
@@ -211,8 +188,7 @@ app.post('/api/orders', async (req, res) => {
     const original = readOriginal(d.renderId);
     const imageDataUrl = original ? `data:image/png;base64,${original.toString('base64')}` : (typeof b.image === 'string' ? b.image : '');
     const record = saveOrder({
-      finish,
-      finishLabel: finishLabel(finish),
+      finishLabel: 'Challenge',
       size,
       quantity,
       name,
@@ -228,7 +204,7 @@ app.post('/api/orders', async (req, res) => {
       ip: req.ip,
       test: isTest,
     });
-    console.log(`[coin-builder] ${isTest ? 'TEST order' : 'order'} ${record.id}: ${quantity} x ${size}" ${finish} for ${email}`);
+    console.log(`[coin-builder] ${isTest ? 'TEST order' : 'order'} ${record.id}: ${quantity} x ${size}" for ${email}`);
 
     if (isTest) {
       return res.json({ ok: true, orderId: record.id, estimate: record.estimate, checkoutUrl: null, test: true });
@@ -280,16 +256,14 @@ app.post('/api/orders/:id/paid', (req, res) => {
   res.json({ ok: true });
 });
 
-// One side of a coin as the browser describes it. `sides` (JSON) carries one entry for the front and, for a
-// two-sided coin, a second for the back; the older flat fields are still accepted for a one-sided render.
-function sideOptions(src) {
-  src = src && typeof src === 'object' ? src : {};
+// The coin as the customer describes it: what it is for, their words for each face, style notes, and an optional logo.
+// Each face is rendered on its own; the front's description is required, the back's optional.
+function describedDesign(body) {
   return {
-    texts: normalizeTexts({ top: src.topText, bottom: src.bottomText, center: src.centerText }),
-    hasLogo: src.hasLogo === '1' || src.hasLogo === 'true' || src.hasLogo === true,
-    border: normalizeBorder(src.border),
-    background: normalizeBackground({ color: src.bgColor, colorName: src.bgColorName, texture: src.bgTexture }),
-    centerFirstLineWords: Math.max(0, parseInt(src.centerFirstLineWords, 10) || 0),
+    purpose: normalizePurpose(body.purpose),
+    style: freeText(body.style, 300),
+    front: freeText(body.front, 600),
+    back: freeText(body.back, 600),
   };
 }
 
@@ -303,7 +277,7 @@ function mergeChecks(front, back) {
     ok: both.every((c) => !c.checked || c.ok) && both.some((c) => c.checked),
     textOk: both.every((c) => c.textOk !== false),
     logoOk: both.every((c) => c.logoOk !== false),
-    borderOk: both.every((c) => c.borderOk !== false),
+    borderOk: null,
     lines: [...(front.lines || []).map((l) => ({ ...l, where: `front ${l.where}` })), ...(back.lines || []).map((l) => ({ ...l, where: `back ${l.where}` }))],
     extraText: [...(front.extraText || []), ...(back.extraText || [])],
     logoMatch: logos.length ? Math.min(...logos) : null,
@@ -312,31 +286,18 @@ function mergeChecks(front, back) {
   };
 }
 
-const uploadSides = upload.fields([{ name: 'image', maxCount: 1 }, { name: 'back', maxCount: 1 }]);
 app.post('/api/generate', (req, res) => {
-  uploadSides(req, res, async (err) => {
+  upload.single('logo')(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.message });
-    const files = req.files || {};
-    const front = files.image && files.image[0];
-    const back = files.back && files.back[0];
-    if (!front) return res.status(400).json({ error: 'No image received.' });
-
-    // Coin-wide choices, then one entry per side
-    const finish = normalizeFinish(req.body.finish);
-    const color = normalizeColor(req.body.color);
-    const shape = normalizeShape(req.body.shape);
-    const addons = normalizeAddons(req.body.addons);
-    let sides = [];
-    try { sides = JSON.parse(req.body.sides || '[]'); } catch (_) { sides = []; }
-    if (!Array.isArray(sides) || !sides.length) sides = [req.body];
-    sides = sides.slice(0, back ? 2 : 1).map(sideOptions);
-    if (back && sides.length < 2) sides.push(sideOptions({}));
-    const twoSided = !!back && sides.length === 2;
-    const coin = { finish, color, shape, addons };
+    const logo = req.file ? { buffer: req.file.buffer, mimetype: req.file.mimetype } : null;
+    const design = describedDesign(req.body || {});
+    if (!design.front) return res.status(400).json({ error: 'Please describe the front of your coin first.' });
+    const twoSided = !!design.back;
+    const sides = [{ sideName: 'front', description: design.front }, ...(twoSided ? [{ sideName: 'back', description: design.back }] : [])];
 
     // Every render below this line costs money, so the cheap checks come first.
-    // 1. The very same proof(s) and options were rendered recently: hand back that result for free.
-    const key = guard.fingerprint(Buffer.concat([front.buffer, back ? back.buffer : Buffer.alloc(0)]), { coin, sides });
+    // 1. The very same description and logo were rendered recently: hand back that result for free.
+    const key = guard.fingerprint(logo ? logo.buffer : Buffer.alloc(0), design);
     const repeat = guard.cached(key);
     if (repeat) {
       console.log('[coin-builder] repeat render served from cache');
@@ -347,25 +308,15 @@ app.post('/api/generate', (req, res) => {
       return res.status(403).json({ error: 'We could not confirm this request came from a browser. Please reload the page and try again.' });
     }
     // 3. Per-visitor and site-wide limits. From here on the render is counted, so release() must run.
-    const gate = guard.admit(req.ip, twoSided ? 2 : 1);
+    const gate = guard.admit(req.ip, sides.length);
     if (!gate.ok) return res.status(gate.status).json({ error: gate.error });
-
-    // DEBUG_PROOF_DIR=some/folder saves the art proof exactly as the AI receives it, for troubleshooting a bad render
-    if (process.env.DEBUG_PROOF_DIR) {
-      try {
-        require('fs').writeFileSync(path.join(process.env.DEBUG_PROOF_DIR, `proof-${Date.now()}-front.png`), front.buffer);
-        if (back) require('fs').writeFileSync(path.join(process.env.DEBUG_PROOF_DIR, `proof-${Date.now()}-back.png`), back.buffer);
-      } catch (_) {}
-    }
 
     try {
       const provider = getProvider();
       const started = Date.now();
-      // Each side is rendered on its own, at full resolution and with its own proofreading; the photo is assembled after
-      const inputs = twoSided ? [front, back] : [front];
-      const results = await Promise.all(inputs.map((file, i) => provider.generate({ buffer: file.buffer, mimetype: file.mimetype, ...coin, ...sides[i] })));
+      const results = await Promise.all(sides.map((side) => provider.generate({ mode: 'described', logo, purpose: design.purpose, style: design.style, ...side })));
       const attempts = results.reduce((n, r) => n + r.attempts, 0);
-      console.log(`[coin-builder] ${provider.name} generated ${twoSided ? 'two-sided ' : ''}coin (${[finish, color, shape, ...addons].join(', ')}) in ${Date.now() - started}ms, ${attempts} attempt(s), model ${results[0].model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
+      console.log(`[coin-builder] ${provider.name} generated ${twoSided ? 'two-sided ' : ''}described coin (${design.purpose || 'no purpose'}) in ${Date.now() - started}ms, ${attempts} attempt(s), model ${results[0].model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
 
       // The clean render stays on the server. The browser gets a small, lightly watermarked preview; the download
       // endpoint below hands out a heavily watermarked full-size copy. If watermarking fails, nothing is sent.
@@ -386,12 +337,12 @@ app.post('/api/generate', (req, res) => {
       }
       const response = {
         provider: provider.name,
-        finish,
         twoSided,
         image,
         renderId,
-        // Proofreading result: which lettering matched, stray text, how well the logo held up (both sides folded together)
+        // Proofreading result: which quoted wording matched, how well the logo held up (both sides folded together)
         check: twoSided ? mergeChecks(results[0].check, results[1].check) : results[0].check,
+        phrases: { front: quotedPhrases(design.front), back: quotedPhrases(design.back) },
         attempts,
       };
       if (provider.name !== 'demo') guard.remember(key, response);
@@ -455,24 +406,13 @@ app.post('/api/send-design', async (req, res) => {
     source = Buffer.from(m[1], 'base64');
   }
 
-  const d = b.design && typeof b.design === 'object' ? b.design : {};
+  const d = describedDesign(b.design && typeof b.design === 'object' ? b.design : {});
   const clip = (v, n) => String(v || '').replace(/[\r\n<>]/g, ' ').trim().slice(0, n);
-  const texts = normalizeTexts({ top: d.topText, bottom: d.bottomText, center: d.centerText });
-  const bg = normalizeBackground({ color: d.bgColor, colorName: d.bgColorName, texture: d.bgTexture });
   const summary = [
-    ['Metal finish', finishLabel(d.finish)],
-    ['Color', COLORS[normalizeColor(d.color)].label],
-    ['Shape', SHAPES[normalizeShape(d.shape)].label],
-    ['Background', [bg.name || bg.color, bg.texture !== 'smooth' ? bg.texture : ''].filter(Boolean).join(', ')],
-    ['Top text', texts.top], ['Center text', texts.center], ['Bottom text', texts.bottom],
-    ['Logo', clip(d.logoName, 120)],
+    ['Purpose', d.purpose ? PURPOSES[d.purpose].label : ''],
+    ['Front', d.front], ['Back', d.back], ['Style', d.style],
+    ['Logo', clip(b.design && b.design.logoName, 120)],
   ];
-  if (d.back && typeof d.back === 'object') {
-    const bt = normalizeTexts({ top: d.back.topText, bottom: d.back.bottomText, center: d.back.centerText });
-    const bb = normalizeBackground({ color: d.back.bgColor, colorName: d.back.bgColorName, texture: d.back.bgTexture });
-    summary.push(['Back top text', bt.top], ['Back center text', bt.center], ['Back bottom text', bt.bottom],
-      ['Back background', [bb.name || bb.color, bb.texture !== 'smooth' ? bb.texture : ''].filter(Boolean).join(', ')], ['Back logo', clip(d.back.logoName, 120)]);
-  }
 
   const lead = { email, name, newsletter: b.newsletter === true, test: isTest, ip: req.ip, renderId: fromRender ? b.renderId : null, design: Object.fromEntries(summary.filter(([, v]) => v)) };
 
@@ -499,6 +439,42 @@ app.post('/api/send-design', async (req, res) => {
   } catch (e) {
     console.error('[coin-builder] send-design error:', e.message);
     res.status(502).json({ error: 'Sorry, we could not send the email just now. Please try again in a moment.' });
+  }
+});
+
+// "Contact us to fix my design": the message, the design in the customer's words and their latest render go to the team.
+// Mail sent on a stranger's say-so, so it is limited per visitor like the design emails.
+app.post('/api/contact', async (req, res) => {
+  const b = req.body || {};
+  const email = String(b.email || '').trim().toLowerCase().slice(0, 200);
+  const name = String(b.name || '').replace(/[\r\n<>]/g, ' ').trim().slice(0, 80);
+  const phone = String(b.phone || '').replace(/[\r\n<>]/g, ' ').trim().slice(0, 40);
+  const message = String(b.message || '').replace(/[\u0000-\u0008\u000b-\u001f<>]/g, ' ').trim().slice(0, 1500);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
+  if (!message) return res.status(400).json({ error: 'Please tell us what you would like changed.' });
+  const isTest = b.test === true || process.env.TEST_MODE === '1';
+  const design = describedDesign(b.design && typeof b.design === 'object' ? b.design : {});
+  design.logoName = String((b.design && b.design.logoName) || '').trim().slice(0, 120);
+  design.purposeLabel = design.purpose ? PURPOSES[design.purpose].label : '';
+  const original = readOriginal(b.renderId);
+  const lead = { email, name, phone, newsletter: false, test: isTest, ip: req.ip, renderId: original ? b.renderId : null, source: 'contact', message, design };
+  try {
+    if (isTest) {
+      saveLead({ ...lead, emailed: false });
+      return res.json({ ok: true, sent: false, test: true });
+    }
+    if (tooMany(mailsByIp, req.ip, Number(process.env.MAIL_LIMIT_PER_HOUR || 6))) {
+      return res.status(429).json({ error: 'That is a lot of messages in a short time. Please try again in an hour, or call us at 1-866-583-5434.' });
+    }
+    const image = original ? await watermark(original, { strength: 'download', size: 1600 }) : null;
+    const sent = await sendContactEmail({ name, email, phone, message, design, image });
+    const record = saveLead({ ...lead, emailed: !!sent });
+    notifyLead(record);
+    console.log(`[coin-builder] design help request from ${email}${sent ? ' emailed to the team' : ' saved (mail not configured)'}`);
+    res.json({ ok: true, sent: !!sent });
+  } catch (e) {
+    console.error('[coin-builder] contact error:', e.message);
+    res.status(502).json({ error: 'Sorry, we could not send your message just now. Please try again, or call us at 1-866-583-5434.' });
   }
 });
 
