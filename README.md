@@ -24,7 +24,7 @@ Without an API key the server runs in **demo mode** and returns a local SVG mock
 | `OPENAI_API_KEY` | | Required for real renders |
 | `OPENAI_IMAGE_MODEL` | newest available (`gpt-image-2.5-sunburst`) | Image model; steps down to older models only if the API rejects a request |
 | `OPENAI_IMAGE_SIZE` | `1024x1024` | Output size |
-| `OPENAI_IMAGE_QUALITY` | `high` | Lettering accuracy drops noticeably below `high` |
+| `OPENAI_IMAGE_QUALITY` | `medium` | `medium` renders a face in about 25 to 35 seconds with clean lettering; `high` adds 15 to 25 seconds for a little more relief detail; `low` loses lettering accuracy |
 | `REFERENCE_COUNT` | `2` | Reference coin photos sent per render, 3 at most (see `references/`) |
 | `AI_MAX_ATTEMPTS` | `2` | Renders per request: a render that fails proofreading is redone with a note about what to fix |
 | `AI_VERIFY` | on | `0` turns proofreading off |
