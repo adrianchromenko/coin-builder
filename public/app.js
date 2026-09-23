@@ -26,7 +26,7 @@
   };
   // Every AI render is kept as a version: the picture, the proofreading result, and the description it was made from
   const MAX_VERSIONS = 8;
-  const ai = { versions: [], current: null, nextNumber: 1, busy: false };
+  const ai = { versions: [], current: null, nextNumber: 1, busy: false, tried: false }; // tried: a render was attempted, so ordering may begin
   const currentVersion = () => ai.versions.find((v) => v.id === ai.current) || null;
   let busy = false;
   const purposeLabel = () => config.purposes[design.purpose] || PURPOSES[design.purpose] || '';
@@ -142,14 +142,23 @@
       renderVersions();
     }
     const ready = designReady();
+    // The order begins once the coin has been generated (or a render was attempted and failed, so nobody is stuck)
+    const rendered = ai.tried || ai.versions.length > 0;
+    $('generate-btn').disabled = !ready || ai.busy;
+    $('generate-btn').hidden = rendered && !!currentVersion();
+    $('to-options').hidden = !rendered;
     $('to-options').disabled = !(ready && order.size);
     $('design-hint').textContent = !design.purpose
       ? 'Pick what the coin is for to get started.'
       : !design.front.trim()
         ? 'Describe the front of your coin: what goes on it, and where.'
-        : !order.size
-          ? 'Looking good. Pick a coin size to continue to your order, or tap "Let AI Finish It" to see it rendered.'
-          : 'Looking good. Tap "Let AI Finish It" to see your coin, or continue to order this design.';
+        : !rendered
+          ? 'Looking good. Tap "Generate This Coin" to see it rendered, then continue to your order.'
+          : !order.size
+            ? 'Pick a coin size to continue to your order.'
+            : currentVersion()
+              ? 'Happy with it? Continue to your order. Not quite? Change the description or make another version.'
+              : 'Generate the coin again to see this design, or continue to order it as described.';
   }
   const designSignature = () => JSON.stringify({ ...designPayload(), logo: design.logo ? design.logo.length : 0 });
 
@@ -332,7 +341,10 @@
     if (ai.busy) return;
     if (!designReady()) { toast('Pick what the coin is for and describe the front first.'); return; }
     ai.busy = true;
+    ai.tried = true;
     $('ai-btn').disabled = true;
+    $('generate-btn').disabled = true;
+    $('generate-btn').textContent = 'Generating…';
     $('preview-busy').hidden = false;
     const snapshot = { ...designPayload(), logo: design.logo };
     const signature = designSignature();
@@ -366,9 +378,12 @@
     } finally {
       ai.busy = false;
       $('ai-btn').disabled = false;
+      $('generate-btn').textContent = 'Generate This Coin';
       $('preview-busy').hidden = true;
+      syncDesign(); // the design step's footer now offers the order
     }
   }
+  $('generate-btn').addEventListener('click', aiRender);
 
   // Show a version. If it was made from a different description, that description comes back with it,
   // so the picture, the form, and the order always describe the same coin.
@@ -403,7 +418,7 @@
   function renderVersions() {
     const wrap = $('versions-wrap');
     wrap.hidden = !ai.versions.length;
-    $('ai-btn').innerHTML = ai.versions.length ? '<span class="only-wide">Make Another Version</span><span class="only-narrow">New Version</span>' : 'Let AI Finish It';
+    $('ai-btn').hidden = !ai.versions.length; // the first render starts from the design step
     $('versions').innerHTML = ai.versions.map((v) => {
       const state = checkState(v);
       const label = `AI version ${v.number}` + (state === 'ok' ? ', wording checked' : state === 'warn' ? ', needs a look' : '');
@@ -456,75 +471,6 @@
     if (opener && opener.focus) opener.focus();
   }
 
-  // ---------- "email me this design" ----------
-  // The design is sent to the customer's inbox in exchange for their address (a lead for the sales team), instead of
-  // being handed to the browser. The server watermarks whatever it sends.
-  const send = { root: $('send'), form: $('send-form'), done: $('send-done'), error: $('send-error'), submit: $('send-submit'), opener: null, busy: false };
-  function openSend() {
-    const v = currentVersion();
-    if (!v) { toast('Tap "Let AI Finish It" first, then email the render to yourself.'); return; }
-    send.opener = document.activeElement;
-    send.form.hidden = false; send.done.hidden = true; send.error.hidden = true;
-    send.form.elements.email.classList.remove('bad');
-    if (!send.form.elements.email.value) send.form.elements.email.value = order.email || '';
-    if (!send.form.elements.name.value) send.form.elements.name.value = (order.name || '').split(' ')[0];
-    $('send-coin').src = v.image;
-    openDialog(send.root, send.form.elements.email);
-  }
-  const closeSend = () => closeDialog(send.root, send.opener);
-  $('download-btn').addEventListener('click', openSend);
-  $('send-close').addEventListener('click', closeSend);
-  $('send-finish').addEventListener('click', closeSend);
-  send.root.addEventListener('click', (e) => { if (e.target === send.root) closeSend(); });
-  send.form.addEventListener('input', () => { send.form.elements.email.classList.remove('bad'); send.error.hidden = true; });
-  send.form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (send.busy) return;
-    const email = send.form.elements.email.value.trim();
-    const name = send.form.elements.name.value.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-      send.form.elements.email.classList.add('bad');
-      send.error.textContent = 'Please enter a valid email address.';
-      send.error.hidden = false;
-      send.form.elements.email.focus();
-      return;
-    }
-    send.busy = true;
-    send.submit.disabled = true;
-    send.submit.innerHTML = 'Sending… <span class="typing"><i></i><i></i><i></i></span>';
-    try {
-      const v = currentVersion();
-      const res = await fetch('/api/send-design', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email, name, newsletter: send.form.elements.newsletter.checked, test: isTest(),
-          renderId: v ? v.renderId : null,
-          image: v && v.renderId ? null : (v ? v.image : null),
-          design: designPayload(),
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Could not send the email.');
-      // They will not have to type it again at checkout
-      if (!order.email) { order.email = email; if (!form.elements.email.value) form.elements.email.value = email; }
-      if (name && !order.name && !form.elements.name.value) form.elements.name.value = name;
-      if (data.fallback === 'download') { closeSend(); toast('Email is not set up on this server yet, so nothing was sent. Your request was saved for our team.', 5000); return; }
-      $('send-done-text').innerHTML = data.test
-        ? `<span class="test-tag">TEST</span> Test mode: no email was sent. The request for <strong>${escapeHtml(email)}</strong> was saved in leads/.`
-        : `We sent your design to <strong>${escapeHtml(email)}</strong>. It can take a minute; if you do not see it, check your spam folder.`;
-      send.form.hidden = true;
-      send.done.hidden = false;
-      $('send-finish').focus();
-    } catch (err) {
-      send.error.textContent = err.message || 'Could not send the email. Please try again.';
-      send.error.hidden = false;
-    } finally {
-      send.busy = false;
-      send.submit.disabled = false;
-      send.submit.textContent = 'Email My Design';
-    }
-  });
 
   // ---------- "contact us to fix my design" ----------
   const contact = { root: $('contact'), form: $('contact-form'), done: $('contact-done'), error: $('contact-error'), submit: $('contact-submit'), opener: null, busy: false };
@@ -533,7 +479,7 @@
     contact.form.hidden = false; contact.done.hidden = true; contact.error.hidden = true;
     for (const i of contact.form.querySelectorAll('input, textarea')) i.classList.remove('bad');
     const f = contact.form.elements;
-    if (!f.email.value) f.email.value = order.email || send.form.elements.email.value || '';
+    if (!f.email.value) f.email.value = order.email || '';
     if (!f.name.value) f.name.value = order.name || '';
     const v = currentVersion();
     $('contact-coin').src = v ? v.image : '';
@@ -586,7 +532,6 @@
   });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (!send.root.hidden) closeSend();
     if (!contact.root.hidden) closeContact();
   });
 

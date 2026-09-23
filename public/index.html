@@ -131,7 +131,7 @@
         <div class="preview-stage">
           <div id="preview-empty" class="preview-empty">
             <span class="coin-mark" aria-hidden="true"></span>
-            <p>Describe your coin, then tap <b>Let AI Finish It</b>. Your render shows up here in a minute or two.</p>
+            <p>Describe your coin, then tap <b>Generate This Coin</b>. Your render shows up here in a minute or two.</p>
           </div>
           <img id="preview-ai" class="preview-ai" alt="AI rendered coin" draggable="false" hidden>
           <div id="preview-busy" class="preview-busy" role="status" hidden>
@@ -142,8 +142,7 @@
         <p id="preview-spec" class="preview-spec"></p>
         <p id="preview-caption" class="preview-caption">Your AI render appears here.</p>
         <div class="preview-actions">
-          <button id="ai-btn" class="btn navy" type="button">Let AI Finish It</button>
-          <button id="download-btn" class="btn dark small plain" type="button"><span class="only-wide">Email Me This Design</span><span class="only-narrow">Email It</span></button>
+          <button id="ai-btn" class="btn navy" type="button" hidden><span class="only-wide">Make Another Version</span><span class="only-narrow">New Version</span></button>
         </div>
         <div id="versions-wrap" class="versions-wrap" hidden>
           <span class="versions-label">AI versions</span>
@@ -215,7 +214,8 @@
 
           <p id="design-hint" class="hint">Pick what the coin is for and describe the front to get started.</p>
           <div class="step-actions">
-            <button id="to-options" class="btn" type="button" disabled>Continue to Order</button>
+            <button id="generate-btn" class="btn navy" type="button" disabled>Generate This Coin</button>
+            <button id="to-options" class="btn" type="button" disabled hidden>Continue to Order</button>
           </div>
         </div>
 
@@ -343,29 +343,6 @@
     </div>
   </div>
 
-  <!-- "Email me this design": trades the design for an email address -->
-  <div id="send" class="checkout send" hidden role="dialog" aria-modal="true" aria-labelledby="send-title">
-    <div class="co-card send-card">
-      <button id="send-close" class="co-close" type="button" aria-label="Close">&times;</button>
-      <form id="send-form" class="send-form" novalidate>
-        <img id="send-coin" class="send-coin" alt="" draggable="false">
-        <h2 id="send-title"><span class="script">Get</span> your design</h2>
-        <p class="send-lead">Tell us where to send it and your coin design will be in your inbox in a minute, ready to share with your team.</p>
-        <label class="ff"><span class="ff-label">Email <i>*</i></span><input type="email" name="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="you@example.com"></label>
-        <label class="ff"><span class="ff-label">First name <em>(optional)</em></span><input type="text" name="name" autocomplete="given-name" autocapitalize="words" enterkeyhint="send"></label>
-        <label class="ff-check"><input type="checkbox" name="newsletter"> Also send me coin ideas and offers now and then</label>
-        <p id="send-error" class="ff-error" role="alert" hidden></p>
-        <button id="send-submit" class="btn" type="submit">Email My Design</button>
-        <p class="co-secure">We will email you this design and may follow up about your coin. No spam, and we never share your address.</p>
-      </form>
-      <div id="send-done" class="send-done" hidden>
-        <div class="co-check">&#10003;</div>
-        <h2>On its way</h2>
-        <p id="send-done-text"></p>
-        <button id="send-finish" class="btn" type="button">Back to My Coin</button>
-      </div>
-    </div>
-  </div>
 
   <!-- "Contact us to fix my design": the message and the latest render go to the designers -->
   <div id="contact" class="checkout send" hidden role="dialog" aria-modal="true" aria-labelledby="contact-title">

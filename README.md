@@ -33,7 +33,7 @@ Without an API key the server runs in **demo mode** and returns a local SVG mock
 | `STRIPE_SECRET_KEY` | | Enables Pay Now via Stripe Checkout (needs `PRICE_TABLE`) |
 | `PUBLIC_URL` | | Deployed URL, used for Stripe return links |
 | `ORDER_WEBHOOK_URL` | | Every order is POSTed here as JSON |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | | Enables **Email Me This Design**: the watermarked design is emailed and the address saved as a lead in `leads/` |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | | Enables email: order confirmations, design-fix requests and lead alerts; leads are saved in `leads/` |
 | `MAIL_REPLY_TO` | From address | Where customers' replies go |
 | `LEAD_WEBHOOK_URL` | | Every lead is POSTed here as JSON |
 | `MAIL_PREVIEW_DIR` | | Testing: write emails to `.eml` files here instead of sending |

@@ -12,7 +12,7 @@ const { countReferences } = require('./lib/references');
 const { SIZES, hasPricing, estimate } = require('./lib/pricing');
 const { saveOrder, updateOrder, notifyWebhook, createCheckout } = require('./lib/orders');
 const { watermark, saveOriginal, readOriginal } = require('./lib/watermark');
-const { mailConfigured, sendDesignEmail, sendOrderEmail, sendAlertEmail, sendContactEmail, readMailImage, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
+const { mailConfigured, sendOrderEmail, sendAlertEmail, sendContactEmail, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
 const guard = require('./lib/guard');
 const { sideBySide } = require('./lib/composite');
 const { siteUrl } = require('./lib/site');
@@ -69,7 +69,7 @@ app.get(['/', '/index.html'], (req, res) => {
 });
 // Only the builder page is meant to be indexed. Everything else the server answers is data, admin, or staff-only.
 app.use((req, res, next) => {
-  if (/^\/(api|mail-img|signups\.csv|healthz|test)(\/|$)/.test(req.path)) res.set('X-Robots-Tag', 'noindex, nofollow');
+  if (/^\/(api|signups\.csv|healthz|test)(\/|$)/.test(req.path)) res.set('X-Robots-Tag', 'noindex, nofollow');
   next();
 });
 app.get('/robots.txt', (req, res) => {
@@ -77,7 +77,6 @@ app.get('/robots.txt', (req, res) => {
     'User-agent: *',
     'Allow: /',
     'Disallow: /api/',
-    'Disallow: /mail-img/',
     'Disallow: /signups.csv',
     'Disallow: /healthz',
     'Disallow: /test',
@@ -127,7 +126,6 @@ app.get('/api/config', (_req, res) => {
     // TEST_MODE=1 turns test mode on for everyone; otherwise it is enabled per browser with ?test=1
     testMode: process.env.TEST_MODE === '1',
     // true when SMTP is set up: designs are emailed instead of downloaded
-    emailDesigns: mailConfigured(),
     // set when Cloudflare Turnstile guards renders; the page then sends a token with every render
     turnstileSiteKey: guard.turnstileOn() ? process.env.TURNSTILE_SITE_KEY : '',
   });
@@ -378,10 +376,9 @@ app.get('/api/renders/:id/download', async (req, res) => {
 });
 
 // "Email me this design": the customer leaves an address, we send the watermarked design and keep the lead.
-// This endpoint sends mail because a stranger asked it to, so it is limited per visitor AND per recipient address,
+// This endpoint sends mail because a stranger asked it to, so it is limited per visitor,
 // and whatever image is involved is watermarked here, on the server, before it goes anywhere.
 const mailsByIp = new Map();
-const mailsByRecipient = new Map();
 function tooMany(map, key, max) {
   const now = Date.now();
   const recent = (map.get(key) || []).filter((t) => t > now - 3600000);
@@ -390,57 +387,6 @@ function tooMany(map, key, max) {
   return false;
 }
 
-app.post('/api/send-design', async (req, res) => {
-  const b = req.body || {};
-  const email = String(b.email || '').trim().toLowerCase().slice(0, 200);
-  const name = String(b.name || '').replace(/[\r\n<>]/g, ' ').trim().slice(0, 80);
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
-  const isTest = b.test === true || process.env.TEST_MODE === '1';
-
-  // Which design: an AI version by id (the server has the original), or the flat layout the browser drew
-  let source = readOriginal(b.renderId);
-  const fromRender = !!source;
-  if (!source) {
-    const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(typeof b.image === 'string' ? b.image : '');
-    if (!m) return res.status(400).json({ error: 'There is no design to send yet.' });
-    source = Buffer.from(m[1], 'base64');
-  }
-
-  const d = describedDesign(b.design && typeof b.design === 'object' ? b.design : {});
-  const clip = (v, n) => String(v || '').replace(/[\r\n<>]/g, ' ').trim().slice(0, n);
-  const summary = [
-    ['Purpose', d.purpose ? PURPOSES[d.purpose].label : ''],
-    ['Front', d.front], ['Back', d.back], ['Style', d.style],
-    ['Logo', clip(b.design && b.design.logoName, 120)],
-  ];
-
-  const lead = { email, name, newsletter: b.newsletter === true, test: isTest, ip: req.ip, renderId: fromRender ? b.renderId : null, design: Object.fromEntries(summary.filter(([, v]) => v)) };
-
-  try {
-    if (isTest) {
-      saveLead({ ...lead, emailed: false });
-      return res.json({ ok: true, sent: false, test: true });
-    }
-    if (!mailConfigured()) {
-      // No SMTP yet: keep the lead and let the page fall back to a watermarked download
-      saveLead({ ...lead, emailed: false });
-      console.warn('[coin-builder] design requested by email but SMTP is not configured; falling back to download');
-      return res.json({ ok: true, sent: false, fallback: 'download' });
-    }
-    if (tooMany(mailsByIp, req.ip, Number(process.env.MAIL_LIMIT_PER_HOUR || 6)) || tooMany(mailsByRecipient, email, 3)) {
-      return res.status(429).json({ error: 'That is a lot of emails in a short time. Please try again in an hour.' });
-    }
-    const image = await watermark(source, { strength: 'download', size: 1600 }); // throws rather than send a clean image
-    await sendDesignEmail({ to: email, name, image, summary, siteUrl: siteUrl(req) });
-    const record = saveLead({ ...lead, emailed: true });
-    notifyLead(record);
-    console.log(`[coin-builder] design emailed to ${email}`);
-    res.json({ ok: true, sent: true });
-  } catch (e) {
-    console.error('[coin-builder] send-design error:', e.message);
-    res.status(502).json({ error: 'Sorry, we could not send the email just now. Please try again in a moment.' });
-  }
-});
 
 // "Contact us to fix my design": the message, the design in the customer's words and their latest render go to the team.
 // Mail sent on a stranger's say-so, so it is limited per visitor like the design emails.
@@ -476,14 +422,6 @@ app.post('/api/contact', async (req, res) => {
     console.error('[coin-builder] contact error:', e.message);
     res.status(502).json({ error: 'Sorry, we could not send your message just now. Please try again, or call us at 1-866-583-5434.' });
   }
-});
-
-// The picture inside a design email sent through Brevo (always a watermarked copy, under an unguessable id)
-app.get('/mail-img/:id.jpg', (req, res) => {
-  const img = readMailImage(req.params.id);
-  if (!img) return res.status(404).end();
-  res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=2592000' });
-  res.send(img);
 });
 
 // Staff: the list of everyone who asked for their design by email, as a spreadsheet.
