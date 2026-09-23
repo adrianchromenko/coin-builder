@@ -526,6 +526,8 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
   }
   /* Rows 1 and 6 are spacers so the text and buttons sit centered beside the coin */
   .preview-stage { grid-column: 1; grid-row: 1 / 7; max-width: none; box-shadow: none; align-self: start; }
+  .preview.two { grid-template-columns: 200px 1fr; }
+  .preview-stage.two .face-label { font-size: 9px; padding: 2px 5px; left: 4px; top: 4px; }
   .preview-tabs { grid-column: 2; grid-row: 2; }
   .preview-spec { grid-column: 2; grid-row: 3; }
   .preview-actions { grid-column: 2; grid-row: 4; }
@@ -685,10 +687,27 @@ html { -webkit-text-size-adjust: 100%; }
 .ff textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 15px; line-height: 1.5; padding: 10px 12px; border: 1px solid #CFCAC2; border-radius: 0; background: var(--white); color: var(--text-dark); resize: vertical; min-height: 44px; }
 .ff textarea:focus { outline: 2px solid var(--orange); outline-offset: -1px; border-color: var(--orange); }
 .ff textarea.bad { border-color: #c62828; }
-.preview-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 28px; text-align: center; color: #aaa; font-size: 14px; line-height: 1.5; }
-.preview-empty[hidden] { display: none; }
-.preview-empty p { margin: 0; max-width: 260px; }
-.preview-empty b { color: var(--white); }
+/* The stage holds one face, or both faces side by side from the back step on (front left, back right) */
+.face { position: absolute; inset: 0; min-width: 0; overflow: hidden; }
+.face[hidden] { display: none; }
+.face img { width: 100%; height: 100%; display: block; object-fit: contain; }
+.face img[hidden] { display: none; }
+.face.same img { opacity: .55; }
+.face-label { position: absolute; left: 8px; top: 8px; padding: 3px 8px; font-family: var(--font-head); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--white); background: rgba(0,0,0,.65); border: 1px solid rgba(255,255,255,.25); pointer-events: none; }
+.face-label[hidden] { display: none; }
+.face-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 28px; text-align: center; color: #aaa; font-size: 14px; line-height: 1.5; }
+.face-empty[hidden] { display: none; }
+.face-empty p { margin: 0; max-width: 260px; }
+.face-empty b { color: var(--white); }
+.preview-stage.two { aspect-ratio: 2 / 1; max-width: none; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.preview-stage.two .face { position: relative; inset: auto; }
+.preview-stage.two .face-empty { gap: 8px; padding: 12px; font-size: 12px; }
+.preview-stage.two .face-empty p { max-width: 180px; }
+.preview-stage.two .coin-mark { width: 64px; height: 64px; box-shadow: inset 0 0 0 6px rgba(0,0,0,.18), 0 8px 18px rgba(0,0,0,.5); }
+.preview-stage.two .preview-busy[data-face="front"] { right: 50%; }
+.preview-stage.two .preview-busy[data-face="back"] { left: 50%; }
+.version.stale { opacity: .4; }
+.review-coin .review-faces { display: flex; gap: 6px; }
 .coin-mark { width: 120px; height: 120px; border-radius: 50%; background: radial-gradient(circle at 38% 32%, #f8e27a, #c9971c 55%, #7a5510); box-shadow: inset 0 0 0 10px rgba(0,0,0,.18), 0 14px 30px rgba(0,0,0,.5); opacity: .9; }
 .ai-disclaimer { width: 100%; max-width: 400px; box-sizing: border-box; padding: 12px 14px; background: #2a2a2a; border-left: 3px solid var(--orange); color: #ccc; font-size: 13px; line-height: 1.5; }
 .ai-disclaimer[hidden] { display: none; }

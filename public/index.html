@@ -118,22 +118,34 @@
     </header>
 
     <ol id="stepper" class="stepper" aria-label="Progress">
-      <li data-step="design" class="current"><span>1</span><b>Design</b></li>
-      <li data-step="options"><span>2</span><b>Quantity</b></li>
-      <li data-step="details"><span>3</span><b>Your Details</b></li>
-      <li data-step="review"><span>4</span><b>Review &amp; Pay</b></li>
+      <li data-step="front" class="current"><span>1</span><b>Front</b></li>
+      <li data-step="back"><span>2</span><b>Back</b></li>
+      <li data-step="options"><span>3</span><b>Quantity</b></li>
+      <li data-step="details"><span>4</span><b>Your Details</b></li>
+      <li data-step="review"><span>5</span><b>Review &amp; Pay</b></li>
     </ol>
 
-    <div class="builder" id="builder" data-step="design">
+    <div class="builder" id="builder" data-step="front">
       <!-- ============ the render ============ -->
       <div class="preview-col">
       <section class="preview" aria-label="Coin preview">
-        <div class="preview-stage">
-          <div id="preview-empty" class="preview-empty">
-            <span class="coin-mark" aria-hidden="true"></span>
-            <p>Describe your coin, then tap <b>Generate This Coin</b>. Your render shows up here in a minute or two.</p>
+        <div id="stage" class="preview-stage">
+          <div id="face-front" class="face">
+            <img alt="" draggable="false" hidden>
+            <span class="face-label" hidden>Front</span>
+            <div class="face-empty">
+              <span class="coin-mark" aria-hidden="true"></span>
+              <p>Describe your coin, then tap <b>Generate This Coin</b>. Your render shows up here in a minute or two.</p>
+            </div>
           </div>
-          <img id="preview-ai" class="preview-ai" alt="AI rendered coin" draggable="false" hidden>
+          <div id="face-back" class="face" hidden>
+            <img alt="" draggable="false" hidden>
+            <span class="face-label">Back</span>
+            <div class="face-empty">
+              <span class="coin-mark" aria-hidden="true"></span>
+              <p></p>
+            </div>
+          </div>
           <div id="preview-busy" class="preview-busy" role="status" hidden>
             <div class="progress" role="progressbar" aria-label="Generating your coin" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-bar" class="progress-bar"></div></div>
             <p id="progress-text">Sending your design to the AI…</p>
@@ -146,7 +158,7 @@
           <button id="ai-btn" class="btn navy" type="button" hidden><span class="only-wide">Make Another Version</span><span class="only-narrow">New Version</span></button>
         </div>
         <div id="versions-wrap" class="versions-wrap" hidden>
-          <span class="versions-label">AI versions</span>
+          <span id="versions-label" class="versions-label">Front versions</span>
           <div id="versions" class="versions" role="group" aria-label="AI versions of your coin"></div>
         </div>
         <div id="ai-check" class="ai-check" role="status" hidden></div>
@@ -160,10 +172,10 @@
       <!-- ============ step panels ============ -->
       <section class="panel">
 
-        <!-- Step 1: describe the coin -->
-        <div class="step" data-step="design">
-          <h2><span class="script">Design</span> your coin</h2>
-          <p class="lead">Tell us about your coin in plain words. Our AI drafts it in a minute, and our artists finish it before production.</p>
+        <!-- Step 1: the front. Purpose, logo, wording, style and size all live here; the back inherits them. -->
+        <div class="step" data-step="front">
+          <h2><span class="script">Design</span> the front</h2>
+          <p class="lead">Tell us about your coin in plain words. Our AI drafts the front in a minute; then you do the back, and our artists finish it before production.</p>
 
           <section class="group">
             <h3 class="group-title">1. What is this coin for?</h3>
@@ -196,19 +208,13 @@
           </section>
 
           <section class="group">
-            <h3 class="group-title">4. Describe the back <em>optional</em></h3>
-            <label class="ff"><span class="label">What goes on the back, and where</span><textarea id="desc-back" rows="3" maxlength="600" placeholder='Example: A bald eagle over a waving flag. "THE QUALITY IS ALWAYS HERE" curved around the top. Leave this empty and the back will be the same design as the front.'></textarea></label>
-            <p class="hint">The render shows both sides of your coin together. Leave this empty and the back matches the front.</p>
-          </section>
-
-          <section class="group">
-            <h3 class="group-title">5. Style, finish and theme <em>optional</em></h3>
+            <h3 class="group-title">4. Style, finish and theme <em>optional</em></h3>
             <label class="ff"><span class="label">Anything you would tell our designer</span><textarea id="desc-style" rows="2" maxlength="300" placeholder="Example: antique silver, rope border, red and blue enamel, patriotic feel"></textarea></label>
             <p class="hint">Metal finish, colors, border, texture, shape, mood. Leave it blank and we go with shiny gold and a plain rim.</p>
           </section>
 
           <section class="group">
-            <h3 class="group-title">6. Coin size <em>diameter, needed for pricing</em></h3>
+            <h3 class="group-title">5. Coin size <em>diameter, needed for pricing</em></h3>
             <div id="size-chips" class="seg wrap" role="group" aria-label="Coin size"></div>
             <p class="hint">Most challenge coins are 1.75" or 2". Need another size? Tell us in the notes when you order.</p>
           </section>
@@ -216,7 +222,35 @@
           <p id="design-hint" class="hint">Pick what the coin is for and describe the front to get started.</p>
           <div class="step-actions">
             <button id="generate-btn" class="btn navy" type="button" disabled>Generate This Coin</button>
-            <button id="to-options" class="btn" type="button" disabled hidden>Continue to Order</button>
+            <button id="to-back" class="btn" type="button" disabled hidden>Continue to the Back</button>
+          </div>
+        </div>
+
+        <!-- Step 2: the back. Same coin turned over: "same as the front" needs nothing; a different design is
+             rendered with the finished front as its reference, so shape, rim, border and finish match. -->
+        <div class="step" data-step="back" hidden>
+          <h2><span class="script">Now</span> the back</h2>
+          <p class="lead">Your front is set. The back is the same coin turned over: same shape, metal, rim and border. Just tell us what goes on it.</p>
+
+          <section class="group">
+            <h3 class="group-title">What goes on the back?</h3>
+            <div id="back-mode" class="seg wrap" role="group" aria-label="Back of the coin">
+              <button type="button" data-mode="same" class="on">Same as the front</button>
+              <button type="button" data-mode="custom">A different design</button>
+            </div>
+          </section>
+
+          <section id="back-custom" class="group" hidden>
+            <h3 class="group-title">Describe the back</h3>
+            <label class="ff"><span class="label">What goes on the back, and where</span><textarea id="desc-back" rows="4" maxlength="600" placeholder='Example: A bald eagle over a waving flag. "THE QUALITY IS ALWAYS HERE" curved around the top.'></textarea></label>
+            <p class="hint">Put the exact wording in double quotes. Shape, metal finish and border come from your front, so there is nothing to repeat here.</p>
+          </section>
+
+          <p id="back-hint" class="hint"></p>
+          <div class="step-actions">
+            <button class="btn dark back" type="button" data-back="front">Edit the Front</button>
+            <button id="back-generate-btn" class="btn navy" type="button" disabled hidden>Generate the Back</button>
+            <button id="to-options" class="btn" type="button" hidden>Continue to Order</button>
           </div>
         </div>
 
@@ -234,7 +268,7 @@
             <label class="ff"><span class="label">Notes for our team <em>(optional)</em></span><textarea id="notes" rows="2" maxlength="1000" placeholder="Add-ons like epoxy, key chains or numbering, a deadline, anything else…"></textarea></label>
           </div>
           <div class="step-actions">
-            <button class="btn dark back" type="button" data-back="design">Back</button>
+            <button class="btn dark back" type="button" data-back="back">Back</button>
             <button id="to-details" class="btn" type="button" disabled>Continue</button>
           </div>
         </div>

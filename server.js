@@ -166,6 +166,10 @@ app.post('/api/orders', async (req, res) => {
     aiRendered: d.aiRendered === true,
     aiVersion: Number.isInteger(d.aiVersion) ? d.aiVersion : null,
     renderId: /^[0-9a-f]{32}$/.test(String(d.renderId || '')) ? d.renderId : null,
+    // The back: its own render, or the front again (backMode "same")
+    backMode: d.backMode === 'custom' ? 'custom' : 'same',
+    backRenderId: /^[0-9a-f]{32}$/.test(String(d.backRenderId || '')) ? d.backRenderId : null,
+    backVersion: Number.isInteger(d.backVersion) ? d.backVersion : null,
     aiVersionsMade: Number.isInteger(d.aiVersionsMade) ? d.aiVersionsMade : 0,
     // true / false from the proofreader, null when the render was not checked or there was no render
     aiWordingChecked: typeof d.aiWordingChecked === 'boolean' ? d.aiWordingChecked : null,
@@ -182,10 +186,11 @@ app.post('/api/orders', async (req, res) => {
   if (rateLimited(req.ip)) return res.status(429).json({ error: 'Too many requests. Please try again shortly.' });
 
   try {
-    // An AI version is ordered by its id, and staff get the clean original from the server's own copy;
-    // the browser only ever had the watermarked preview. Layout orders send their flat mock-up as before.
-    const original = readOriginal(d.renderId);
-    const imageDataUrl = original ? `data:image/png;base64,${original.toString('base64')}` : (typeof b.image === 'string' ? b.image : '');
+    // An AI version is ordered by its id, and staff get the clean originals from the server's own copy, front and
+    // back side by side; the browser only ever had the watermarked previews. Test orders send their stand-in picture.
+    const front = readOriginal(design.renderId);
+    const back = front ? (readOriginal(design.backRenderId) || front) : null;
+    const imageDataUrl = front ? `data:image/png;base64,${(await sideBySide(front, back)).toString('base64')}` : (typeof b.image === 'string' ? b.image : '');
     const record = saveOrder({
       finishLabel: 'Challenge',
       size,
@@ -256,8 +261,7 @@ app.post('/api/orders/:id/paid', (req, res) => {
 });
 
 // The coin as the customer describes it: what it is for, their words for each face, style notes, and an optional logo.
-// Each face is rendered on its own; the front's description is required. An empty back means the back is the
-// same design as the front, so the front render is reused for it and no second render is paid for.
+// The order record keeps both faces; a render request carries one face at a time (see /api/generate).
 function describedDesign(body) {
   return {
     purpose: normalizePurpose(body.purpose),
@@ -267,96 +271,91 @@ function describedDesign(body) {
   };
 }
 
-// Proofreading results of the two sides, folded into one report for the badge under the coin
-function mergeChecks(front, back) {
-  const both = [front, back];
-  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
-  const logos = both.map((c) => num(c.logoMatch)).filter((v) => v !== null);
-  return {
-    checked: both.every((c) => c.checked),
-    ok: both.every((c) => !c.checked || c.ok) && both.some((c) => c.checked),
-    textOk: both.every((c) => c.textOk !== false),
-    logoOk: both.every((c) => c.logoOk !== false),
-    borderOk: null,
-    lines: [...(front.lines || []).map((l) => ({ ...l, where: `front ${l.where}` })), ...(back.lines || []).map((l) => ({ ...l, where: `back ${l.where}` }))],
-    extraText: [...(front.extraText || []), ...(back.extraText || [])],
-    logoMatch: logos.length ? Math.min(...logos) : null,
-    logoIssues: [front.logoIssues, back.logoIssues].filter(Boolean).join('; '),
-    sides: [front, back],
-  };
+// Which factory photos a front render was shown, so its back is shown the very same ones
+const refsByRender = new Map();
+function rememberRefs(renderId, names) {
+  if (!renderId) return;
+  refsByRender.set(renderId, names || []);
+  while (refsByRender.size > 300) refsByRender.delete(refsByRender.keys().next().value);
 }
 
 // Live stages of a render in flight (see lib/progress.js); the page opens this before posting the render
 app.get('/api/progress/:id', progress.subscribe);
 
+// One face per request. The front is rendered from the customer's words. The back is rendered with the finished
+// front handed to the AI as its first image, so it comes out as the same coin turned over: same shape, rim, border,
+// edge and finish, with only the face artwork changed. Both faces are put together at order time.
 app.post('/api/generate', (req, res) => {
   upload.single('logo')(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.message });
-    const progressId = progress.valid(req.body && req.body.progressId) ? req.body.progressId : null;
+    const b = req.body || {};
+    const progressId = progress.valid(b.progressId) ? b.progressId : null;
     const report = (event) => { if (progressId) progress.emit(progressId, event); };
     const finish = (event) => { if (!progressId) return; progress.emit(progressId, event); setTimeout(() => progress.close(progressId), 2000); };
     const logo = req.file ? { buffer: req.file.buffer, mimetype: req.file.mimetype } : null;
-    const design = describedDesign(req.body || {});
-    if (!design.front) return res.status(400).json({ error: 'Please describe the front of your coin first.' });
-    const ownBack = !!design.back; // described separately, so it gets its own render
-    const sides = [{ sideName: 'front', description: design.front }, ...(ownBack ? [{ sideName: 'back', description: design.back }] : [])];
+    const side = b.side === 'back' ? 'back' : 'front';
+    const design = { purpose: normalizePurpose(b.purpose), style: freeText(b.style, 300), description: freeText(b.description, 600) };
+    if (!design.description) return res.status(400).json({ error: `Please describe the ${side} of your coin first.` });
+    let frontImage = null, frontRenderId = null;
+    if (side === 'back') {
+      frontRenderId = /^[0-9a-f]{32}$/.test(String(b.frontRenderId || '')) ? b.frontRenderId : null;
+      frontImage = readOriginal(frontRenderId);
+      // The demo provider draws a stand-in with nothing saved on the server, so it has no front to anchor on
+      if (!frontImage && getProvider().name !== 'demo') return res.status(400).json({ error: 'Generate the front first; the back is drawn to match it. If your front is a few days old, please generate it again.' });
+    }
 
     // Every render below this line costs money, so the cheap checks come first.
-    // 1. The very same description and logo were rendered recently: hand back that result for free. Not when the
-    //    customer asked for another version of the same design: a new version has to be a new render.
-    const key = guard.fingerprint(logo ? logo.buffer : Buffer.alloc(0), design);
-    const repeat = req.body.fresh === '1' ? null : guard.cached(key);
+    // 1. The very same face was rendered recently: hand back that result for free. Not when the customer asked for
+    //    another version of the same design: a new version has to be a new render.
+    const key = guard.fingerprint(logo ? logo.buffer : Buffer.alloc(0), { side, ...design, frontRenderId });
+    const repeat = b.fresh === '1' ? null : guard.cached(key);
     if (repeat) {
       console.log('[coin-builder] repeat render served from cache');
       finish({ stage: 'done' });
       return res.json(repeat);
     }
     // 2. Real browser? (only when Turnstile is configured)
-    if (!(await guard.verifyTurnstile(req.body.turnstile, req.ip))) {
+    if (!(await guard.verifyTurnstile(b.turnstile, req.ip))) {
       finish({ stage: 'failed' });
       return res.status(403).json({ error: 'We could not confirm this request came from a browser. Please reload the page and try again.' });
     }
     // 3. Per-visitor and site-wide limits. From here on the render is counted, so release() must run.
-    const gate = guard.admit(req.ip, sides.length);
+    const gate = guard.admit(req.ip, 1);
     if (!gate.ok) { finish({ stage: 'failed' }); return res.status(gate.status).json({ error: gate.error }); }
 
     try {
       const provider = getProvider();
       const started = Date.now();
-      report({ stage: 'starting', sides: sides.length });
-      const results = await Promise.all(sides.map((side) => provider.generate({
-        mode: 'described', logo, purpose: design.purpose, style: design.style, ...side,
-        onProgress: (event) => report({ side: side.sideName, ...event }),
-      })));
+      report({ stage: 'starting', sides: 1 });
+      const result = await provider.generate({
+        mode: 'described', logo, purpose: design.purpose, style: design.style, sideName: side, description: design.description,
+        frontImage, refNames: frontRenderId ? refsByRender.get(frontRenderId) : null,
+        onProgress: (event) => report({ side, ...event }),
+      });
       report({ stage: 'finishing' });
-      const attempts = results.reduce((n, r) => n + r.attempts, 0);
-      console.log(`[coin-builder] ${provider.name} generated ${ownBack ? 'two-sided ' : 'same-both-sides '}described coin (${design.purpose || 'no purpose'}) in ${Date.now() - started}ms, ${attempts} attempt(s), model ${results[0].model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
+      console.log(`[coin-builder] ${provider.name} generated the ${side} of a described coin (${design.purpose || 'no purpose'}) in ${Date.now() - started}ms, ${result.attempts} attempt(s), model ${result.model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
 
       // The clean render stays on the server. The browser gets a small, lightly watermarked preview; the download
       // endpoint below hands out a heavily watermarked full-size copy. If watermarking fails, nothing is sent.
-      // The finished photo always shows both faces: the back's own render, or the front again when the back was not described.
-      let image, renderId = null, mimetype = results[0].mimetype, composed = false;
-      if (results[0].mimetype === 'image/png' || ownBack) {
-        composed = true;
-        const faces = results.map((r) => Buffer.from(r.base64, 'base64'));
-        const clean = await sideBySide(faces[0], ownBack ? faces[1] : faces[0]);
-        mimetype = 'image/png';
-        const preview = await watermark(clean, { strength: 'preview', size: 1400 });
+      let image, renderId = null;
+      if (result.mimetype === 'image/png') {
+        const clean = Buffer.from(result.base64, 'base64');
+        const preview = await watermark(clean, { strength: 'preview', size: 768 });
         renderId = saveOriginal(clean);
+        rememberRefs(renderId, result.refs);
         image = `data:image/png;base64,${preview.toString('base64')}`;
       } else {
-        image = `data:${mimetype};base64,${results[0].base64}`;
+        image = `data:${result.mimetype};base64,${result.base64}`;
       }
       const response = {
         provider: provider.name,
-        twoSided: composed, // the photo shows both faces (the demo provider's single drawing is the exception)
-        sameBack: !ownBack, // the back is the front design again
+        side,
         image,
         renderId,
-        // Proofreading result: which quoted wording matched, how well the logo held up (both sides folded together)
-        check: ownBack ? mergeChecks(results[0].check, results[1].check) : results[0].check,
-        phrases: { front: quotedPhrases(design.front), back: quotedPhrases(design.back) },
-        attempts,
+        // Proofreading result: which quoted wording matched, how well the logo held up
+        check: result.check,
+        phrases: quotedPhrases(design.description),
+        attempts: result.attempts,
       };
       if (provider.name !== 'demo') guard.remember(key, response);
       finish({ stage: 'done' });

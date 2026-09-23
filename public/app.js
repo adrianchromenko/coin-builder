@@ -16,7 +16,8 @@
 
   // ---------- state ----------
   const config = { pricing: false, payments: false, testMode: false, provider: '', purposes: PURPOSES };
-  const newDesign = () => ({ purpose: '', front: '', back: '', style: '', logo: null, logoName: '' });
+  // backMode: 'same' (the back is the front again) or 'custom' (its own description, rendered to match the front)
+  const newDesign = () => ({ purpose: '', front: '', back: '', backMode: 'same', style: '', logo: null, logoName: '' });
   const design = newDesign();
   const order = {
     quantity: null, size: null, estimate: null, notes: '',
@@ -24,15 +25,25 @@
     billStreet: '', billCityStateZip: '', billCountry: 'United States',
     street: '', cityStateZip: '', country: 'United States',
   };
-  // Every AI render is kept as a version: the picture, the proofreading result, and the description it was made from
+  // Every AI render is kept as a version, per face: the picture, the proofreading result, and the description it was
+  // made from. A back version also remembers which front render it was drawn to match; it only counts while that
+  // front is the one on screen.
   const MAX_VERSIONS = 8;
-  const ai = { versions: [], current: null, nextNumber: 1, busy: false };
-  const currentVersion = () => ai.versions.find((v) => v.id === ai.current) || null;
+  const newSide = () => ({ versions: [], current: null, nextNumber: 1 });
+  const ai = { busy: false, side: 'front', front: newSide(), back: newSide() };
+  const sideCurrent = (side) => ai[side].versions.find((v) => v.id === ai[side].current) || null;
+  const currentFront = () => sideCurrent('front');
+  const currentBack = () => sideCurrent('back');
+  const frontRenderId = () => { const f = currentFront(); return f ? f.renderId : null; };
+  const frontKey = () => { const f = currentFront(); return f ? f.id : null; }; // which front version a back was drawn for
+  const backStale = (v) => v.frontKey !== frontKey();
+  const currentVersion = currentFront; // the order, the contact form and checkout are anchored on the front
   let busy = false;
   const purposeLabel = () => config.purposes[design.purpose] || PURPOSES[design.purpose] || '';
-  const twoSided = () => !!design.back.trim();
+  const customBack = () => design.backMode === 'custom';
+  const twoSided = () => customBack() && !!design.back.trim();
   // The design as the server records it on renders, orders and leads
-  const designPayload = () => ({ purpose: design.purpose, front: design.front.trim(), back: design.back.trim(), style: design.style.trim(), logoName: design.logoName });
+  const designPayload = () => ({ purpose: design.purpose, front: design.front.trim(), back: twoSided() ? design.back.trim() : '', backMode: design.backMode, style: design.style.trim(), logoName: design.logoName });
 
   const configReady = fetch('/api/config').then((r) => r.json()).then((c) => {
     Object.assign(config, c);
@@ -112,6 +123,13 @@
   for (const [id, key] of [['desc-front', 'front'], ['desc-back', 'back'], ['desc-style', 'style']]) {
     $(id).addEventListener('input', (e) => { design[key] = e.target.value; syncDesign(); });
   }
+  $('back-mode').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-mode]');
+    if (!b) return;
+    design.backMode = b.dataset.mode;
+    syncDesign();
+    if (customBack()) $('desc-back').focus();
+  });
 
   const sizeChips = $('size-chips');
   for (const s of SIZES) {
@@ -131,35 +149,61 @@
   function specLine() {
     return [order.size ? `${order.size}"` : '', purposeLabel(), twoSided() ? 'Front & back' : 'Same both sides', design.logoName ? 'Your logo' : ''].filter(Boolean).join(' · ');
   }
-  // A design change means the render on screen no longer matches; earlier versions stay in the strip
+  // What a render of each face depends on. A back render is also tied to the front render it was matched against.
+  const logoKey = () => (design.logo ? design.logo.length : 0);
+  const frontSignature = () => JSON.stringify({ purpose: design.purpose, front: design.front.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey() });
+  const backSignature = () => JSON.stringify({ purpose: design.purpose, back: design.back.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey(), front: frontKey() });
+  const sideSignature = (side) => (side === 'back' ? backSignature() : frontSignature());
+
+  // A design change means the render on screen no longer matches; earlier versions stay in the strip.
+  // Each step's footer offers exactly one next move: generate this face, or go on.
   function syncDesign() {
     $('preview-spec').textContent = specLine();
-    const v = currentVersion();
-    if (v && v.signature !== designSignature()) {
-      ai.current = null;
-      showEmpty();
-      $('preview-caption').textContent = 'Design changed. Your earlier AI versions are kept below; tap one to go back to it.';
-      renderVersions();
+    for (const side of ['front', 'back']) {
+      const v = sideCurrent(side);
+      if (v && v.signature !== sideSignature(side)) ai[side].current = null;
+      // Back to a description (or, for the back, a front) that was rendered before: that version comes back on its own
+      if (!sideCurrent(side)) { const again = [...ai[side].versions].reverse().find((x) => x.signature === sideSignature(side)); if (again) ai[side].current = again.id; }
     }
+    const front = currentFront();
+    const back = currentBack();
     const ready = designReady();
-    // The order begins only once this exact design has been generated: the render on screen is what gets ordered.
-    // Changing the description after a render brings "Generate This Coin" back until it is rendered again.
-    const rendered = !!currentVersion();
+
+    // Front step: describe, generate, then on to the back with the render on screen
     $('generate-btn').disabled = !ready || ai.busy;
-    $('generate-btn').hidden = rendered;
-    $('to-options').hidden = !rendered;
-    $('to-options').disabled = !(rendered && order.size);
+    $('generate-btn').hidden = !!front;
+    $('to-back').hidden = !front;
+    $('to-back').disabled = !(front && order.size);
     $('design-hint').textContent = !design.purpose
       ? 'Pick what the coin is for to get started.'
       : !design.front.trim()
         ? 'Describe the front of your coin: what goes on it, and where.'
-        : !rendered
-          ? (ai.versions.length ? 'The description changed. Tap "Generate This Coin" to render it again before you order.' : 'Looking good. Tap "Generate This Coin" to see it rendered, then continue to your order.')
+        : !front
+          ? (ai.front.versions.length ? 'The description changed. Tap "Generate This Coin" to render it again.' : 'Looking good. Tap "Generate This Coin" to see it rendered.')
           : !order.size
-            ? 'Pick a coin size to continue to your order.'
+            ? 'Pick a coin size, then continue to the back of your coin.'
+            : 'Happy with the front? Continue to the back. Not quite? Change the description or make another version.';
+
+    // Back step: "same as the front" needs nothing more; a different back has to be generated to match the front
+    const backText = design.back.trim();
+    $('back-custom').hidden = !customBack();
+    for (const b of $('back-mode').children) b.classList.toggle('on', b.dataset.mode === design.backMode);
+    const backDone = !customBack() || !!back;
+    $('back-generate-btn').hidden = backDone;
+    $('back-generate-btn').disabled = !backText || !front || ai.busy;
+    $('to-options').hidden = !backDone;
+    $('back-hint').textContent = !front
+      ? 'Generate the front first; the back is drawn to match it.'
+      : !customBack()
+        ? 'The back will carry the same design as the front. Continue to your order, or choose "A different design".'
+        : !backText
+          ? 'Describe the back: what goes on it, and where.'
+          : !back
+            ? (ai.back.versions.length ? 'The back or the front changed. Tap "Generate the Back" to render it again to match.' : 'Tap "Generate the Back" to see it rendered to match your front.')
             : 'Happy with it? Continue to your order. Not quite? Change the description or make another version.';
+    renderPreview();
+    renderVersions();
   }
-  const designSignature = () => JSON.stringify({ ...designPayload(), logo: design.logo ? design.logo.length : 0 });
 
   // ---------- logo ----------
   const logoDrop = $('logo-drop');
@@ -261,30 +305,48 @@
     e.preventDefault();
     dragDepth = 0; $('drop').hidden = true;
     const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if (f) { setLogo(f); showStep('design'); }
+    if (f) { setLogo(f); showStep('front'); }
   });
   window.addEventListener('paste', (e) => {
     const items = e.clipboardData && e.clipboardData.items;
     if (!items) return;
     for (const it of items) {
-      if (it.kind === 'file' && it.type.startsWith('image/')) { setLogo(it.getAsFile()); showStep('design'); break; }
+      if (it.kind === 'file' && it.type.startsWith('image/')) { setLogo(it.getAsFile()); showStep('front'); break; }
     }
   });
 
   // ---------- the render on screen ----------
-  function showEmpty() {
-    $('preview-empty').hidden = false;
-    $('preview-ai').hidden = true;
-    document.querySelector('.preview-stage').classList.remove('wide');
-    renderCheck();
-  }
-  function showImage(v) {
-    $('preview-empty').hidden = true;
-    $('preview-ai').src = v.image;
-    $('preview-ai').alt = `AI version ${v.number} of your coin${v.twoSided ? ', front and back' : ''}`; // the back is the front again unless it was described
-    $('preview-ai').hidden = false;
-    document.querySelector('.preview-stage').classList.toggle('wide', !!v.twoSided);
-    renderCheck();
+  // One coin on the front step. From the back step on, both faces side by side: the front on the left and, on the
+  // right, the back render, or the front again (dimmed) when the back is "same as the front".
+  function renderPreview() {
+    const front = currentFront();
+    const back = currentBack();
+    const two = $('builder').dataset.step !== 'front';
+    $('stage').classList.toggle('two', two);
+    document.querySelector('.preview').classList.toggle('two', two);
+    const setFace = (face, v, { same = false, hint = '' } = {}) => {
+      const el = $('face-' + face);
+      const img = el.querySelector('img');
+      el.classList.toggle('same', same);
+      if (v) { img.src = v.image; img.hidden = false; img.alt = `${face === 'front' ? 'Front' : 'Back'} of your coin, AI version ${v.number}`; }
+      else { img.hidden = true; img.removeAttribute('src'); img.alt = ''; }
+      el.querySelector('.face-empty').hidden = !!v;
+      el.querySelector('.face-empty p').innerHTML = hint;
+      el.querySelector('.face-label').textContent = face === 'front' ? 'Front' : same ? 'Back · same as front' : 'Back';
+      el.querySelector('.face-label').hidden = !two;
+    };
+    setFace('front', front, { hint: 'Describe your coin, then tap <b>Generate This Coin</b>. Your render shows up here in a minute or two.' });
+    $('face-back').hidden = !two;
+    if (two) {
+      if (!customBack()) setFace('back', front, { same: true, hint: 'The back matches the front.' });
+      else setFace('back', back, { hint: 'Describe the back, then tap <b>Generate the Back</b>. It is drawn to match your front.' });
+    }
+    const shown = sideCurrent(ai.side);
+    $('preview-caption').textContent = shown
+      ? (shown.demo
+        ? (isTest() ? 'Test mode: a stand-in for the AI render.' : 'Demo render (add an API key on the server for real AI renders).')
+        : `${ai.side === 'back' ? 'Back' : 'Front'}, AI version ${shown.number}, shown with a light preview watermark. The artwork made for your order is clean and full quality.`)
+      : ai.side === 'back' && !customBack() ? 'Same design on both sides.' : 'Your AI render appears here.';
   }
 
   // ---------- AI render ----------
@@ -387,34 +449,44 @@
     if (progress.source) { progress.source.close(); progress.source = null; }
   }
 
-  async function aiRender() {
+  async function aiRender(side) {
     if (ai.busy) return;
-    if (!designReady()) { toast('Pick what the coin is for and describe the front first.'); return; }
+    if (side === 'front' && !designReady()) { toast('Pick what the coin is for and describe the front first.'); return; }
+    if (side === 'back' && !currentFront()) { toast('Generate the front first; the back is drawn to match it.'); return; }
+    if (side === 'back' && !design.back.trim()) { toast('Describe the back first.'); return; }
     ai.busy = true;
+    ai.side = side;
+    const genBtn = $(side === 'back' ? 'back-generate-btn' : 'generate-btn');
+    const genLabel = genBtn.textContent;
     $('ai-btn').disabled = true;
-    $('generate-btn').disabled = true;
-    $('generate-btn').textContent = 'Generating…';
+    genBtn.disabled = true;
+    genBtn.textContent = 'Generating…';
+    $('preview-busy').dataset.face = side;
     $('preview-busy').hidden = false;
     progressReset();
     const snapshot = { ...designPayload(), logo: design.logo };
-    const signature = designSignature();
-    // Another version of a design already rendered: tell the server not to hand back the cached one
-    const fresh = ai.versions.some((v) => v.signature === signature);
+    const text = side === 'back' ? snapshot.back : snapshot.front;
+    const signature = sideSignature(side);
+    const anchor = frontRenderId(); // the front this back is drawn to match
+    const anchorKey = frontKey();
+    // Another version of a face already rendered: tell the server not to hand back the cached one
+    const fresh = ai[side].versions.some((v) => v.signature === signature);
     try {
       let data;
       if (isTest()) {
         for (const stage of ['rendering', 'checking', 'finishing']) { progressSet(stage); progressTick(); await sleep(700); }
-        data = { image: testRenderSvg(snapshot.front, 'FRONT'), renderId: null, twoSided: false, check: null, provider: 'test' };
+        data = { image: testRenderSvg(text, side.toUpperCase()), renderId: 'test-' + side + '-' + ai[side].nextNumber, check: null, provider: 'test' };
       } else {
         const token = await turnstileToken();
         const progressId = (Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^a-z0-9]/g, '');
         progress.source = progressListen(progressId);
         const form = new FormData();
         if (snapshot.logo) form.append('logo', await (await fetch(snapshot.logo)).blob(), 'logo.png');
+        form.append('side', side);
+        form.append('description', text);
         form.append('purpose', snapshot.purpose);
-        form.append('front', snapshot.front);
-        form.append('back', snapshot.back);
         form.append('style', snapshot.style);
+        if (side === 'back') form.append('frontRenderId', anchor || '');
         form.append('progressId', progressId);
         if (fresh) form.append('fresh', '1');
         if (token) form.append('turnstile', token);
@@ -424,78 +496,86 @@
       }
       progressSet('done'); progressTick();
       await sleep(350); // let the bar reach the end before the coin replaces it
-      const version = { id: 'v' + ai.nextNumber, number: ai.nextNumber++, image: data.image, renderId: data.renderId || null, check: data.check || null, demo: data.provider === 'demo' || data.provider === 'test', twoSided: !!data.twoSided, design: snapshot, signature };
-      ai.versions.push(version);
+      const s = ai[side];
+      const version = { id: side + s.nextNumber, number: s.nextNumber++, image: data.image, renderId: data.renderId || null, check: data.check || null, demo: data.provider === 'demo' || data.provider === 'test', design: snapshot, signature, frontRenderId: side === 'back' ? anchor : null, frontKey: side === 'back' ? anchorKey : null };
+      s.versions.push(version);
       // Keep the strip (and the browser's memory) bounded: drop the oldest version that is not on screen
-      while (ai.versions.length > MAX_VERSIONS) ai.versions.splice(ai.versions.findIndex((v) => v.id !== ai.current), 1);
+      while (s.versions.length > MAX_VERSIONS) s.versions.splice(s.versions.findIndex((v) => v.id !== s.current), 1);
       // If the description was edited while this was rendering, keep the version but do not show it as current
-      if (signature === designSignature()) showVersion(version.id);
-      else { renderVersions(); toast(`AI version ${version.number} is ready. Tap it under the coin to see it.`, 5000); }
+      if (signature === sideSignature(side)) showVersion(side, version.id);
+      else { syncDesign(); toast(`${side === 'back' ? 'Back' : 'Front'} version ${version.number} is ready. Tap it under the coin to see it.`, 5000); }
     } catch (e) {
       toast(escapeHtml(e.message || 'Sorry, the AI render failed. Please try again.'), 5000);
     } finally {
       progressEnd();
       ai.busy = false;
       $('ai-btn').disabled = false;
-      $('generate-btn').textContent = 'Generate This Coin';
+      genBtn.textContent = genLabel;
       $('preview-busy').hidden = true;
-      syncDesign(); // the design step's footer now offers the order
+      syncDesign(); // the step's footer now offers the next move
     }
   }
-  $('generate-btn').addEventListener('click', aiRender);
+  $('generate-btn').addEventListener('click', () => aiRender('front'));
+  $('back-generate-btn').addEventListener('click', () => aiRender('back'));
 
   // Show a version. If it was made from a different description, that description comes back with it,
   // so the picture, the form, and the order always describe the same coin.
-  function showVersion(id) {
-    const v = ai.versions.find((x) => x.id === id);
+  function showVersion(side, id) {
+    const s = ai[side];
+    const v = s.versions.find((x) => x.id === id);
     if (!v) return;
-    if (v.signature !== designSignature()) {
-      Object.assign(design, { purpose: v.design.purpose, front: v.design.front, back: v.design.back, style: v.design.style, logo: v.design.logo, logoName: v.design.logoName });
+    if (side === 'back' && backStale(v)) {
+      toast('That back was drawn to match a different front. Pick that front again under the coin, or generate the back again for this one.', 6000);
+      return;
+    }
+    if (v.signature !== sideSignature(side)) {
+      const d = v.design;
+      if (side === 'front') Object.assign(design, { purpose: d.purpose, front: d.front, style: d.style, logo: d.logo, logoName: d.logoName });
+      else Object.assign(design, { back: d.back, backMode: 'custom' });
       syncControls();
     }
-    ai.current = id;
-    showImage(v);
-    $('preview-caption').textContent = v.demo
-      ? (isTest() ? 'Test mode: a stand-in for the AI render.' : 'Demo render (add an API key on the server for real AI renders).')
-      : `AI version ${v.number}, shown with a light preview watermark. The artwork made for your order is clean and full quality.`;
-    renderVersions();
+    s.current = id;
+    ai.side = side;
     syncDesign();
   }
 
-  function removeVersion(id) {
-    ai.versions = ai.versions.filter((v) => v.id !== id);
-    if (ai.current === id) {
-      ai.current = null;
-      showEmpty();
-      $('preview-caption').textContent = 'Your AI render appears here.';
-    }
-    renderVersions();
-    syncDesign(); // without a render on screen, the order has to wait for a new one
+  function removeVersion(side, id) {
+    const s = ai[side];
+    s.versions = s.versions.filter((v) => v.id !== id);
+    if (s.current === id) s.current = null;
+    syncDesign(); // without a render on screen, the next step has to wait for a new one
   }
 
   const checkState = (v) => (!v.check || !v.check.checked ? 'unchecked' : v.check.ok ? 'ok' : 'warn');
 
+  // The strip and "Make Another Version" follow the face being worked on (the front step's face, or the back step's)
   function renderVersions() {
+    const side = ai.side;
+    const s = ai[side];
     const wrap = $('versions-wrap');
-    wrap.hidden = !ai.versions.length;
-    $('ai-btn').hidden = !ai.versions.length; // the first render starts from the design step
-    $('versions').innerHTML = ai.versions.map((v) => {
+    const active = side === 'front' || customBack();
+    wrap.hidden = !s.versions.length || !active;
+    $('versions-label').textContent = side === 'back' ? 'Back versions' : 'Front versions';
+    $('ai-btn').hidden = !s.versions.length || !active; // the first render of a face starts from its step
+    $('versions').innerHTML = s.versions.map((v) => {
       const state = checkState(v);
-      const label = `AI version ${v.number}` + (state === 'ok' ? ', wording checked' : state === 'warn' ? ', needs a look' : '');
-      return `<button type="button" class="version${v.id === ai.current ? ' on' : ''} ${state}" data-version="${v.id}" aria-pressed="${v.id === ai.current}" aria-label="${label}" title="${label}">` +
-        `<img src="${v.image}" alt=""><span class="num">${v.number}</span>${state === 'unchecked' ? '' : `<span class="flag" aria-hidden="true">${state === 'ok' ? '✓' : '!'}</span>`}</button>`;
+      const stale = side === 'back' && backStale(v);
+      const label = `${side === 'back' ? 'Back' : 'Front'} version ${v.number}` + (stale ? ', drawn for a different front' : state === 'ok' ? ', wording checked' : state === 'warn' ? ', needs a look' : '');
+      return `<button type="button" class="version${v.id === s.current ? ' on' : ''} ${state}${stale ? ' stale' : ''}" data-version="${v.id}" data-side="${side}" aria-pressed="${v.id === s.current}" aria-label="${label}" title="${label}">` +
+        `<img src="${v.image}" alt=""><span class="num">${v.number}</span>${state === 'unchecked' || stale ? '' : `<span class="flag" aria-hidden="true">${state === 'ok' ? '✓' : '!'}</span>`}</button>`;
     }).join('');
     renderCheck();
   }
   $('versions').addEventListener('click', (e) => {
     const b = e.target.closest('[data-version]');
-    if (b) showVersion(b.dataset.version);
+    if (b) showVersion(b.dataset.side, b.dataset.version);
   });
 
   // The proofreading result for the version on screen, in plain words, plus the standing offer to fix it by hand
   function renderCheck() {
     const box = $('ai-check');
-    const v = currentVersion();
+    const side = ai.side;
+    const v = side === 'back' && !customBack() ? null : sideCurrent(side);
     $('ai-disclaimer').hidden = !v;
     if (!v) { box.hidden = true; return; }
     const state = checkState(v);
@@ -512,12 +592,12 @@
         '<span class="more"> Make another version for a fresh one, or ask us to fix it below. Your real coin is made from your exact words and logo file, never from this picture.</span>';
     }
     box.className = 'ai-check ' + state;
-    box.innerHTML = html + (html ? ' ' : '') + `<button type="button" class="link" id="remove-version">Remove version ${v.number}</button>`;
+    box.innerHTML = html + (html ? ' ' : '') + `<button type="button" class="link" id="remove-version">Remove ${side} version ${v.number}</button>`;
     box.hidden = false;
-    $('remove-version').addEventListener('click', () => removeVersion(v.id));
+    $('remove-version').addEventListener('click', () => removeVersion(side, v.id));
   }
 
-  $('ai-btn').addEventListener('click', aiRender);
+  $('ai-btn').addEventListener('click', () => aiRender(ai.side));
 
   // ---------- popups shared plumbing ----------
   function openDialog(root, focusEl) {
@@ -602,7 +682,7 @@
   document.addEventListener('dragstart', (e) => { if (e.target.tagName === 'IMG' || isCoinImage(e.target)) e.preventDefault(); });
 
   // ---------- steps ----------
-  const STEPS = ['design', 'options', 'details', 'review'];
+  const STEPS = ['front', 'back', 'options', 'details', 'review'];
   let stepShown = false; // skip the focus move on first load
   function showStep(name) {
     for (const s of document.querySelectorAll('.panel .step')) s.hidden = s.dataset.step !== name;
@@ -617,10 +697,9 @@
       if (li.dataset.step === name) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
     }
     $('builder').dataset.step = name;
-    if (!currentVersion()) {
-      $('preview-caption').textContent = name === 'design' ? 'Your AI render appears here.' : 'Our artists will draw this coin from your description.';
-    }
+    if (name === 'front' || name === 'back') ai.side = name; // the strip and "Make Another Version" follow the face being worked on
     if (name === 'review') renderReview();
+    syncDesign();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     // Move focus to the new step's heading so keyboard and screen-reader users land in the right place
     const h = document.querySelector(`.panel .step[data-step="${name}"] h2`);
@@ -635,7 +714,8 @@
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('li.done')) { e.preventDefault(); e.target.click(); }
   });
   document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => showStep(b.dataset.back)));
-  $('to-options').addEventListener('click', () => showStep('options'));
+  $('to-back').addEventListener('click', () => { if (currentFront() && order.size) showStep('back'); });
+  $('to-options').addEventListener('click', () => { if (currentFront() && (!customBack() || currentBack())) showStep('options'); });
   $('to-details').addEventListener('click', () => { if (order.quantity && order.size) showStep('details'); });
 
   // ---------- step 2: quantity ----------
@@ -734,15 +814,16 @@
   function renderReview() {
     updateOrderButton();
     const o = order;
-    const v = currentVersion();
+    const v = currentFront();
+    const bk = customBack() ? currentBack() : null;
     const sameAddr = o.street === o.billStreet && o.cityStateZip === o.billCityStateZip && o.country === o.billCountry;
     const edit = (step) => `<button class="link" type="button" data-edit="${step}">Edit</button>`;
     const rows = [
-      ['Coin', `<div class="review-coin">${v ? '<img id="review-img" alt="Your coin">' : ''}<ul>` +
+      ['Coin', `<div class="review-coin">${v ? '<div class="review-faces"><img id="review-img" alt="Front of your coin"><img id="review-img-back" alt="Back of your coin"></div>' : ''}<ul>` +
                [purposeLabel(), `Front: ${design.front.trim()}`, twoSided() ? `Back: ${design.back.trim()}` : 'Back: same design as the front',
                 design.style.trim() ? `Style: ${design.style.trim()}` : '', design.logoName ? `Logo: ${design.logoName}` : '',
-                v ? `AI version ${v.number} selected` : 'No AI render: our artists draw it from your description'].filter(Boolean).map((t) => `<li>${escapeHtml(t)}</li>`).join('') +
-               `</ul></div>${edit('design')}`],
+                v ? `Front: AI version ${v.number}${bk ? `. Back: AI version ${bk.number}` : ''}` : 'No AI render: our artists draw it from your description'].filter(Boolean).map((t) => `<li>${escapeHtml(t)}</li>`).join('') +
+               `</ul></div>${edit('front')}`],
       ['Quantity', `${o.quantity.toLocaleString()} × ${o.size}" ${edit('options')}`],
       o.estimate ? ['Estimate', `${money(o.estimate.total)} (${money(o.estimate.unit)} each)`] : null,
       ['Contact', `${escapeHtml(o.name)}<br>${escapeHtml(o.email)}${o.phone ? '<br>' + escapeHtml(o.phone) : ''}${o.company ? '<br>' + escapeHtml(o.company) : ''} ${edit('details')}`],
@@ -753,7 +834,7 @@
     const table = $('review-table');
     table.innerHTML = rows.map(([k, val]) => `<tr><th>${k}</th><td>${val}</td></tr>`).join('');
     table.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => showStep(b.dataset.edit)));
-    if (v) $('review-img').src = v.image;
+    if (v) { $('review-img').src = v.image; $('review-img-back').src = bk ? bk.image : v.image; }
   }
 
   $('place-order').addEventListener('click', placeOrder);
@@ -767,7 +848,8 @@
     btn.textContent = 'Sending…';
     $('review-error').hidden = true;
     try {
-      const v = currentVersion();
+      const v = currentFront();
+      const bk = customBack() ? currentBack() : null;
       const image = v ? v.image : null;
       const res = await fetch('/api/orders', {
         method: 'POST',
@@ -782,7 +864,9 @@
           design: {
             ...designPayload(),
             aiRendered: !!v,
-            aiVersion: v ? v.number : null, renderId: v ? v.renderId : null, aiVersionsMade: ai.nextNumber - 1,
+            aiVersion: v ? v.number : null, renderId: v ? v.renderId : null,
+            backRenderId: bk ? bk.renderId : null, backVersion: bk ? bk.number : null,
+            aiVersionsMade: ai.front.nextNumber - 1 + ai.back.nextNumber - 1,
             aiWordingChecked: v && v.check && v.check.checked ? !!v.check.ok : null,
           },
           image: v && v.renderId ? null : image,
@@ -978,6 +1062,8 @@
   // ---------- form controls <- design state ----------
   function syncControls() {
     $('desc-front').value = design.front; $('desc-back').value = design.back; $('desc-style').value = design.style;
+    for (const b of $('back-mode').children) b.classList.toggle('on', b.dataset.mode === design.backMode);
+    $('back-custom').hidden = !customBack();
     for (const x of $('purposes').children) x.classList.toggle('on', x.dataset.purpose === design.purpose);
     logoDrop.querySelector('.logo-empty').hidden = !!design.logo;
     logoDrop.querySelector('.logo-have').hidden = !design.logo;
@@ -989,7 +1075,7 @@
   function restart() {
     Object.assign(design, newDesign());
     Object.assign(order, { quantity: null, size: null, estimate: null, notes: '', name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
-    ai.versions = []; ai.current = null; ai.nextNumber = 1;
+    ai.front = newSide(); ai.back = newSide(); ai.side = 'front';
     $('result').innerHTML = '';
     $('notes').value = ''; $('qty-input').value = '';
     syncControls();
@@ -998,11 +1084,7 @@
     $('to-details').disabled = true;
     form.reset(); syncShip();
     $('details-error').hidden = true; $('review-error').hidden = true;
-    showEmpty();
-    renderVersions();
-    $('preview-caption').textContent = 'Your AI render appears here.';
-    syncDesign();
-    showStep('design');
+    showStep('front');
   }
   $('restart').addEventListener('click', restart);
   $('another').addEventListener('click', restart);
@@ -1015,7 +1097,6 @@
   document.querySelectorAll(CHOICES).forEach(markPressed);
 
   // ---------- boot ----------
-  syncDesign();
-  showEmpty();
-  if (!handleReturnFromCheckout()) showStep('design');
+  if (!handleReturnFromCheckout()) showStep('front');
+  else syncDesign();
 })();
