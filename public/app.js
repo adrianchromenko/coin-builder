@@ -121,6 +121,11 @@
     $('shape-hint').textContent = oddShape()
       ? 'Say what shape in your description or style notes: a shield, a star, your state, or cut to your logo. Left unsaid, we cut it to your artwork.'
       : 'Round is the classic challenge coin.';
+    // An odd-shaped coin has no diameter: its size is the longest side, which is what it is priced by
+    $('size-measure').textContent = oddShape() ? 'longest side, needed for pricing' : 'diameter, needed for pricing';
+    $('size-hint').textContent = oddShape()
+      ? 'Measure the longest side of the shape. Most coins are 1.75" or 2" across. Need another size? Tell us in the notes when you order.'
+      : 'Most challenge coins are 1.75" or 2". Need another size? Tell us in the notes when you order.';
   }
 
   const sizeChips = $('size-chips');
@@ -818,7 +823,7 @@
                 design.style.trim() ? `Style: ${design.style.trim()}` : '', design.logoName ? `Logo: ${design.logoName}` : '',
                 v ? `Front: AI version ${v.number}${bk ? `. Back: AI version ${bk.number}` : ''}` : 'No AI render: our artists draw it from your description'].filter(Boolean).map((t) => `<li>${escapeHtml(t)}</li>`).join('') +
                `</ul></div>${edit('front')}`],
-      ['Quantity', `${o.quantity.toLocaleString()} × ${o.size}" ${edit('options')}`],
+      ['Quantity', `${o.quantity.toLocaleString()} × ${o.size}"${oddShape() ? ' (longest side)' : ''} ${edit('options')}`],
       o.estimate ? ['Estimate', `${money(o.estimate.total)} (${money(o.estimate.unit)} each)`] : null,
       ['Contact', `${escapeHtml(o.name)}<br>${escapeHtml(o.email)}${o.phone ? '<br>' + escapeHtml(o.phone) : ''}${o.company ? '<br>' + escapeHtml(o.company) : ''} ${edit('details')}`],
       ['Bill to', `${escapeHtml(o.billStreet)}<br>${escapeHtml(o.billCityStateZip)}<br>${escapeHtml(o.billCountry)}`],
