@@ -293,7 +293,8 @@ app.post('/api/generate', (req, res) => {
     const finish = (event) => { if (!progressId) return; progress.emit(progressId, event); setTimeout(() => progress.close(progressId), 2000); };
     const logo = req.file ? { buffer: req.file.buffer, mimetype: req.file.mimetype } : null;
     const side = b.side === 'back' ? 'back' : 'front';
-    const design = { shape: normalizeCoinShape(b.shape), style: freeText(b.style, 300), description: freeText(b.description, 600) };
+    // note: what the customer wants different in this version (optional; only sent from "Make Another Version")
+    const design = { shape: normalizeCoinShape(b.shape), style: freeText(b.style, 300), description: freeText(b.description, 600), note: freeText(b.note, 300) };
     if (!design.description) return res.status(400).json({ error: `Please describe the ${side} of your coin first.` });
     let frontImage = null, frontRenderId = null;
     if (side === 'back') {
@@ -327,7 +328,7 @@ app.post('/api/generate', (req, res) => {
       const started = Date.now();
       report({ stage: 'starting', sides: 1 });
       const result = await provider.generate({
-        mode: 'described', logo, shape: design.shape, style: design.style, sideName: side, description: design.description,
+        mode: 'described', logo, shape: design.shape, style: design.style, sideName: side, description: design.description, note: design.note,
         frontImage, refNames: frontRenderId ? refsByRender.get(frontRenderId) : null,
         onProgress: (event) => report({ side, ...event }),
       });

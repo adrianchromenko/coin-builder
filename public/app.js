@@ -448,8 +448,10 @@
     if (progress.source) { progress.source.close(); progress.source = null; }
   }
 
-  async function aiRender(side) {
+  // note: what the customer wants different in this version (optional, from the "Make Another Version" popup)
+  async function aiRender(side, note = '') {
     if (ai.busy) return;
+    note = String(note || '').replace(/\s+/g, ' ').trim().slice(0, 300);
     if (side === 'front' && !designReady()) { toast('Describe the front of your coin first.'); return; }
     if (side === 'back' && !currentFront()) { toast('Generate the front first; the back is drawn to match it.'); return; }
     if (side === 'back' && !design.back.trim()) { toast('Describe the back first.'); return; }
@@ -483,6 +485,7 @@
         if (snapshot.logo) form.append('logo', await (await fetch(snapshot.logo)).blob(), 'logo.png');
         form.append('side', side);
         form.append('description', text);
+        if (note) form.append('note', note);
         form.append('shape', snapshot.shape);
         form.append('style', snapshot.style);
         if (side === 'back') form.append('frontRenderId', anchor || '');
@@ -496,7 +499,7 @@
       progressSet('done'); progressTick();
       await sleep(350); // let the bar reach the end before the coin replaces it
       const s = ai[side];
-      const version = { id: side + s.nextNumber, number: s.nextNumber++, image: data.image, renderId: data.renderId || null, check: data.check || null, demo: data.provider === 'demo' || data.provider === 'test', design: snapshot, signature, frontRenderId: side === 'back' ? anchor : null, frontKey: side === 'back' ? anchorKey : null };
+      const version = { id: side + s.nextNumber, number: s.nextNumber++, image: data.image, renderId: data.renderId || null, check: data.check || null, demo: data.provider === 'demo' || data.provider === 'test', design: snapshot, signature, note, frontRenderId: side === 'back' ? anchor : null, frontKey: side === 'back' ? anchorKey : null };
       s.versions.push(version);
       // Keep the strip (and the browser's memory) bounded: drop the oldest version that is not on screen
       while (s.versions.length > MAX_VERSIONS) s.versions.splice(s.versions.findIndex((v) => v.id !== s.current), 1);
@@ -559,7 +562,7 @@
     $('versions').innerHTML = s.versions.map((v) => {
       const state = checkState(v);
       const stale = side === 'back' && backStale(v);
-      const label = `${side === 'back' ? 'Back' : 'Front'} version ${v.number}` + (stale ? ', drawn for a different front' : state === 'ok' ? ', wording checked' : state === 'warn' ? ', needs a look' : '');
+      const label = `${side === 'back' ? 'Back' : 'Front'} version ${v.number}` + (stale ? ', drawn for a different front' : state === 'ok' ? ', wording checked' : state === 'warn' ? ', needs a look' : '') + (v.note ? `. Asked for: ${v.note}` : '');
       return `<button type="button" class="version${v.id === s.current ? ' on' : ''} ${state}${stale ? ' stale' : ''}" data-version="${v.id}" data-side="${side}" aria-pressed="${v.id === s.current}" aria-label="${label}" title="${label}">` +
         `<img src="${v.image}" alt=""><span class="num">${v.number}</span>${state === 'unchecked' || stale ? '' : `<span class="flag" aria-hidden="true">${state === 'ok' ? '✓' : '!'}</span>`}</button>`;
     }).join('');
@@ -596,7 +599,27 @@
     $('remove-version').addEventListener('click', () => removeVersion(side, v.id));
   }
 
-  $('ai-btn').addEventListener('click', () => aiRender(ai.side));
+  // ---------- "make another version": an optional note on what to change ----------
+  const revise = { root: $('revise'), form: $('revise-form'), note: $('revise-note'), opener: null };
+  function openRevise() {
+    if (ai.busy) return;
+    revise.opener = document.activeElement;
+    revise.note.value = '';
+    const v = sideCurrent(ai.side);
+    $('revise-coin').src = v ? v.image : '';
+    $('revise-coin').hidden = !v;
+    openDialog(revise.root, revise.note);
+  }
+  const closeRevise = () => closeDialog(revise.root, revise.opener);
+  $('ai-btn').addEventListener('click', openRevise);
+  $('revise-close').addEventListener('click', closeRevise);
+  revise.root.addEventListener('click', (e) => { if (e.target === revise.root) closeRevise(); });
+  revise.form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const note = revise.note.value;
+    closeRevise();
+    aiRender(ai.side, note);
+  });
 
   // ---------- popups shared plumbing ----------
   function openDialog(root, focusEl) {
@@ -672,6 +695,7 @@
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!contact.root.hidden) closeContact();
+    if (!revise.root.hidden) closeRevise();
   });
 
   // Coin images cannot be right-clicked, long-pressed or dragged out of the page. This only stops casual saving
