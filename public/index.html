@@ -172,18 +172,13 @@
       <!-- ============ step panels ============ -->
       <section class="panel">
 
-        <!-- Step 1: the front. Purpose, logo, wording, style and size all live here; the back inherits them. -->
+        <!-- Step 1: the front. Logo, wording, style, shape and size all live here; the back inherits them. -->
         <div class="step" data-step="front">
           <h2><span class="script">Design</span> the front</h2>
           <p class="lead">Tell us about your coin in plain words. Our AI drafts the front in a minute; then you do the back, and our artists finish it before production.</p>
 
           <section class="group">
-            <h3 class="group-title">1. What is this coin for?</h3>
-            <div id="purposes" class="seg wrap" role="group" aria-label="Design purpose"></div>
-          </section>
-
-          <section class="group">
-            <h3 class="group-title">2. Your logo or artwork <em>optional</em></h3>
+            <h3 class="group-title">1. Your logo or artwork <em>optional</em></h3>
             <div class="field">
               <div id="logo-drop" class="logo-drop" tabindex="0" role="button" aria-label="Upload your logo or artwork">
                 <input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
@@ -202,15 +197,24 @@
           </section>
 
           <section class="group">
-            <h3 class="group-title">3. Describe the front</h3>
+            <h3 class="group-title">2. Describe the front</h3>
             <label class="ff"><span class="label">What goes on the front, and where</span><textarea id="desc-front" rows="4" maxlength="600" placeholder='Example: Our logo in the middle. "FIRE DEPT" curved around the top, "EST. 1990" along the bottom. Navy blue background behind the logo.'></textarea></label>
             <p class="hint">Put the exact wording in double quotes and say where it goes. We read every quoted word back off the render, letter by letter.</p>
           </section>
 
           <section class="group">
-            <h3 class="group-title">4. Style, finish and theme <em>optional</em></h3>
+            <h3 class="group-title">3. Style, finish and theme <em>optional</em></h3>
             <label class="ff"><span class="label">Anything you would tell our designer</span><textarea id="desc-style" rows="2" maxlength="300" placeholder="Example: antique silver, rope border, red and blue enamel, patriotic feel"></textarea></label>
-            <p class="hint">Metal finish, colors, border, texture, shape, mood. Leave it blank and we go with shiny gold and a plain rim.</p>
+            <p class="hint">Metal finish, colors, border, texture, mood. Leave it blank and we go with shiny gold and a plain rim.</p>
+          </section>
+
+          <section class="group">
+            <h3 class="group-title">4. Coin shape</h3>
+            <div id="coin-shape" class="seg wrap" role="group" aria-label="Coin shape">
+              <button type="button" data-shape="round" class="on">Round</button>
+              <button type="button" data-shape="odd">Odd shaped</button>
+            </div>
+            <p id="shape-hint" class="hint">Round is the classic challenge coin.</p>
           </section>
 
           <section class="group">
@@ -219,7 +223,7 @@
             <p class="hint">Most challenge coins are 1.75" or 2". Need another size? Tell us in the notes when you order.</p>
           </section>
 
-          <p id="design-hint" class="hint">Pick what the coin is for and describe the front to get started.</p>
+          <p id="design-hint" class="hint">Describe the front of your coin to get started.</p>
           <div class="step-actions">
             <button id="generate-btn" class="btn navy" type="button" disabled>Generate This Coin</button>
             <button id="to-back" class="btn" type="button" disabled hidden>Continue to the Back</button>

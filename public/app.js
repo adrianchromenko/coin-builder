@@ -5,7 +5,6 @@
 
   // The customer tells us what the coin is for and describes each face in their own words. There are no option
   // grids: the server turns the description into the AI prompt, and the artists finish the coin before production.
-  const PURPOSES = { celebration: 'Celebration', branding: 'Corporate branding', anniversary: 'Anniversary', souvenir: 'Event souvenir' };
   const SIZES = ['1.5', '1.75', '2', '2.5', '3'];
   const QUANTITIES = [50, 100, 250, 500, 1000];
 
@@ -15,9 +14,10 @@
   const escapeXml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
 
   // ---------- state ----------
-  const config = { pricing: false, payments: false, testMode: false, provider: '', purposes: PURPOSES };
+  const config = { pricing: false, payments: false, testMode: false, provider: '' };
   // backMode: 'same' (the back is the front again) or 'custom' (its own description, rendered to match the front)
-  const newDesign = () => ({ purpose: '', front: '', back: '', backMode: 'same', style: '', logo: null, logoName: '' });
+  // shape: 'round' or 'odd' (a custom outline: shield, star, state, cut to the artwork; the words say which)
+  const newDesign = () => ({ front: '', back: '', backMode: 'same', shape: 'round', style: '', logo: null, logoName: '' });
   const design = newDesign();
   const order = {
     quantity: null, size: null, estimate: null, notes: '',
@@ -39,15 +39,14 @@
   const backStale = (v) => v.frontKey !== frontKey();
   const currentVersion = currentFront; // the order, the contact form and checkout are anchored on the front
   let busy = false;
-  const purposeLabel = () => config.purposes[design.purpose] || PURPOSES[design.purpose] || '';
   const customBack = () => design.backMode === 'custom';
+  const oddShape = () => design.shape === 'odd';
   const twoSided = () => customBack() && !!design.back.trim();
   // The design as the server records it on renders, orders and leads
-  const designPayload = () => ({ purpose: design.purpose, front: design.front.trim(), back: twoSided() ? design.back.trim() : '', backMode: design.backMode, style: design.style.trim(), logoName: design.logoName });
+  const designPayload = () => ({ shape: design.shape, front: design.front.trim(), back: twoSided() ? design.back.trim() : '', backMode: design.backMode, style: design.style.trim(), logoName: design.logoName });
 
   const configReady = fetch('/api/config').then((r) => r.json()).then((c) => {
     Object.assign(config, c);
-    if (c.purposes && Object.keys(c.purposes).length) { config.purposes = c.purposes; buildPurposes(); }
     if (c.testMode) setTestMode(true, { persist: false });
     updateOrderButton();
   }).catch(() => {});
@@ -100,26 +99,6 @@
   });
 
   // ---------- the design form ----------
-  function buildPurposes() {
-    const el = $('purposes');
-    el.innerHTML = '';
-    for (const [key, label] of Object.entries(config.purposes)) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.dataset.purpose = key;
-      b.textContent = label;
-      b.className = key === design.purpose ? 'on' : '';
-      el.appendChild(b);
-    }
-  }
-  buildPurposes();
-  $('purposes').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-purpose]');
-    if (!b) return;
-    design.purpose = b.dataset.purpose;
-    for (const x of $('purposes').children) x.classList.toggle('on', x === b);
-    syncDesign();
-  });
   for (const [id, key] of [['desc-front', 'front'], ['desc-back', 'back'], ['desc-style', 'style']]) {
     $(id).addEventListener('input', (e) => { design[key] = e.target.value; syncDesign(); });
   }
@@ -130,6 +109,19 @@
     syncDesign();
     if (customBack()) $('desc-back').focus();
   });
+  $('coin-shape').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-shape]');
+    if (!b) return;
+    design.shape = b.dataset.shape === 'odd' ? 'odd' : 'round';
+    syncShape();
+    syncDesign();
+  });
+  function syncShape() {
+    for (const x of $('coin-shape').children) x.classList.toggle('on', x.dataset.shape === design.shape);
+    $('shape-hint').textContent = oddShape()
+      ? 'Say what shape in your description or style notes: a shield, a star, your state, or cut to your logo. Left unsaid, we cut it to your artwork.'
+      : 'Round is the classic challenge coin.';
+  }
 
   const sizeChips = $('size-chips');
   for (const s of SIZES) {
@@ -145,14 +137,14 @@
     updateEstimate();
   }
 
-  const designReady = () => !!(design.purpose && design.front.trim());
+  const designReady = () => !!design.front.trim();
   function specLine() {
-    return [order.size ? `${order.size}"` : '', purposeLabel(), twoSided() ? 'Front & back' : 'Same both sides', design.logoName ? 'Your logo' : ''].filter(Boolean).join(' · ');
+    return [order.size ? `${order.size}"` : '', oddShape() ? 'Odd shaped' : '', twoSided() ? 'Front & back' : 'Same both sides', design.logoName ? 'Your logo' : ''].filter(Boolean).join(' · ');
   }
   // What a render of each face depends on. A back render is also tied to the front render it was matched against.
   const logoKey = () => (design.logo ? design.logo.length : 0);
-  const frontSignature = () => JSON.stringify({ purpose: design.purpose, front: design.front.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey() });
-  const backSignature = () => JSON.stringify({ purpose: design.purpose, back: design.back.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey(), front: frontKey() });
+  const frontSignature = () => JSON.stringify({ shape: design.shape, front: design.front.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey() });
+  const backSignature = () => JSON.stringify({ shape: design.shape, back: design.back.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey(), front: frontKey() });
   const sideSignature = (side) => (side === 'back' ? backSignature() : frontSignature());
 
   // A design change means the render on screen no longer matches; earlier versions stay in the strip.
@@ -174,15 +166,13 @@
     $('generate-btn').hidden = !!front;
     $('to-back').hidden = !front;
     $('to-back').disabled = !(front && order.size);
-    $('design-hint').textContent = !design.purpose
-      ? 'Pick what the coin is for to get started.'
-      : !design.front.trim()
-        ? 'Describe the front of your coin: what goes on it, and where.'
-        : !front
-          ? (ai.front.versions.length ? 'The description changed. Tap "Generate This Coin" to render it again.' : 'Looking good. Tap "Generate This Coin" to see it rendered.')
-          : !order.size
-            ? 'Pick a coin size, then continue to the back of your coin.'
-            : 'Happy with the front? Continue to the back. Not quite? Change the description or make another version.';
+    $('design-hint').textContent = !design.front.trim()
+      ? 'Describe the front of your coin: what goes on it, and where.'
+      : !front
+        ? (ai.front.versions.length ? 'The description changed. Tap "Generate This Coin" to render it again.' : 'Looking good. Tap "Generate This Coin" to see it rendered.')
+        : !order.size
+          ? 'Pick a coin size, then continue to the back of your coin.'
+          : 'Happy with the front? Continue to the back. Not quite? Change the description or make another version.';
 
     // Back step: "same as the front" needs nothing more; a different back has to be generated to match the front
     const backText = design.back.trim();
@@ -388,10 +378,14 @@
   }
 
   // Test mode stand-in for a render: a coin drawn in the browser with the description on it, no API call
-  function testRenderSvg(text, label) {
+  function testRenderSvg(text, label, odd = false) {
     const words = escapeXml(text.replace(/\s+/g, ' ').trim().slice(0, 80));
+    // An odd-shaped coin is drawn as an octagon so the shape choice can be seen working in test mode
+    const ring = (r, attrs) => odd
+      ? `<polygon points="${Array.from({ length: 8 }, (_, i) => { const a = Math.PI / 8 + (i * Math.PI) / 4; return `${(512 + r * Math.cos(a)).toFixed(1)},${(512 + r * Math.sin(a)).toFixed(1)}`; }).join(' ')}" ${attrs}/>`
+      : `<circle cx="512" cy="512" r="${r}" ${attrs}/>`;
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><rect width="1024" height="1024" fill="#1c1d21"/>
-  <circle cx="512" cy="512" r="440" fill="#c9971c"/><circle cx="512" cy="512" r="380" fill="#b8871a"/><circle cx="512" cy="512" r="380" fill="none" stroke="#f8e27a" stroke-width="4" opacity=".7"/>
+  ${ring(440, 'fill="#c9971c"')}${ring(380, 'fill="#b8871a"')}${ring(380, 'fill="none" stroke="#f8e27a" stroke-width="4" opacity=".7"')}
   <text x="512" y="300" text-anchor="middle" font-family="Georgia, serif" font-size="40" letter-spacing="6" fill="#fff">${escapeXml(label)}</text>
   <text x="512" y="540" text-anchor="middle" font-family="Georgia, serif" font-size="24" fill="#fff" opacity=".9">${words}</text>
   <text x="512" y="760" text-anchor="middle" font-family="Georgia, serif" font-size="34" letter-spacing="6" fill="#f8e27a">TEST RENDER</text></svg>`;
@@ -451,7 +445,7 @@
 
   async function aiRender(side) {
     if (ai.busy) return;
-    if (side === 'front' && !designReady()) { toast('Pick what the coin is for and describe the front first.'); return; }
+    if (side === 'front' && !designReady()) { toast('Describe the front of your coin first.'); return; }
     if (side === 'back' && !currentFront()) { toast('Generate the front first; the back is drawn to match it.'); return; }
     if (side === 'back' && !design.back.trim()) { toast('Describe the back first.'); return; }
     ai.busy = true;
@@ -475,7 +469,7 @@
       let data;
       if (isTest()) {
         for (const stage of ['rendering', 'checking', 'finishing']) { progressSet(stage); progressTick(); await sleep(700); }
-        data = { image: testRenderSvg(text, side.toUpperCase()), renderId: 'test-' + side + '-' + ai[side].nextNumber, check: null, provider: 'test' };
+        data = { image: testRenderSvg(text, side.toUpperCase(), snapshot.shape === 'odd'), renderId: 'test-' + side + '-' + ai[side].nextNumber, check: null, provider: 'test' };
       } else {
         const token = await turnstileToken();
         const progressId = (Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^a-z0-9]/g, '');
@@ -484,7 +478,7 @@
         if (snapshot.logo) form.append('logo', await (await fetch(snapshot.logo)).blob(), 'logo.png');
         form.append('side', side);
         form.append('description', text);
-        form.append('purpose', snapshot.purpose);
+        form.append('shape', snapshot.shape);
         form.append('style', snapshot.style);
         if (side === 'back') form.append('frontRenderId', anchor || '');
         form.append('progressId', progressId);
@@ -530,7 +524,7 @@
     }
     if (v.signature !== sideSignature(side)) {
       const d = v.design;
-      if (side === 'front') Object.assign(design, { purpose: d.purpose, front: d.front, style: d.style, logo: d.logo, logoName: d.logoName });
+      if (side === 'front') Object.assign(design, { shape: d.shape || 'round', front: d.front, style: d.style, logo: d.logo, logoName: d.logoName });
       else Object.assign(design, { back: d.back, backMode: 'custom' });
       syncControls();
     }
@@ -820,7 +814,7 @@
     const edit = (step) => `<button class="link" type="button" data-edit="${step}">Edit</button>`;
     const rows = [
       ['Coin', `<div class="review-coin">${v ? '<div class="review-faces"><img id="review-img" alt="Front of your coin"><img id="review-img-back" alt="Back of your coin"></div>' : ''}<ul>` +
-               [purposeLabel(), `Front: ${design.front.trim()}`, twoSided() ? `Back: ${design.back.trim()}` : 'Back: same design as the front',
+               [oddShape() ? 'Shape: odd shaped' : 'Shape: round', `Front: ${design.front.trim()}`, twoSided() ? `Back: ${design.back.trim()}` : 'Back: same design as the front',
                 design.style.trim() ? `Style: ${design.style.trim()}` : '', design.logoName ? `Logo: ${design.logoName}` : '',
                 v ? `Front: AI version ${v.number}${bk ? `. Back: AI version ${bk.number}` : ''}` : 'No AI render: our artists draw it from your description'].filter(Boolean).map((t) => `<li>${escapeHtml(t)}</li>`).join('') +
                `</ul></div>${edit('front')}`],
@@ -1064,7 +1058,7 @@
     $('desc-front').value = design.front; $('desc-back').value = design.back; $('desc-style').value = design.style;
     for (const b of $('back-mode').children) b.classList.toggle('on', b.dataset.mode === design.backMode);
     $('back-custom').hidden = !customBack();
-    for (const x of $('purposes').children) x.classList.toggle('on', x.dataset.purpose === design.purpose);
+    syncShape();
     logoDrop.querySelector('.logo-empty').hidden = !!design.logo;
     logoDrop.querySelector('.logo-have').hidden = !design.logo;
     if (design.logo) { $('logo-thumb').src = design.logo; $('logo-name').textContent = design.logoName; }

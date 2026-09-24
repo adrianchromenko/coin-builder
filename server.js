@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
 const { getProvider } = require('./lib/providers');
-const { PURPOSES, normalizePurpose, freeText, quotedPhrases } = require('./lib/prompt');
+const { normalizeCoinShape, coinShapeLabel, freeText, quotedPhrases } = require('./lib/prompt');
 const { countReferences } = require('./lib/references');
 const { SIZES, hasPricing, estimate } = require('./lib/pricing');
 const { saveOrder, updateOrder, notifyWebhook, createCheckout } = require('./lib/orders');
@@ -119,7 +119,6 @@ app.get('/api/config', (_req, res) => {
   const provider = getProvider();
   res.json({
     provider: provider.name,
-    purposes: Object.fromEntries(Object.entries(PURPOSES).map(([k, v]) => [k, v.label])),
     references: countReferences(),
     sizes: SIZES,
     pricing: hasPricing(),
@@ -174,7 +173,7 @@ app.post('/api/orders', async (req, res) => {
     // true / false from the proofreader, null when the render was not checked or there was no render
     aiWordingChecked: typeof d.aiWordingChecked === 'boolean' ? d.aiWordingChecked : null,
   };
-  design.purposeLabel = design.purpose ? PURPOSES[design.purpose].label : '';
+  design.shapeLabel = coinShapeLabel(design.shape);
   if (!design.front) return res.status(400).json({ error: 'Please describe the front of your coin.' });
 
   if (!quantity || quantity < 1 || quantity > 100000) return res.status(400).json({ error: 'Please enter a valid quantity.' });
@@ -260,11 +259,11 @@ app.post('/api/orders/:id/paid', (req, res) => {
   res.json({ ok: true });
 });
 
-// The coin as the customer describes it: what it is for, their words for each face, style notes, and an optional logo.
+// The coin as the customer describes it: their words for each face, style notes, shape, and an optional logo.
 // The order record keeps both faces; a render request carries one face at a time (see /api/generate).
 function describedDesign(body) {
   return {
-    purpose: normalizePurpose(body.purpose),
+    shape: normalizeCoinShape(body.shape),
     style: freeText(body.style, 300),
     front: freeText(body.front, 600),
     back: freeText(body.back, 600),
@@ -294,7 +293,7 @@ app.post('/api/generate', (req, res) => {
     const finish = (event) => { if (!progressId) return; progress.emit(progressId, event); setTimeout(() => progress.close(progressId), 2000); };
     const logo = req.file ? { buffer: req.file.buffer, mimetype: req.file.mimetype } : null;
     const side = b.side === 'back' ? 'back' : 'front';
-    const design = { purpose: normalizePurpose(b.purpose), style: freeText(b.style, 300), description: freeText(b.description, 600) };
+    const design = { shape: normalizeCoinShape(b.shape), style: freeText(b.style, 300), description: freeText(b.description, 600) };
     if (!design.description) return res.status(400).json({ error: `Please describe the ${side} of your coin first.` });
     let frontImage = null, frontRenderId = null;
     if (side === 'back') {
@@ -328,12 +327,12 @@ app.post('/api/generate', (req, res) => {
       const started = Date.now();
       report({ stage: 'starting', sides: 1 });
       const result = await provider.generate({
-        mode: 'described', logo, purpose: design.purpose, style: design.style, sideName: side, description: design.description,
+        mode: 'described', logo, shape: design.shape, style: design.style, sideName: side, description: design.description,
         frontImage, refNames: frontRenderId ? refsByRender.get(frontRenderId) : null,
         onProgress: (event) => report({ side, ...event }),
       });
       report({ stage: 'finishing' });
-      console.log(`[coin-builder] ${provider.name} generated the ${side} of a described coin (${design.purpose || 'no purpose'}) in ${Date.now() - started}ms, ${result.attempts} attempt(s), model ${result.model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
+      console.log(`[coin-builder] ${provider.name} generated the ${side} of a described ${design.shape === 'odd' ? 'odd-shaped' : 'round'} coin in ${Date.now() - started}ms, ${result.attempts} attempt(s), model ${result.model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
 
       // The clean render stays on the server. The browser gets a small, lightly watermarked preview; the download
       // endpoint below hands out a heavily watermarked full-size copy. If watermarking fails, nothing is sent.
@@ -417,7 +416,7 @@ app.post('/api/contact', async (req, res) => {
   const isTest = b.test === true || process.env.TEST_MODE === '1';
   const design = describedDesign(b.design && typeof b.design === 'object' ? b.design : {});
   design.logoName = String((b.design && b.design.logoName) || '').trim().slice(0, 120);
-  design.purposeLabel = design.purpose ? PURPOSES[design.purpose].label : '';
+  design.shapeLabel = coinShapeLabel(design.shape);
   const original = readOriginal(b.renderId);
   const lead = { email, name, phone, newsletter: false, test: isTest, ip: req.ip, renderId: original ? b.renderId : null, source: 'contact', message, design };
   try {
