@@ -584,12 +584,13 @@
     const c = v.check || {};
     let html = '';
     if (state === 'ok') {
-      html = '<strong>✓ Wording checked.</strong><span class="more"> We read this render back letter by letter and every quoted word matches' + (c.logoMatch != null ? ', and your logo held up well.' : '.') + '</span>';
+      html = '<strong>✓ Wording checked.</strong><span class="more"> We read this render back letter by letter and every quoted word matches' + (c.logoMatch != null ? ', and your logo held up well' : '') + (c.shapeMatch != null ? ', and the outline matches your front' : '') + '.</span>';
     } else if (state === 'warn') {
       const issues = [];
       for (const l of c.lines || []) if (!l.ok) issues.push(`${/^(front|back) /.test(l.where) ? `on the ${l.where.split(' ')[0]} ` : ''}it wrote “${escapeHtml(l.read || 'nothing')}” where you asked for “${escapeHtml(l.expected)}”`);
       if ((c.extraText || []).length) issues.push(`it added “${escapeHtml(c.extraText.join('”, “'))}”`);
       if (c.logoOk === false) issues.push('it changed your logo' + (c.logoIssues ? ` (${escapeHtml(c.logoIssues)})` : ''));
+      if (c.shapeOk === false) issues.push('the outline does not match your front' + (c.shapeIssues ? ` (${escapeHtml(c.shapeIssues)})` : ''));
       html = `<strong>! This version is not quite right:</strong> ${issues.join('; ') || 'something is off'}.` +
         '<span class="more"> Make another version for a fresh one, or ask us to fix it below. Your real coin is made from your exact words and logo file, never from this picture.</span>';
     }
