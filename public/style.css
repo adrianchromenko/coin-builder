@@ -168,6 +168,8 @@ body {
 .preview-col { background: #1E1E1E; }
 .preview {
   position: sticky; top: 0;
+  /* On a short screen (a tablet held sideways, a small laptop) the pinned column scrolls on its own, so nothing under the coin is out of reach */
+  max-height: 100vh; max-height: 100dvh; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #444 transparent;
   color: #ccc;
   padding: 20px;
   display: flex; flex-direction: column; align-items: center; gap: 12px;
@@ -382,10 +384,10 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .ff-error[hidden] { display: none; }
 
 /* review table */
-.summary { border-collapse: collapse; width: 100%; margin-top: 4px; }
+.summary { border-collapse: collapse; width: 100%; margin-top: 4px; table-layout: fixed; }
 .summary th, .summary td { text-align: left; vertical-align: top; padding: 9px 10px 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
 .summary th { width: 120px; font-family: var(--font-head); font-weight: 600; font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dark); }
-.summary td { color: var(--text); }
+.summary td { color: var(--text); overflow-wrap: anywhere; } /* a long email or an unbroken word wraps instead of widening the page */
 .summary td .link { margin-left: 8px; font-size: 12px; white-space: nowrap; }
 .summary td > .review-coin + .link { margin: 6px 0 0; display: inline-block; }
 .review-coin { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
@@ -396,7 +398,7 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 
 /* result */
 #result .head { font-family: var(--font-head); font-size: 24px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dark); margin: 0 0 10px; }
-#result p { margin: 0 0 10px; }
+#result p { margin: 0 0 10px; overflow-wrap: anywhere; }
 #result .caption { font-size: 12px; color: #777; }
 
 /* footer */
@@ -496,10 +498,11 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .co-pay { font-size: 16px; padding: 14px; margin-top: 4px; }
 .co-pay:disabled { opacity: .7; }
 .co-secure { font-size: 12px; color: #666; margin: 0; text-align: center; }
+.co-secure a { color: var(--orange-text); font-weight: 600; }
 .co-done { grid-column: 2; padding: 40px 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .co-done[hidden] { display: none; }
 .co-check { width: 64px; height: 64px; border-radius: 50%; background: #2e7d32; color: var(--white); font-size: 36px; display: grid; place-items: center; }
-.co-done p { margin: 0; color: var(--text); }
+.co-done p { margin: 0; color: var(--text); overflow-wrap: anywhere; }
 
 /* ---------- "email me this design" ---------- */
 .send-card { max-width: 440px; }
@@ -513,149 +516,7 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .send-form .ff-label em { color: #767676; font-style: normal; text-transform: none; letter-spacing: 0; }
 .send-form .btn { padding: 14px; font-size: 15px; }
 .send-done { align-items: center; text-align: center; }
-.send-done p { margin: 0; }
-
-/* ---------- responsive ---------- */
-@media (max-width: 860px) {
-  .builder { grid-template-columns: 1fr; }
-  /* The coin stays pinned, small, at the top so every change is visible while you scroll the options */
-  .preview-col { position: sticky; top: 0; z-index: 5; box-shadow: 0 6px 16px rgba(0,0,0,.35); }
-  .preview {
-    position: static; padding: 10px 14px;
-    display: grid; grid-template-columns: 124px 1fr; grid-template-rows: 1fr auto auto auto auto 1fr auto; column-gap: 14px; row-gap: 6px; align-items: center; justify-items: start;
-  }
-  /* Rows 1 and 6 are spacers so the text and buttons sit centered beside the coin */
-  .preview-stage { grid-column: 1; grid-row: 1 / 7; max-width: none; box-shadow: none; align-self: start; }
-  .preview.two { grid-template-columns: 200px 1fr; }
-  .preview-stage.two .face-label { font-size: 9px; padding: 2px 5px; left: 4px; top: 4px; }
-  .preview-tabs { grid-column: 2; grid-row: 2; }
-  .preview-spec { grid-column: 2; grid-row: 3; }
-  .preview-actions { grid-column: 2; grid-row: 4; }
-  .versions-wrap { grid-column: 2; grid-row: 5; flex-direction: row; align-items: center; gap: 8px; max-width: 100%; min-width: 0; }
-  .versions-label { display: none; }
-  .versions { flex-wrap: nowrap; justify-content: flex-start; gap: 8px; overflow-x: auto; padding: 8px 8px 2px 0; max-width: 100%; scrollbar-width: none; }
-  .versions::-webkit-scrollbar { display: none; }
-  .version { flex: 0 0 auto; width: 44px; height: 44px; }
-  .ai-check { grid-column: 1 / -1; grid-row: 7; max-width: none; font-size: 13px; padding: 8px 10px; margin-top: 2px; }
-  .ai-check .link { padding: 0; margin: 0; }
-  /* The pinned bar stays short: headline only, the full explanation is for larger screens */
-  .ai-check .more { display: none; }
-  .only-wide { display: none; }
-  .only-narrow { display: inline; }
-  .preview-caption { display: none; }
-  .preview-spec { text-align: left; }
-  /* Two lines at most, so the pinned bar never grows and pushes the page around */
-  .preview-spec { font-size: 11px; letter-spacing: 1px; margin: 0; line-height: 1.45; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-  .preview-spec:empty { display: none; }
-  .preview-actions { justify-content: flex-start; }
-  .preview-actions .btn { font-size: 12px; padding: 8px 12px; letter-spacing: 1px; }
-  .preview-tabs button { padding: 5px 10px; font-size: 11px; }
-  .preview-busy { padding: 6px; }
-  .preview-busy .progress-sub { display: none; }
-  .preview-busy p { font-size: 12px; }
-  .app-header { flex-wrap: wrap; }
-  .brand-text h1 { font-size: 18px; }
-}
-@media (max-width: 860px) and (max-height: 560px) {
-  .preview-col { position: static; }
-}
-@media (max-width: 520px) {
-  .field.two, .details-form .ff-grid { grid-template-columns: 1fr; }
-  .co-body { grid-template-columns: 1fr; }
-  .co-summary { padding: 18px; }
-  .co-coin { width: 90px; height: 90px; }
-  .co-done { grid-column: 1; }
-  .panel { padding: 18px 16px 26px; }
-  .topbar { font-size: 10px; letter-spacing: 1.2px; }
-  .app-header { padding: 12px 16px; }
-  .brand-logo { height: 40px; }
-  .brand { gap: 12px; }
-  .brand-text { padding-left: 12px; }
-  .app-header .sub { display: none; }
-  .header-actions { width: 100%; justify-content: space-between; }
-  /* Numbers only, plus the name of the step you are on */
-  .stepper { padding: 0 16px; }
-  .stepper li { margin-right: 14px; padding-right: 0; }
-  .stepper li:not(.current) b { display: none; }
-  .swatches { grid-template-columns: 1fr 1fr; }
-  .swatch-btn { font-size: 11px; letter-spacing: .8px; }
-  .addon-row .seg { width: 100%; }
-  .addon-row .seg button { flex: 1; }
-  .summary th { width: 84px; }
-  .step-actions .btn { flex: 1; }
-  .step-actions .btn:last-child { margin-left: 0; flex: 2; }
-  .preview { grid-template-columns: 104px 1fr; }
-}
-/* ---------- touch & small screens ---------- */
-/* No double-tap zoom delay, no grey flash on tap */
-button, a, input, textarea, label, [role="button"] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-html { -webkit-text-size-adjust: 100%; }
-.only-touch { display: none; }
-@media (hover: none) and (pointer: coarse) {
-  .only-touch { display: inline; }
-  .only-mouse { display: none; }
-}
-@media (max-width: 860px) {
-  body { font-size: 16px; }
-  /* 16px stops iPhones zooming the page when a field is tapped */
-  input[type="text"], input[type="email"], input[type="tel"], input[type="number"], textarea { font-size: 16px; padding: 12px; }
-  /* Comfortable 44px touch targets everywhere */
-  .btn, .btn.small, .seg button, .swatch-btn, .preview-actions .btn, .test-toggle { min-height: 44px; }
-  .preview-tabs button { min-height: 36px; }
-  .bg-swatch { width: 44px; height: 44px; }
-  .bg-swatches { gap: 10px; }
-  input[type="range"] { height: 44px; }
-  .link { padding: 10px 6px; margin: -10px -6px; }
-  .summary td .link { font-size: 14px; margin-left: 2px; }
-  .details-form .ff-check, .send-form .ff-check { min-height: 44px; font-size: 15px; }
-  .send-form .ff-check input { width: 22px; height: 22px; }
-  .details-form .ff-check input { width: 22px; height: 22px; }
-  .hint, .addon-info span { font-size: 14px; }
-  .label, .ff-label { font-size: 12px; }
-  /* Keep a tapped field clear of the pinned coin bar */
-  input, textarea, .seg, .swatches, .logo-drop { scroll-margin-top: 170px; }
-  /* Notches and rounded corners */
-  .preview { padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
-  .panel, .app-header, .stepper { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
-  .foot { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
-  .toast { bottom: max(16px, env(safe-area-inset-bottom)); width: max-content; max-width: calc(100vw - 24px); }
-}
-@media (max-width: 520px) {
-  /* Checkout fills the screen and scrolls as one sheet, with the summary kept short so the card form is in reach */
-  .checkout { padding: 0; align-items: stretch; }
-  .co-card { max-width: none; max-height: none; height: 100dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
-  .co-test-bar { position: sticky; top: 0; z-index: 1; font-size: 11px; letter-spacing: 1px; padding: 12px 48px; }
-  .co-close { position: fixed; top: 0; right: 4px; z-index: 2; width: 44px; height: 44px; }
-  .co-summary { display: grid; grid-template-columns: 72px 1fr; column-gap: 14px; align-items: center; padding: 14px 16px; }
-  .co-brand { display: none; }
-  .co-coin { width: 72px; height: 72px; margin: 0; }
-  .co-lines, .co-note { grid-column: 1 / -1; }
-  .co-lines { margin-top: 12px; padding-top: 8px; }
-  .co-lines .co-total { font-size: 18px; margin-top: 4px; padding-top: 8px; }
-  .co-form { padding: 18px 16px max(24px, env(safe-area-inset-bottom)); }
-  .co-row { grid-template-columns: 1fr 1fr; }
-  .co-row .ff:last-child { grid-column: 1 / -1; }
-  .co-pay { min-height: 52px; }
-  .send-card { display: flex; flex-direction: column; justify-content: center; }
-  .send-form, .send-done { padding: 24px 18px max(24px, env(safe-area-inset-bottom)); }
-}
-@media (max-width: 360px) {
-  .brand-logo { height: 34px; }
-  .brand-text h1 { font-size: 16px; letter-spacing: 1.2px; }
-  .test-toggle-label { display: none; }
-  .test-toggle::before { content: "Test"; }
-  .preview { grid-template-columns: 88px 1fr; column-gap: 10px; }
-  .preview-actions { flex-wrap: nowrap; gap: 6px; }
-  .preview-actions .btn { padding: 8px 9px; font-size: 11px; letter-spacing: .4px; white-space: nowrap; }
-  .preview-actions .btn::after { content: none; }
-  .swatch-btn { padding: 8px 6px; gap: 6px; font-size: 10.5px; letter-spacing: .5px; }
-  .swatch-btn .dot { width: 20px; height: 20px; }
-  .seg button { padding: 9px 10px; letter-spacing: .8px; }
-  .step h2 { font-size: 21px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
-}
+.send-done p { margin: 0; overflow-wrap: anywhere; }
 
 /* ---------- front / back ---------- */
 .side-tabs { margin: 0 0 4px; }
@@ -699,6 +560,8 @@ html { -webkit-text-size-adjust: 100%; }
 .face-empty[hidden] { display: none; }
 .face-empty p { margin: 0; max-width: 260px; }
 .face-empty b { color: var(--white); }
+/* The progress overlay is see-through over a coin; over an empty face the hint underneath would only muddle it */
+.preview-stage:has(.preview-busy:not([hidden])) .face-empty { visibility: hidden; }
 .preview-stage.two { aspect-ratio: 2 / 1; max-width: none; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .preview-stage.two .face { position: relative; inset: auto; }
 .preview-stage.two .face-empty { gap: 8px; padding: 12px; font-size: 12px; }
@@ -714,3 +577,231 @@ html { -webkit-text-size-adjust: 100%; }
 .ai-disclaimer p { margin: 0 0 10px; }
 .ai-disclaimer strong { color: var(--white); }
 #contact-coin[hidden] { display: none; }
+
+/* ---------- responsive ---------- */
+/* Keep this section last: it has to win over every base rule above. */
+
+/* No double-tap zoom delay, no grey flash on tap */
+button, a, input, textarea, label, [role="button"] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+html { -webkit-text-size-adjust: 100%; }
+.only-touch { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .only-touch { display: inline; }
+  .only-mouse { display: none; }
+}
+
+/* Phones and upright tablets: one column. The coin sits on top at full width, the form follows, and each step's
+   buttons stay pinned to the bottom of the screen so the next move is always under the thumb. */
+@media (max-width: 860px) {
+  .app { --pad-l: max(16px, env(safe-area-inset-left)); --pad-r: max(16px, env(safe-area-inset-right)); }
+  body { font-size: 16px; }
+  .builder { grid-template-columns: 1fr; }
+  .preview-col { min-width: 0; }
+  .preview { position: static; max-height: none; overflow: visible; gap: 10px; padding: 14px var(--pad-r) 16px var(--pad-l); }
+  .panel, .app-header, .stepper { padding-left: var(--pad-l); padding-right: var(--pad-r); }
+  .app-header { flex-wrap: wrap; }
+  .brand-text h1 { font-size: 18px; }
+
+  /* The coin never grows taller than the screen, which matters when the phone is held sideways */
+  .preview-stage { box-shadow: none; max-width: 420px; max-width: min(420px, calc(100dvh - 150px)); }
+  .preview-stage.two { max-width: 560px; max-width: min(560px, calc(2 * (100dvh - 150px))); }
+  .preview-stage.two .face-empty { padding: 8px; }
+  .preview-stage.two .preview-busy { padding: 8px; font-size: 12px; }
+  .preview-stage.two .preview-busy .progress-sub { display: none; }
+  .version { width: 56px; height: 56px; }
+
+  /* Nothing rendered yet: a short banner instead of an empty square, so the form starts on the first screen */
+  .preview-stage.empty { aspect-ratio: auto; max-width: none; background: transparent; border: 0; }
+  .preview-stage.empty .face { position: static; }
+  .preview-stage.empty .face-empty { position: static; flex-direction: row; justify-content: flex-start; gap: 14px; padding: 0; text-align: left; }
+  .preview-stage.empty .face-empty p { max-width: none; }
+  .preview-stage.empty .coin-mark { flex: 0 0 auto; width: 52px; height: 52px; box-shadow: inset 0 0 0 5px rgba(0,0,0,.18), 0 6px 14px rgba(0,0,0,.5); }
+  .preview-stage.empty ~ .preview-spec, .preview-stage.empty ~ .preview-caption { display: none; }
+
+  /* Once the coin is designed, the order steps only need a reminder of it; versions and fixes live on the design steps */
+  .builder:not([data-step="front"]):not([data-step="back"]) :is(.preview-actions, .versions-wrap, .ai-check, .ai-disclaimer, .preview-caption) { display: none; }
+  .builder:not([data-step="front"]):not([data-step="back"]) .preview-stage.two { max-width: 300px; max-width: min(300px, calc(2 * (100dvh - 150px))); }
+  /* The review table shows the coin itself, and a thank-you page without a render has nothing to show */
+  .builder[data-step="review"] .preview-col { display: none; }
+  .builder[data-step="result"] .preview-col:not(:has(.face img:not([hidden]))) { display: none; }
+
+  /* The step's buttons: a bar fixed to the bottom of the screen, edge to edge. Fixed rather than sticky, so it is
+     there even while the coin above the form fills the screen. */
+  .step-actions {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 4; flex-wrap: nowrap; margin: 0;
+    padding: 10px var(--pad-r) max(10px, env(safe-area-inset-bottom)) var(--pad-l);
+    background: var(--white); border-top: 1px solid var(--line); box-shadow: 0 -8px 18px rgba(0,0,0,.07);
+  }
+  .step-actions .btn { line-height: 1.2; text-align: center; }
+  .step-actions + .hint { margin-top: 14px; }
+  /* A transform on the step would anchor the fixed bar to it while the animation plays, so the step only fades in */
+  .step { animation-name: fadein; }
+  /* A tapped field lands clear of that bar */
+  input, textarea, .seg, .logo-drop { scroll-margin: 16px 0 96px; }
+  .toast { bottom: calc(80px + env(safe-area-inset-bottom)); width: max-content; max-width: calc(100vw - 24px); }
+
+  /* The footer ends above the bar */
+  .foot { padding: 10px var(--pad-r) calc(65px + max(10px, env(safe-area-inset-bottom))) var(--pad-l); }
+  .hint, .addon-info span { font-size: 14px; }
+  .label, .ff-label { font-size: 12px; }
+}
+
+/* Fingers, on any screen size: 16px fields (smaller text makes iPhones zoom the page on tap) and 44px touch targets */
+@media (max-width: 860px), (hover: none) and (pointer: coarse) {
+  input[type="text"], input[type="email"], input[type="tel"], input[type="number"], textarea, .ff textarea { font-size: 16px; padding: 12px; }
+  .btn, .btn.small, .seg button, .swatch-btn, .test-toggle { min-height: 44px; }
+  .seg button { min-width: 44px; }
+  .bg-swatch { width: 44px; height: 44px; }
+  .bg-swatches { gap: 10px; }
+  input[type="range"] { height: 44px; }
+  .link { padding: 10px 6px; margin: -10px -6px; }
+  .ai-check .link { display: inline-block; padding: 10px 0; margin: -4px 0 -8px; font-size: 13px; }
+  .summary td .link { font-size: 14px; margin-left: 2px; min-width: 44px; text-align: left; }
+  .co-close { top: 0; right: 0; width: 44px; height: 44px; padding: 0; }
+  .details-form .ff-check, .send-form .ff-check { min-height: 44px; font-size: 15px; }
+  .details-form .ff-check input, .send-form .ff-check input { width: 22px; height: 22px; }
+  .stepper li.done { min-width: 44px; }
+  .foot .foot-links { font-size: 12px; line-height: 1.5; }
+  .foot a, .co-secure a { display: inline-block; padding: 9px 2px; }
+}
+
+/* Too narrow for every step name: numbers only, plus the name of the step you are on */
+@media (max-width: 720px) {
+  .stepper { padding: 0 max(6px, env(safe-area-inset-right)) 0 max(6px, env(safe-area-inset-left)); }
+  .stepper li { margin-right: 0; padding: 12px 10px; justify-content: center; flex: 1 1 0; }
+  .stepper li.current { flex: 0 0 auto; }
+  .stepper li:not(.current) b { display: none; }
+}
+
+/* A phone held sideways: the screen is too short to stack the coin over the form, so they sit side by side again,
+   with the coin pinned on the left. The min-width keeps an upright phone with its keyboard open out of this. */
+@media (max-width: 860px) and (min-width: 560px) and (orientation: landscape) {
+  .topbar { padding-top: 3px; padding-bottom: 3px; font-size: 11px; }
+  .app-header { padding-top: 8px; padding-bottom: 8px; }
+  .brand-logo { height: 36px; }
+  .app-header .sub { display: none; }
+  .stepper li { padding-top: 8px; padding-bottom: 8px; }
+
+  .builder { grid-template-columns: minmax(200px, 34%) 1fr; }
+  .builder[data-step="review"], .builder[data-step="result"]:not(:has(.face img:not([hidden]))) { grid-template-columns: 1fr; }
+  .preview { position: sticky; top: 0; max-height: 100dvh; overflow-y: auto; padding: 12px 12px 12px var(--pad-l); }
+  .preview-stage, .preview-stage.two, .builder:not([data-step="front"]):not([data-step="back"]) .preview-stage.two { max-width: none; }
+  .preview-stage:not(.two):not(.empty) { max-width: calc(100dvh - 96px); }
+  .preview-stage.two .face-label { font-size: 9px; padding: 2px 5px; left: 4px; top: 4px; }
+  .preview-stage.two .coin-mark, .preview-stage.two .preview-busy .progress-sub { display: none; }
+  .preview-actions .btn { font-size: 12px; letter-spacing: 1px; padding-left: 12px; padding-right: 12px; }
+  .panel { --panel-l: 18px; padding-top: 16px; padding-left: var(--panel-l); }
+  .builder[data-step="review"] .panel, .builder[data-step="result"]:not(:has(.face img:not([hidden]))) .panel { --panel-l: var(--pad-l); }
+
+  /* Beside the coin, the bar stays inside the form's column */
+  .step-actions {
+    position: sticky; left: auto; right: auto;
+    margin: 20px calc(-1 * var(--pad-r)) 0 calc(-1 * var(--panel-l));
+    padding: 8px var(--pad-r) max(8px, env(safe-area-inset-bottom)) var(--panel-l);
+  }
+  .foot { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+}
+
+/* A short screen: the popups drop the picture of the coin so the form fits */
+@media (max-height: 500px) {
+  .checkout { padding: 8px; }
+  .send-coin { display: none; }
+  .send-form, .send-done { padding: 18px 20px 16px; gap: 8px; }
+}
+
+@media (max-width: 520px) {
+  .field.two, .details-form .ff-grid { grid-template-columns: 1fr; }
+  .panel { padding-top: 18px; padding-bottom: 26px; }
+  .topbar { font-size: 10px; letter-spacing: 1.2px; }
+
+  /* Header on one line: logo, the title stacked in two rows, Start Over */
+  .app-header { padding-top: 10px; padding-bottom: 10px; gap: 8px 10px; }
+  .brand { gap: 10px; }
+  .brand-logo { height: 38px; }
+  .brand-text { padding-left: 10px; }
+  .brand-text h1 { font-size: 16px; letter-spacing: 1.2px; }
+  .brand-text h1 .script { display: block; margin: 0 0 2px; line-height: 1; }
+  .app-header .sub { display: none; }
+  .header-actions { margin-left: auto; }
+  .header-actions .btn.small { font-size: 11px; letter-spacing: .8px; padding: 8px 10px; }
+  /* Staff in test mode get the switch on a row of its own */
+  .header-actions:has(.test-toggle:not([hidden])) { width: 100%; justify-content: space-between; }
+
+  .step h2 { font-size: 22px; flex-wrap: wrap; }
+  /* Choice chips share the row equally instead of leaving a ragged gap on the right */
+  .seg.wrap { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+  .seg.wrap button { padding-left: 4px; padding-right: 4px; line-height: 1.2; }
+  .swatches { grid-template-columns: 1fr 1fr; }
+  .swatch-btn { font-size: 11px; letter-spacing: .8px; }
+  .addon-row .seg { width: 100%; }
+  .addon-row .seg button { flex: 1; }
+  .qty-input { max-width: none; }
+  .preview-stage.two .coin-mark { width: 44px; height: 44px; box-shadow: inset 0 0 0 4px rgba(0,0,0,.18), 0 6px 14px rgba(0,0,0,.5); }
+
+  /* The main button takes the room; the way back stays compact beside it */
+  .step-actions { gap: 8px; }
+  .step-actions .btn { flex: 1 1 0; padding-left: 12px; padding-right: 12px; }
+  .step-actions .btn:last-child { margin-left: 0; }
+  .step-actions .btn.back { flex: 0 1 auto; }
+
+  /* Review: each row stacks, heading over value, so nothing is squeezed into a narrow column */
+  .summary, .summary tbody, .summary tr, .summary th, .summary td { display: block; width: 100%; }
+  .summary th { border-bottom: 0; padding: 12px 0 2px; }
+  .summary td { padding: 0 0 12px; }
+  .review-coin .review-faces { width: 100%; }
+  .summary .review-faces img { width: calc(50% - 3px); max-width: 150px; height: auto; aspect-ratio: 1; }
+
+  /* Checkout fills the screen and scrolls as one sheet, with the summary kept short so the card form is in reach */
+  .checkout { padding: 0; align-items: stretch; }
+  .co-card { max-width: none; max-height: none; height: 100dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  .co-test-bar { position: sticky; top: 0; z-index: 1; font-size: 11px; letter-spacing: 1px; padding: 12px 48px; }
+  .co-close { position: fixed; z-index: 2; }
+  .co-body { grid-template-columns: 1fr; }
+  .co-summary { display: grid; grid-template-columns: 72px 1fr; column-gap: 14px; align-items: center; padding: 14px 16px; }
+  .co-brand { display: none; }
+  .co-coin { width: 72px; height: 72px; margin: 0; }
+  .co-lines, .co-note { grid-column: 1 / -1; }
+  .co-lines { margin-top: 12px; padding-top: 8px; }
+  .co-lines .co-total { font-size: 18px; margin-top: 4px; padding-top: 8px; }
+  .co-form { padding: 18px 16px max(24px, env(safe-area-inset-bottom)); }
+  .co-row { grid-template-columns: 1fr 1fr; }
+  .co-row .ff:last-child { grid-column: 1 / -1; }
+  .co-pay { min-height: 52px; }
+  .co-done { grid-column: 1; }
+  /* The small popups slide up from the bottom as a sheet: only as tall as their form, scrolling once that fills the screen */
+  .checkout.send { align-items: flex-end; }
+  .send-card { height: auto; max-height: 100dvh; display: flex; flex-direction: column; border-top: 4px solid var(--orange); animation: sheet .28s ease-out; }
+  .send-card .co-close { position: sticky; align-self: flex-end; flex: 0 0 auto; margin-bottom: -44px; }
+  .send-form, .send-done { flex: 0 0 auto; padding: 22px 18px max(22px, env(safe-area-inset-bottom)); }
+  .send-coin { width: 96px; height: 96px; }
+}
+@keyframes sheet { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
+
+@media (max-width: 360px) {
+  .topbar { font-size: 9px; letter-spacing: .6px; padding-left: 6px; padding-right: 6px; }
+  .brand { gap: 8px; }
+  .brand-logo { height: 32px; }
+  .brand-text { padding-left: 8px; }
+  .brand-text h1 { font-size: 14px; letter-spacing: 1px; }
+  .header-actions .btn.small { padding: 8px; letter-spacing: .5px; }
+  .header-actions .btn.small::after { content: none; }
+  .test-toggle-label { display: none; }
+  .test-toggle::before { content: "Test"; }
+  .swatch-btn { padding: 8px 6px; gap: 6px; font-size: 10.5px; letter-spacing: .5px; }
+  .swatch-btn .dot { width: 20px; height: 20px; }
+  .seg button { padding: 9px 10px; letter-spacing: .8px; }
+  .step h2 { font-size: 20px; }
+  .step-actions .btn { font-size: 13px; letter-spacing: 1px; padding-left: 10px; padding-right: 10px; }
+  .preview-stage.two .coin-mark { display: none; }
+  .preview-stage.two .face-label { font-size: 9px; padding: 2px 5px; left: 4px; top: 4px; }
+}
+
+/* The narrowest phones: the step numbers close up so the name of the current step still fits */
+@media (max-width: 340px) {
+  .stepper li { padding: 12px 6px; font-size: 12px; letter-spacing: 1px; }
+  .stepper li.done { min-width: 36px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

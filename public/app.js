@@ -170,7 +170,7 @@
     $('generate-btn').disabled = !ready || ai.busy;
     $('generate-btn').hidden = !!front;
     $('to-back').hidden = !front;
-    $('to-back').disabled = !(front && order.size);
+    $('to-back').disabled = !front; // a missing size is asked for on the tap: on a phone this button is pinned, far from the size chips
     $('design-hint').textContent = !design.front.trim()
       ? 'Describe the front of your coin: what goes on it, and where.'
       : !front
@@ -318,6 +318,8 @@
     const back = currentBack();
     const two = $('builder').dataset.step !== 'front';
     $('stage').classList.toggle('two', two);
+    // Nothing to show and nothing on its way: small screens shrink the stage to a short banner
+    $('stage').classList.toggle('empty', !two && !front && !ai.busy);
     document.querySelector('.preview').classList.toggle('two', two);
     const setFace = (face, v, { same = false, hint = '' } = {}) => {
       const el = $('face-' + face);
@@ -448,6 +450,13 @@
     if (progress.source) { progress.source.close(); progress.source = null; }
   }
 
+  // On a phone the coin sits above the form, so Generate is tapped with the coin off screen: bring it back into view
+  // for the progress bar and the render. On a wide screen the coin is pinned beside the form and nothing moves.
+  function revealStage() {
+    const r = $('stage').getBoundingClientRect();
+    if (r.top < 0 || r.bottom > window.innerHeight) $('stage').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   // note: what the customer wants different in this version (optional, from the "Make Another Version" popup)
   async function aiRender(side, note = '') {
     if (ai.busy) return;
@@ -464,6 +473,8 @@
     genBtn.textContent = 'Generating…';
     $('preview-busy').dataset.face = side;
     $('preview-busy').hidden = false;
+    renderPreview();
+    revealStage();
     progressReset();
     const snapshot = { ...designPayload(), logo: design.logo };
     const text = side === 'back' ? snapshot.back : snapshot.front;
@@ -738,7 +749,11 @@
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('li.done')) { e.preventDefault(); e.target.click(); }
   });
   document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => showStep(b.dataset.back)));
-  $('to-back').addEventListener('click', () => { if (currentFront() && order.size) showStep('back'); });
+  $('to-back').addEventListener('click', () => {
+    if (!currentFront()) return;
+    if (!order.size) { toast('Pick a coin size to continue.'); sizeChips.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    showStep('back');
+  });
   $('to-options').addEventListener('click', () => { if (currentFront() && (!customBack() || currentBack())) showStep('options'); });
   $('to-details').addEventListener('click', () => { if (order.quantity && order.size) showStep('details'); });
 
@@ -823,6 +838,9 @@
     if (missing.length) {
       err.textContent = 'Please add: ' + missing.join(', ') + '.';
       err.hidden = false;
+      // The message sits at the foot of the form, which on a phone can be off screen: go to the first field that needs fixing
+      const first = form.querySelector('input.bad');
+      if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); first.focus({ preventScroll: true }); }
       return;
     }
     err.hidden = true;
@@ -920,6 +938,7 @@
       const err = $('review-error');
       err.textContent = e.message || 'Something went wrong. Please try again.';
       err.hidden = false;
+      err.scrollIntoView({ behavior: 'smooth', block: 'center' }); // it sits under the table, out of sight on a phone
     } finally {
       busy = false;
       btn.disabled = false;
@@ -1063,6 +1082,7 @@
       const err = $('review-error');
       err.innerHTML = `Checkout was closed for test order <strong>${escapeHtml(orderId)}</strong>. No charge was made. <button class="link" type="button" id="retry-pay">Open checkout again</button>`;
       err.hidden = false;
+      err.scrollIntoView({ behavior: 'smooth', block: 'center' });
       $('retry-pay').addEventListener('click', () => { err.hidden = true; runTestCheckout(orderId, image); });
     }
   }
