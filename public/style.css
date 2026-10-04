@@ -369,6 +369,28 @@ input:read-only { background: #f4f1eb; color: #777; }
 .logo-meta strong { color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .logo-meta span { font-size: 12px; color: #666; }
 
+/* reference images: a thumbnail for each one the customer added, then the button that adds more */
+.refs { display: flex; flex-wrap: wrap; gap: 12px; }
+.ref { position: relative; width: 72px; height: 72px; background: var(--offwhite); border: 1px solid var(--line); }
+.ref img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* one the screening refused: it has to come out before the coin can be rendered */
+.ref.bad { border-color: #c62828; box-shadow: 0 0 0 2px #c62828; }
+.ref.bad img { opacity: .45; }
+.logo-drop.bad { border-color: #c62828; background: #fff5f5; }
+.ref-remove {
+  position: absolute; top: -9px; right: -9px; width: 24px; height: 24px; padding: 0; border-radius: 50%; cursor: pointer;
+  display: grid; place-items: center; border: 2px solid var(--white); background: var(--black); color: var(--white); font-size: 15px; line-height: 1;
+}
+.ref-remove::after { content: ""; position: absolute; inset: -8px; } /* a bigger target than the dot itself */
+.ref-add {
+  width: 72px; height: 72px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer;
+  border: 2px dashed #CFCAC2; border-radius: 0; background: var(--offwhite); color: var(--text-dark);
+  font-family: var(--font-head); font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; line-height: 1.2; transition: border-color .15s, background .15s;
+}
+.ref-add[hidden] { display: none; }
+.ref-add:hover, .ref-add:focus-visible { border-color: var(--orange); background: #fff7ef; }
+.ref-add svg { color: var(--orange); }
+
 /* finish swatches */
 .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 8px; }
 .swatch-btn {
@@ -958,6 +980,13 @@ html { -webkit-text-size-adjust: 100%; }
   .logo-empty strong, .logo-meta strong { color: var(--s-strong); }
   .logo-empty span, .logo-meta span { color: var(--s-dim); }
   .logo-have img { border-color: var(--s-line); border-radius: 10px; }
+  .logo-drop.bad { border-color: #EF5350; background: rgba(239,83,80,.1); }
+  .ref, .ref-add { border-radius: 12px; border-color: var(--s-line); background: var(--s-card); }
+  .ref img { border-radius: 11px; }
+  .ref.bad { border-color: #EF5350; box-shadow: 0 0 0 2px #EF5350; }
+  .ref-add { color: var(--s-strong); }
+  .ref-add:hover, .ref-add:focus-visible { border-color: var(--orange); background: rgba(245,130,32,.08); }
+  .ref-remove { border-color: var(--s-bg); background: var(--s-strong); color: #111113; }
 
   /* Choice chips share the row equally */
   .seg.wrap { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; }

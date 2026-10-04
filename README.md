@@ -28,6 +28,7 @@ Without an API key the server runs in **demo mode** and returns a local SVG mock
 | `REFERENCE_COUNT` | `2` | Reference coin photos sent per render, 3 at most (see `references/`) |
 | `AI_MAX_ATTEMPTS` | `2` | Renders per request: a render that fails proofreading is redone with a note about what to fix |
 | `AI_VERIFY` | on | `0` turns proofreading off |
+| `MODERATE_UPLOADS` | on | Every logo and reference image is screened for sexual content, gore and self-harm before it reaches the image model (see `lib/moderate.js`); `0` turns that off |
 | `OPENAI_VERIFY_MODEL` | `gpt-5.4-mini` | Vision model that proofreads each render |
 | `PRICE_TABLE` | | JSON price list by size; enables quotes (see `.env.example`) |
 | `STRIPE_SECRET_KEY` | | Enables Pay Now via Stripe Checkout (needs `PRICE_TABLE`) |

@@ -226,7 +226,7 @@
           <p class="lead">Tell us about your coin in plain words. Our AI drafts the front in a minute; then you do the back, and our artists finish it before production.</p>
 
           <section class="group" data-tab="logo">
-            <h3 class="group-title"><span class="n">1. </span>Your logo or artwork <em>optional</em></h3>
+            <h3 class="group-title"><span class="n">1. </span>Your logo and reference images <em>optional</em></h3>
             <div class="field">
               <div id="logo-drop" class="logo-drop" tabindex="0" role="button" aria-label="Upload your logo or artwork">
                 <input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
@@ -241,6 +241,19 @@
                   <button id="logo-remove" class="link" type="button">Remove</button>
                 </div>
               </div>
+            </div>
+            <!-- Anything else that shows what they have in mind. These go to the AI with every render; app.js adds a
+                 thumbnail for each one in front of the Add button. -->
+            <div id="ref-field" class="field">
+              <span class="label">Reference images <em>optional, up to 8</em></span>
+              <div id="refs" class="refs">
+                <button id="ref-add" class="ref-add" type="button">
+                  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                  <span>Add images</span>
+                </button>
+              </div>
+              <input id="ref-files" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+              <p class="hint">Photos, sketches or examples of what you have in mind. Say how to use them in your description, like &ldquo;an eagle like the one in my photo&rdquo;. Your logo goes in the box above.</p>
             </div>
           </section>
 
@@ -389,7 +402,7 @@
       <p>Over <b>20 million coins</b> minted &middot; <b>60,000+</b> designs &middot; Trusted by <b>50,000+</b> companies</p>
       <p class="foot-links"><a href="https://www.coinsforanything.com/">Coins For Anything, Inc.</a> &middot; 1014 Prince Edward St, Fredericksburg, VA 22401 &middot; <a href="tel:+18665835434">1-866-583-5434</a></p>
     </footer>
-    <div id="drop" class="drop" hidden>Drop your logo to upload</div>
+    <div id="drop" class="drop" hidden>Drop your logo or reference images</div>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   </main>
 

@@ -17,7 +17,8 @@
   const config = { pricing: false, payments: false, testMode: false, provider: '' };
   // backMode: 'same' (the back is the front again) or 'custom' (its own description, rendered to match the front)
   // shape: 'round' or 'odd' (a custom outline: shield, star, state, cut to the artwork; the words say which)
-  const newDesign = () => ({ front: '', back: '', backMode: 'same', shape: 'round', style: '', logo: null, logoName: '' });
+  // refs: reference images the customer added besides the logo, as [{ id, name, data (a JPEG data URL), bad? }]
+  const newDesign = () => ({ front: '', back: '', backMode: 'same', shape: 'round', style: '', logo: null, logoName: '', refs: [] });
   const design = newDesign();
   const order = {
     quantity: null, size: null, estimate: null, notes: '',
@@ -43,7 +44,7 @@
   const oddShape = () => design.shape === 'odd';
   const twoSided = () => customBack() && !!design.back.trim();
   // The design as the server records it on renders, orders and leads
-  const designPayload = () => ({ shape: design.shape, front: design.front.trim(), back: twoSided() ? design.back.trim() : '', backMode: design.backMode, style: design.style.trim(), logoName: design.logoName });
+  const designPayload = () => ({ shape: design.shape, front: design.front.trim(), back: twoSided() ? design.back.trim() : '', backMode: design.backMode, style: design.style.trim(), logoName: design.logoName, refNames: design.refs.map((r) => r.name) });
 
   const configReady = fetch('/api/config').then((r) => r.json()).then((c) => {
     Object.assign(config, c);
@@ -103,7 +104,7 @@
   // and the sections of the design form are tabs under it. On wider screens the tabs are hidden and every section shows.
   const studio = window.matchMedia('(max-width: 559px), (max-width: 720px) and (orientation: portrait)');
   const TABS = {
-    front: [['describe', 'Describe'], ['logo', 'Logo'], ['style', 'Style'], ['size', 'Size'], ['result', 'Result']],
+    front: [['describe', 'Describe'], ['logo', 'Images'], ['style', 'Style'], ['size', 'Size'], ['result', 'Result']],
     back: [['describe', 'Describe'], ['result', 'Result']],
   };
   const tabOpen = { front: 'describe', back: 'describe' };
@@ -118,7 +119,7 @@
     $('builder').dataset.tab = open;
     // A dot marks a section that is filled in; on Result it is the proofreader's verdict
     const filled = step === 'front'
-      ? { describe: !!design.front.trim(), logo: !!design.logo, style: !!design.style.trim(), size: !!order.size }
+      ? { describe: !!design.front.trim(), logo: !!design.logo || design.refs.length > 0, style: !!design.style.trim(), size: !!order.size }
       : { describe: customBack() && !!design.back.trim() };
     const mark = (id) => (id === 'result' ? checkState(result).replace('unchecked', '') : filled[id] ? 'done' : '');
     const html = tabs.map(([id, label]) => {
@@ -205,12 +206,13 @@
 
   const designReady = () => !!design.front.trim();
   function specLine() {
-    return [order.size ? `${order.size}"` : '', oddShape() ? 'Odd shaped' : '', twoSided() ? 'Front & back' : 'Same both sides', design.logoName ? 'Your logo' : ''].filter(Boolean).join(' · ');
+    return [order.size ? `${order.size}"` : '', oddShape() ? 'Odd shaped' : '', twoSided() ? 'Front & back' : 'Same both sides', design.logoName ? 'Your logo' : '', design.refs.length ? `${design.refs.length} reference${design.refs.length > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
   }
   // What a render of each face depends on. A back render is also tied to the front render it was matched against.
   const logoKey = () => (design.logo ? design.logo.length : 0);
-  const frontSignature = () => JSON.stringify({ shape: design.shape, front: design.front.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey() });
-  const backSignature = () => JSON.stringify({ shape: design.shape, back: design.back.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey(), front: frontKey() });
+  const refsKey = () => design.refs.map((r) => r.id).join();
+  const frontSignature = () => JSON.stringify({ shape: design.shape, front: design.front.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey(), refs: refsKey() });
+  const backSignature = () => JSON.stringify({ shape: design.shape, back: design.back.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey(), refs: refsKey(), front: frontKey() });
   const sideSignature = (side) => (side === 'back' ? backSignature() : frontSignature());
 
   // A design change means the render on screen no longer matches; earlier versions stay in the strip.
@@ -259,6 +261,7 @@
             : 'Happy with it? Continue to your order. Not quite? Change the description or make another version.';
     renderPreview();
     renderVersions();
+    renderRefs();
     renderTabs();
   }
 
@@ -334,6 +337,7 @@
     reader.onload = async () => {
       design.logo = await prepareLogo(reader.result);
       design.logoName = file.name;
+      logoDrop.classList.remove('bad');
       $('logo-thumb').src = design.logo;
       $('logo-name').textContent = file.name;
       logoDrop.querySelector('.logo-empty').hidden = true;
@@ -344,6 +348,7 @@
   }
   function clearLogo() {
     design.logo = null; design.logoName = '';
+    logoDrop.classList.remove('bad');
     logoDrop.querySelector('.logo-empty').hidden = false;
     logoDrop.querySelector('.logo-have').hidden = true;
     syncDesign();
@@ -353,7 +358,77 @@
   logoFile.addEventListener('change', () => { setLogo(logoFile.files && logoFile.files[0]); logoFile.value = ''; });
   $('logo-remove').addEventListener('click', (e) => { e.stopPropagation(); clearLogo(); });
 
-  // Page-wide drag & drop and paste for the logo
+  // ---------- reference images ----------
+  // Besides the logo, pictures that show what the customer has in mind: photos, sketches, examples. They go to the AI
+  // with every render, and the description says how to use them. The image model takes only so many input images,
+  // hence the limit.
+  const MAX_REFS = 8; // keep in step with MAX_OWN_REFS in server.js
+  let refSeq = 0;
+  const readFile = (file) => new Promise((resolve) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => resolve(null); r.readAsDataURL(file); });
+  // A phone photo is far larger than the AI needs: scale it down and keep it as a JPEG
+  function prepareReference(dataUrl) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onerror = () => resolve(null);
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, 1400 / Math.max(img.naturalWidth || 1400, img.naturalHeight || 1400));
+          const c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round((img.naturalWidth || 1400) * scale));
+          c.height = Math.max(1, Math.round((img.naturalHeight || 1400) * scale));
+          const ctx = c.getContext('2d');
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); // a see-through background would come out black in a JPEG
+          ctx.drawImage(img, 0, 0, c.width, c.height);
+          resolve(c.toDataURL('image/jpeg', 0.86));
+        } catch (_) { resolve(null); }
+      };
+      img.src = dataUrl;
+    });
+  }
+  async function addRefs(files) {
+    let skipped = 0, full = false;
+    for (const file of files) {
+      if (design.refs.length >= MAX_REFS) { full = true; break; }
+      if (!/^image\/(png|jpe?g|webp)$/i.test(file.type) || file.size > 20 * 1024 * 1024) { skipped++; continue; }
+      const raw = await readFile(file);
+      const data = raw && await prepareReference(raw);
+      if (!data) { skipped++; continue; }
+      if (design.refs.length >= MAX_REFS) { full = true; break; }
+      design.refs.push({ id: 'r' + (++refSeq), name: file.name, data });
+    }
+    if (full) toast(`You can add up to ${MAX_REFS} reference images.`);
+    else if (skipped) toast('Reference images need to be PNG, JPG or WEBP pictures under 20 MB.');
+    syncDesign();
+  }
+  function renderRefs() {
+    const box = $('refs');
+    const key = design.refs.map((r) => r.id + (r.bad ? '!' : '')).join();
+    if (box.dataset.key !== key) {
+      box.dataset.key = key;
+      for (const n of box.querySelectorAll('.ref')) n.remove();
+      $('ref-add').insertAdjacentHTML('beforebegin', design.refs.map((r) => {
+        const name = escapeHtml(r.name);
+        return `<div class="ref${r.bad ? ' bad' : ''}" title="${name}${r.bad ? ' (we cannot use this one)' : ''}"><img src="${r.data}" alt="${name}"><button type="button" class="ref-remove" data-ref="${r.id}" aria-label="Remove ${name}">&times;</button></div>`;
+      }).join(''));
+    }
+    $('ref-add').hidden = design.refs.length >= MAX_REFS;
+  }
+  $('ref-add').addEventListener('click', () => $('ref-files').click());
+  $('ref-files').addEventListener('change', (e) => { addRefs([...e.target.files]); e.target.value = ''; });
+  $('refs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ref]');
+    if (!b) return;
+    design.refs = design.refs.filter((r) => r.id !== b.dataset.ref);
+    syncDesign();
+  });
+  // The server screens every upload before it reaches the AI; one it will not use is marked, so the customer can see
+  // which to take out
+  function markRejected(snapshot, rejected) {
+    for (const i of rejected.refs || []) if (snapshot.refs[i]) snapshot.refs[i].bad = true;
+    logoDrop.classList.toggle('bad', !!rejected.logo);
+  }
+
+  // Page-wide drag & drop and paste for the logo and the reference images
   let dragDepth = 0;
   window.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; $('drop').hidden = false; });
   window.addEventListener('dragover', (e) => e.preventDefault());
@@ -361,14 +436,21 @@
   window.addEventListener('drop', (e) => {
     e.preventDefault();
     dragDepth = 0; $('drop').hidden = true;
-    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if (f) { setLogo(f); showStep('front'); }
+    const files = [...((e.dataTransfer && e.dataTransfer.files) || [])];
+    if (!files.length) return;
+    // Dropped on the reference images, they all go there. Anywhere else the first one is the logo, and any others
+    // that came with it are references.
+    const onRefs = document.elementsFromPoint(e.clientX, e.clientY).some((el) => el.id === 'ref-field');
+    if (onRefs) addRefs(files);
+    else { setLogo(files[0]); if (files.length > 1) addRefs(files.slice(1)); }
+    tabOpen.front = 'logo';
+    showStep('front');
   });
   window.addEventListener('paste', (e) => {
     const items = e.clipboardData && e.clipboardData.items;
     if (!items) return;
     for (const it of items) {
-      if (it.kind === 'file' && it.type.startsWith('image/')) { setLogo(it.getAsFile()); showStep('front'); break; }
+      if (it.kind === 'file' && it.type.startsWith('image/')) { setLogo(it.getAsFile()); tabOpen.front = 'logo'; showStep('front'); break; }
     }
   });
 
@@ -571,7 +653,7 @@
     revealStage();
     mintLogo(design.logo);
     progressReset();
-    const snapshot = { ...designPayload(), logo: design.logo };
+    const snapshot = { ...designPayload(), logo: design.logo, refs: design.refs.slice() };
     const text = side === 'back' ? snapshot.back : snapshot.front;
     const signature = sideSignature(side);
     const anchor = frontRenderId(); // the front this back is drawn to match
@@ -590,6 +672,7 @@
         progress.source = progressListen(progressId);
         const form = new FormData();
         if (snapshot.logo) form.append('logo', await (await fetch(snapshot.logo)).blob(), 'logo.png');
+        for (const [i, r] of snapshot.refs.entries()) form.append('refs', await (await fetch(r.data)).blob(), `reference-${i + 1}.jpg`);
         form.append('side', side);
         form.append('description', text);
         if (note) form.append('note', note);
@@ -601,7 +684,10 @@
         if (token) form.append('turnstile', token);
         const res = await fetch('/api/generate', { method: 'POST', body: form });
         data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'Render failed');
+        if (!res.ok) {
+          if (data.rejected) markRejected(snapshot, data.rejected);
+          throw new Error(data.error || 'Render failed');
+        }
       }
       progressSet('done'); progressTick();
       await sleep(700); // the loading coin lands with a flash before the render replaces it
@@ -639,7 +725,7 @@
     }
     if (v.signature !== sideSignature(side)) {
       const d = v.design;
-      if (side === 'front') Object.assign(design, { shape: d.shape || 'round', front: d.front, style: d.style, logo: d.logo, logoName: d.logoName });
+      if (side === 'front') Object.assign(design, { shape: d.shape || 'round', front: d.front, style: d.style, logo: d.logo, logoName: d.logoName, refs: (d.refs || []).slice() });
       else Object.assign(design, { back: d.back, backMode: 'custom' });
       syncControls();
     }
@@ -960,7 +1046,7 @@
     const rows = [
       ['Coin', `<div class="review-coin">${v ? '<div class="review-faces"><img id="review-img" alt="Front of your coin"><img id="review-img-back" alt="Back of your coin"></div>' : ''}<ul>` +
                [oddShape() ? 'Shape: odd shaped' : 'Shape: round', `Front: ${design.front.trim()}`, twoSided() ? `Back: ${design.back.trim()}` : 'Back: same design as the front',
-                design.style.trim() ? `Style: ${design.style.trim()}` : '', design.logoName ? `Logo: ${design.logoName}` : '',
+                design.style.trim() ? `Style: ${design.style.trim()}` : '', design.logoName ? `Logo: ${design.logoName}` : '', design.refs.length ? `Reference images: ${design.refs.length}` : '',
                 v ? `Front: AI version ${v.number}${bk ? `. Back: AI version ${bk.number}` : ''}` : 'No AI render: our artists draw it from your description'].filter(Boolean).map((t) => `<li>${escapeHtml(t)}</li>`).join('') +
                `</ul></div>${edit('front')}`],
       ['Quantity', `${o.quantity.toLocaleString()} × ${o.size}"${oddShape() ? ' (longest side)' : ''} ${edit('options')}`],
@@ -1208,6 +1294,7 @@
     for (const b of $('back-mode').children) b.classList.toggle('on', b.dataset.mode === design.backMode);
     $('back-custom').hidden = !customBack();
     syncShape();
+    logoDrop.classList.remove('bad');
     logoDrop.querySelector('.logo-empty').hidden = !!design.logo;
     logoDrop.querySelector('.logo-have').hidden = !design.logo;
     if (design.logo) { $('logo-thumb').src = design.logo; $('logo-name').textContent = design.logoName; }
@@ -1232,7 +1319,7 @@
   }
   $('restart').addEventListener('click', () => {
     // On a phone this is a small icon beside the steps, easy to hit by accident
-    const started = design.front.trim() || design.logo || ai.front.versions.length;
+    const started = design.front.trim() || design.logo || design.refs.length || ai.front.versions.length;
     if (studio.matches && started && !$('result').innerHTML && !window.confirm('Start over? This clears your coin and your details.')) return;
     restart();
   });

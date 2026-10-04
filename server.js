@@ -17,14 +17,18 @@ const guard = require('./lib/guard');
 const { sideBySide } = require('./lib/composite');
 const progress = require('./lib/progress');
 const { siteUrl } = require('./lib/site');
+const { screenUploads } = require('./lib/moderate');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ORDER_RATE_LIMIT = Number(process.env.ORDER_LIMIT_PER_HOUR || 20);
 
+// Besides their logo a customer may add reference images: photos, sketches, examples of what they have in mind.
+// The image model takes 16 input images at most; the front, the logo and the factory photos need up to five of them.
+const MAX_OWN_REFS = 8;
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024, files: 2 }, // front and, for a two-sided coin, back
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 + MAX_OWN_REFS }, // the logo and the reference images
   fileFilter: (_req, file, cb) => {
     const ok = /^image\/(png|jpe?g|webp)$/i.test(file.mimetype);
     cb(ok ? null : new Error('Please upload a PNG, JPG, or WEBP image.'), ok);
@@ -267,6 +271,8 @@ function describedDesign(body) {
     style: freeText(body.style, 300),
     front: freeText(body.front, 600),
     back: freeText(body.back, 600),
+    // The names of the reference images the customer added (the files themselves only go to the AI render)
+    refNames: (Array.isArray(body.refNames) ? body.refNames : []).slice(0, MAX_OWN_REFS).map((n) => String(n).replace(/[\r\n<>]/g, ' ').trim().slice(0, 120)).filter(Boolean),
   };
 }
 
@@ -285,13 +291,15 @@ app.get('/api/progress/:id', progress.subscribe);
 // front handed to the AI as its first image, so it comes out as the same coin turned over: same shape, rim, border,
 // edge and finish, with only the face artwork changed. Both faces are put together at order time.
 app.post('/api/generate', (req, res) => {
-  upload.single('logo')(req, res, async (err) => {
-    if (err) return res.status(400).json({ error: err.message });
+  upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'refs', maxCount: MAX_OWN_REFS }])(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'LIMIT_FILE_COUNT' ? `Please keep it to ${MAX_OWN_REFS} reference images.` : err.message });
     const b = req.body || {};
     const progressId = progress.valid(b.progressId) ? b.progressId : null;
     const report = (event) => { if (progressId) progress.emit(progressId, event); };
     const finish = (event) => { if (!progressId) return; progress.emit(progressId, event); setTimeout(() => progress.close(progressId), 2000); };
-    const logo = req.file ? { buffer: req.file.buffer, mimetype: req.file.mimetype } : null;
+    const files = req.files || {};
+    const logo = files.logo && files.logo[0] ? { buffer: files.logo[0].buffer, mimetype: files.logo[0].mimetype } : null;
+    const ownRefs = (files.refs || []).map((f) => ({ buffer: f.buffer, mimetype: f.mimetype }));
     const side = b.side === 'back' ? 'back' : 'front';
     // note: what the customer wants different in this version (optional; only sent from "Make Another Version")
     const design = { shape: normalizeCoinShape(b.shape), style: freeText(b.style, 300), description: freeText(b.description, 600), note: freeText(b.note, 300) };
@@ -307,7 +315,7 @@ app.post('/api/generate', (req, res) => {
     // Every render below this line costs money, so the cheap checks come first.
     // 1. The very same face was rendered recently: hand back that result for free. Not when the customer asked for
     //    another version of the same design: a new version has to be a new render.
-    const key = guard.fingerprint(logo ? logo.buffer : Buffer.alloc(0), { side, ...design, frontRenderId });
+    const key = guard.fingerprint(logo ? logo.buffer : Buffer.alloc(0), { side, ...design, frontRenderId, refs: ownRefs.map((r) => crypto.createHash('sha1').update(r.buffer).digest('hex')) });
     const repeat = b.fresh === '1' ? null : guard.cached(key);
     if (repeat) {
       console.log('[coin-builder] repeat render served from cache');
@@ -327,13 +335,26 @@ app.post('/api/generate', (req, res) => {
       const provider = getProvider();
       const started = Date.now();
       report({ stage: 'starting', sides: 1 });
+      // Nothing a customer uploads reaches the image model before it has been screened (see lib/moderate.js)
+      const refused = provider.name === 'openai'
+        ? await screenUploads([...(logo ? [{ ...logo, label: 'logo' }] : []), ...ownRefs.map((r, i) => ({ ...r, label: `ref${i}` }))])
+        : [];
+      if (refused.length) {
+        console.warn(`[coin-builder] upload refused by screening: ${refused.map((r) => `${r.label} (${r.category})`).join(', ')}`);
+        finish({ stage: 'failed' });
+        const refs = refused.filter((r) => r.label !== 'logo').map((r) => Number(r.label.slice(3)));
+        return res.status(400).json({
+          error: "We can't use one of the images you uploaded, so nothing was rendered. Please remove it and try again.",
+          rejected: { logo: refused.some((r) => r.label === 'logo'), refs },
+        });
+      }
       const result = await provider.generate({
-        mode: 'described', logo, shape: design.shape, style: design.style, sideName: side, description: design.description, note: design.note,
+        mode: 'described', logo, ownRefs, shape: design.shape, style: design.style, sideName: side, description: design.description, note: design.note,
         frontImage, refNames: frontRenderId ? refsByRender.get(frontRenderId) : null,
         onProgress: (event) => report({ side, ...event }),
       });
       report({ stage: 'finishing' });
-      console.log(`[coin-builder] ${provider.name} generated the ${side} of a described ${design.shape === 'odd' ? 'odd-shaped' : 'round'} coin in ${Date.now() - started}ms, ${result.attempts} attempt(s), model ${result.model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
+      console.log(`[coin-builder] ${provider.name} generated the ${side} of a described ${design.shape === 'odd' ? 'odd-shaped' : 'round'} coin${ownRefs.length ? ` with ${ownRefs.length} customer reference image(s)` : ''} in ${Date.now() - started}ms, ${result.attempts} attempt(s), model ${result.model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
 
       // The clean render stays on the server. The browser gets a small, lightly watermarked preview; the download
       // endpoint below hands out a heavily watermarked full-size copy. If watermarking fails, nothing is sent.
