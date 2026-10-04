@@ -472,9 +472,33 @@
     finishing: { from: 90, to: 97, seconds: 6, text: 'Adding the finishing touches…' },
     done: { from: 100, to: 100, seconds: 1, text: 'Done!' },
   };
-  const progress = { sides: new Map(), overall: null, timer: null, source: null };
+  const progress = { sides: new Map(), overall: null, timer: null, source: null, started: 0, line: -1 };
+  // Something to read under the turning coin; the line changes every few seconds
+  const WAIT_LINES = [
+    'Usually takes one to two minutes.',
+    'Wording in "double quotes" is read back letter by letter.',
+    'Our artists redraw every coin by hand before it is minted.',
+    'Tradition says: caught without your coin, you buy the round.',
+    'Over 20 million coins minted, and counting.',
+    'Not quite right? You can make another version afterwards.',
+  ];
+  // The loading coin (see "the mint" in style.css): its thickness is a stack of discs between the two faces, and
+  // sparks sit around the ring
+  (function buildMint() {
+    const coin = document.querySelector('.mint-coin');
+    for (let z = -6; z <= 6; z++) { const e = document.createElement('i'); e.className = 'mint-edge'; e.style.setProperty('--z', z); coin.appendChild(e); }
+    const sparks = [[6, 16, 0], [88, 8, .9], [98, 56, 1.7], [80, 90, .4], [12, 84, 1.3], [-2, 46, 2.1], [48, -5, 2.4]];
+    for (const [x, y, d] of sparks) { const e = document.createElement('i'); e.className = 'mint-spark'; e.style.cssText = `--x:${x}%;--y:${y}%;--d:${d}s`; $('mint').appendChild(e); }
+  })();
+  // The customer's own logo goes on the loading coin's face; without one it carries a star
+  function mintLogo(logo) {
+    $('mint-logo').style.display = logo ? '' : 'none';
+    $('mint-star').style.display = logo ? 'none' : '';
+    if (logo) $('mint-logo').setAttribute('href', logo); else $('mint-logo').removeAttribute('href');
+  }
   function progressReset() {
     progress.sides.clear(); progress.overall = null;
+    progress.started = Date.now(); progress.line = -1;
     progressSet('starting');
     progressTick();
     clearInterval(progress.timer);
@@ -487,14 +511,22 @@
     if (stage === 'checking' && progress.sides.size > 1) $('progress-text').textContent = 'Reading the wording on both sides, letter by letter…';
     else if (stage === 'rendering' && progress.sides.size > 1) $('progress-text').textContent = 'Rendering the front and the back…';
     else $('progress-text').textContent = s.text;
+    $('preview-busy').dataset.stage = stage; // the loading coin moves differently at each stage
   }
   const stagePct = (e) => e.from + (e.to - e.from) * (1 - Math.exp(-((Date.now() - e.started) / 1000) / (e.seconds / 2)));
   function progressTick() {
     // Once the sides report in, they carry the bar; before that (and at the end) the overall stage does
     const entries = progress.overall && ['finishing', 'done'].includes(progress.overall.stage) ? [progress.overall] : progress.sides.size ? [...progress.sides.values()] : [progress.overall];
     const pct = Math.round(entries.reduce((n, e) => n + stagePct(e), 0) / entries.length);
-    $('progress-bar').style.width = pct + '%';
-    $('progress-bar').parentElement.setAttribute('aria-valuenow', pct);
+    $('mint-ring-bar').style.strokeDashoffset = 100 - pct;
+    $('mint').setAttribute('aria-valuenow', pct);
+    const line = Math.floor((Date.now() - progress.started) / 5500) % WAIT_LINES.length;
+    if (line !== progress.line) {
+      progress.line = line;
+      const sub = $('progress-sub');
+      sub.textContent = WAIT_LINES[line];
+      sub.style.animation = 'none'; void sub.offsetWidth; sub.style.animation = ''; // play its fade-in again
+    }
   }
   function progressListen(id) {
     if (!('EventSource' in window)) return null;
@@ -537,6 +569,7 @@
     $('preview-busy').hidden = false;
     renderPreview();
     revealStage();
+    mintLogo(design.logo);
     progressReset();
     const snapshot = { ...designPayload(), logo: design.logo };
     const text = side === 'back' ? snapshot.back : snapshot.front;
@@ -548,7 +581,8 @@
     try {
       let data;
       if (isTest()) {
-        for (const stage of ['rendering', 'checking', 'finishing']) { progressSet(stage); progressTick(); await sleep(700); }
+        // long enough to see the loading coin through each of its stages
+        for (const [stage, ms] of [['rendering', 2600], ['checking', 2200], ['finishing', 1200]]) { progressSet(stage); progressTick(); await sleep(ms); }
         data = { image: testRenderSvg(text, side.toUpperCase(), snapshot.shape === 'odd'), renderId: 'test-' + side + '-' + ai[side].nextNumber, check: null, provider: 'test' };
       } else {
         const token = await turnstileToken();
@@ -570,7 +604,7 @@
         if (!res.ok) throw new Error(data.error || 'Render failed');
       }
       progressSet('done'); progressTick();
-      await sleep(350); // let the bar reach the end before the coin replaces it
+      await sleep(700); // the loading coin lands with a flash before the render replaces it
       const s = ai[side];
       const version = { id: side + s.nextNumber, number: s.nextNumber++, image: data.image, renderId: data.renderId || null, check: data.check || null, demo: data.provider === 'demo' || data.provider === 'test', design: snapshot, signature, note, frontRenderId: side === 'back' ? anchor : null, frontKey: side === 'back' ? anchorKey : null };
       s.versions.push(version);

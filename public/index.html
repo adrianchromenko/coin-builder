@@ -150,9 +150,51 @@
             </div>
           </div>
           <div id="preview-busy" class="preview-busy" role="status" hidden>
-            <div class="progress" role="progressbar" aria-label="Generating your coin" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-bar" class="progress-bar"></div></div>
+            <!-- The wait: a coin turning inside a ring that fills as the render moves along ("the mint" in style.css).
+                 app.js adds the coin's edge and the sparks, and puts the customer's logo on its face. -->
+            <div id="mint" class="mint" role="progressbar" aria-label="Generating your coin, usually one to two minutes" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <svg class="mint-ring" viewBox="0 0 120 120" aria-hidden="true">
+                <circle class="mint-ring-track" cx="60" cy="60" r="56"/>
+                <circle id="mint-ring-bar" class="mint-ring-bar" cx="60" cy="60" r="56" pathLength="100"/>
+              </svg>
+              <div class="mint-float" aria-hidden="true">
+                <div class="mint-coin">
+                  <div class="mint-face mint-front">
+                    <svg viewBox="0 0 200 200">
+                      <defs>
+                        <radialGradient id="mint-gold" cx="34%" cy="28%" r="85%">
+                          <stop offset="0" stop-color="#FFF3B0"/><stop offset=".32" stop-color="#EBC24A"/><stop offset=".72" stop-color="#BA871B"/><stop offset="1" stop-color="#7A5510"/>
+                        </radialGradient>
+                        <path id="mint-arc-top" d="M 30 100 A 70 70 0 0 1 170 100"/>
+                        <path id="mint-arc-bottom" d="M 17 100 A 83 83 0 0 0 183 100"/>
+                      </defs>
+                      <circle cx="100" cy="100" r="100" fill="url(#mint-gold)"/>
+                      <circle class="mint-rim" cx="100" cy="100" r="93"/>
+                      <circle class="mint-beads" cx="100" cy="100" r="89"/>
+                      <circle class="mint-field" cx="100" cy="100" r="52"/>
+                      <text><textPath href="#mint-arc-top" startOffset="50%">COINS FOR ANYTHING</textPath></text>
+                      <text><textPath href="#mint-arc-bottom" startOffset="50%">★ IN THE MAKING ★</textPath></text>
+                      <polygon id="mint-star" class="mint-mark" points="100,70 107.35,89.89 128.53,90.73 111.89,103.86 117.63,124.27 100,112.5 82.37,124.27 88.11,103.86 71.47,90.73 92.65,89.89"/>
+                      <image id="mint-logo" class="mint-logo" x="64" y="64" width="72" height="72" preserveAspectRatio="xMidYMid meet" style="display:none"/>
+                    </svg>
+                  </div>
+                  <div class="mint-face mint-back">
+                    <svg viewBox="0 0 200 200">
+                      <circle cx="100" cy="100" r="100" fill="url(#mint-gold)"/>
+                      <circle class="mint-rim" cx="100" cy="100" r="93"/>
+                      <circle class="mint-beads" cx="100" cy="100" r="89"/>
+                      <circle class="mint-field" cx="100" cy="100" r="52"/>
+                      <text class="mint-small"><textPath href="#mint-arc-top" startOffset="50%">THE QUALITY IS ALWAYS HERE</textPath></text>
+                      <text><textPath href="#mint-arc-bottom" startOffset="50%">★ VETERAN OWNED ★</textPath></text>
+                      <text class="mint-mono" x="100" y="116">CFA</text>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              <span class="mint-scan" aria-hidden="true"></span>
+            </div>
             <p id="progress-text">Sending your design to the AI…</p>
-            <p id="progress-sub" class="progress-sub">Usually takes one to two minutes.</p>
+            <p id="progress-sub" class="progress-sub" aria-hidden="true">Usually takes one to two minutes.</p>
           </div>
         </div>
         <p id="preview-spec" class="preview-spec"></p>
