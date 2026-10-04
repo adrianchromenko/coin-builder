@@ -352,6 +352,13 @@ input:read-only { background: #f4f1eb; color: #777; }
 .step-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
 .step-actions .btn:last-child { margin-left: auto; }
 
+/* "can't find what you're looking for?": the way to a designer, at the foot of the design and quantity steps */
+.help { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; margin-top: 24px; padding: 14px 16px; background: var(--offwhite); border-left: 4px solid var(--navy); }
+.help[hidden] { display: none; }
+.help-text { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.5; color: var(--text); }
+.help-text strong { font-family: var(--font-head); font-weight: 600; font-size: 15px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-dark); }
+.help .btn { flex: 0 0 auto; }
+
 /* logo upload */
 .logo-drop {
   border: 2px dashed #CFCAC2; background: var(--offwhite);
@@ -995,6 +1002,11 @@ html { -webkit-text-size-adjust: 100%; }
   .estimate { border-left-width: 3px; border-radius: 12px; background: var(--s-card); }
   .estimate .big { color: var(--s-strong); }
   .estimate small { color: var(--s-dim); }
+
+  .help { margin-top: 20px; padding: 12px 14px; gap: 10px; border-left: 3px solid var(--orange); border-radius: 12px; background: var(--s-card); }
+  .help-text { flex-basis: 100%; color: var(--s-dim); }
+  .help-text strong { font-size: 13.5px; letter-spacing: 1.2px; color: var(--s-strong); }
+  .help .btn { flex: 1 1 100%; }
 
   /* The Result tab: what the proofreader found, and the offer to have a designer fix it */
   .result-slot:not(.tab-off) { display: flex; flex-direction: column; gap: 12px; }

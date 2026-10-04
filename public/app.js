@@ -914,6 +914,11 @@
       if (li.dataset.step === name) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
     }
     $('builder').dataset.step = name;
+    // "Can't find what you're looking for?" sits at the foot of the step on show, above its buttons, while the coin
+    // is being designed and sized; once they are on to their details it would only be in the way
+    const help = $('help');
+    help.hidden = !['front', 'back', 'options'].includes(name);
+    if (!help.hidden) document.querySelector(`.panel .step[data-step="${name}"] .step-actions`).before(help);
     if (name === 'front' || name === 'back') ai.side = name; // the strip and "Make Another Version" follow the face being worked on
     if (name === 'review') renderReview();
     syncDesign();
@@ -1132,6 +1137,7 @@
   function showResult(html) {
     $('result').innerHTML = html;
     $('builder').dataset.step = 'result';
+    $('help').hidden = true;
     if (!currentVersion()) $('preview-caption').textContent = 'Your coin design.';
     for (const s of document.querySelectorAll('.panel .step')) s.hidden = s.dataset.step !== 'result';
     for (const li of $('stepper').children) { li.classList.remove('current'); li.classList.add('done'); li.style.cursor = 'default'; }
