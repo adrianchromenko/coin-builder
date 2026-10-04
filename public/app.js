@@ -98,6 +98,67 @@
       : 'Test mode is off. Coins render for real and orders go to the Coins for Anything team.');
   });
 
+  // ---------- phone studio ----------
+  // On a phone the builder is an app-like shell (see "phones: the coin studio" in style.css): the coin stays on screen
+  // and the sections of the design form are tabs under it. On wider screens the tabs are hidden and every section shows.
+  const studio = window.matchMedia('(max-width: 559px), (max-width: 720px) and (orientation: portrait)');
+  const TABS = {
+    front: [['describe', 'Describe'], ['logo', 'Logo'], ['style', 'Style'], ['size', 'Size'], ['result', 'Result']],
+    back: [['describe', 'Describe'], ['result', 'Result']],
+  };
+  const tabOpen = { front: 'describe', back: 'describe' };
+  function renderTabs() {
+    const step = $('builder').dataset.step;
+    // The Result tab exists while the render it reports on is the one on screen
+    const result = TABS[step] && ai.side === step && !(step === 'back' && !customBack()) ? sideCurrent(step) : null;
+    const tabs = (TABS[step] || []).filter(([id]) => id !== 'result' || result);
+    if (tabs.length && !tabs.some(([id]) => id === tabOpen[step])) tabOpen[step] = 'describe';
+    const open = tabs.length ? tabOpen[step] : '';
+    if ($('builder').dataset.tab !== open) document.querySelector('.panel').scrollTop = 0; // a new tab starts at its top
+    $('builder').dataset.tab = open;
+    // A dot marks a section that is filled in; on Result it is the proofreader's verdict
+    const filled = step === 'front'
+      ? { describe: !!design.front.trim(), logo: !!design.logo, style: !!design.style.trim(), size: !!order.size }
+      : { describe: customBack() && !!design.back.trim() };
+    const mark = (id) => (id === 'result' ? checkState(result).replace('unchecked', '') : filled[id] ? 'done' : '');
+    const html = tabs.map(([id, label]) => {
+      const m = mark(id);
+      return `<button type="button" class="${id === tabOpen[step] ? 'on ' : ''}${m}" data-tab="${id}"${id === tabOpen[step] ? ' aria-current="true"' : ''}>${label}${m ? '<i></i>' : ''}</button>`;
+    }).join('');
+    const bar = $('tabs');
+    if (bar.dataset.html !== html) { bar.innerHTML = html; bar.dataset.html = html; }
+    bar.hidden = tabs.length < 2;
+    for (const el of document.querySelectorAll('.panel .step [data-tab]')) el.classList.toggle('tab-off', el.dataset.tab !== tabOpen[el.closest('.step').dataset.step]);
+    // The proofreading result and the offer to fix the design: in the Result tab on a phone, under the coin otherwise
+    const slot = studio.matches && TABS[ai.side] ? document.querySelector(`.panel .step[data-step="${ai.side}"] .result-slot`) : null;
+    const home = slot || document.querySelector('.preview');
+    if ($('ai-check').parentElement !== home) home.append($('ai-check'), $('ai-disclaimer'));
+  }
+  function openTab(id) {
+    const step = $('builder').dataset.step;
+    if (!TABS[step]) return;
+    tabOpen[step] = id;
+    renderTabs();
+  }
+  $('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) openTab(b.dataset.tab); });
+  studio.addEventListener('change', () => { renderTabs(); fitKeyboard(); });
+
+  // The on-screen keyboard covers the bottom of the page without resizing it. While it is up, the shell and the popups
+  // are fitted to the part of the screen that is left (--app-h, --app-top) and everything above the tabs steps aside
+  // (.kb), so the field being typed in and the step's button stay in view.
+  const vv = window.visualViewport;
+  function fitKeyboard() {
+    const root = document.documentElement;
+    const covered = vv && vv.scale < 1.1 ? window.innerHeight - vv.height : 0; // a pinch-zoom shrinks the viewport too
+    const up = studio.matches && covered > 140;
+    root.classList.toggle('kb', up || (studio.matches && window.innerHeight < 460));
+    root.style.setProperty('--app-h', up ? `${Math.round(vv.height)}px` : '');
+    root.style.setProperty('--app-top', up ? `${Math.round(vv.offsetTop)}px` : '');
+    if (up && document.activeElement && document.activeElement.matches('input, textarea')) document.activeElement.scrollIntoView({ block: 'nearest' });
+  }
+  if (vv) { vv.addEventListener('resize', fitKeyboard); vv.addEventListener('scroll', fitKeyboard); }
+  window.addEventListener('resize', fitKeyboard);
+
   // ---------- the design form ----------
   for (const [id, key] of [['desc-front', 'front'], ['desc-back', 'back'], ['desc-style', 'style']]) {
     $(id).addEventListener('input', (e) => { design[key] = e.target.value; syncDesign(); });
@@ -198,6 +259,7 @@
             : 'Happy with it? Continue to your order. Not quite? Change the description or make another version.';
     renderPreview();
     renderVersions();
+    renderTabs();
   }
 
   // ---------- logo ----------
@@ -515,7 +577,7 @@
       // Keep the strip (and the browser's memory) bounded: drop the oldest version that is not on screen
       while (s.versions.length > MAX_VERSIONS) s.versions.splice(s.versions.findIndex((v) => v.id !== s.current), 1);
       // If the description was edited while this was rendering, keep the version but do not show it as current
-      if (signature === sideSignature(side)) showVersion(side, version.id);
+      if (signature === sideSignature(side)) { tabOpen[side] = 'result'; showVersion(side, version.id); } // on a phone: straight to what the proofreader found
       else { syncDesign(); toast(`${side === 'back' ? 'Back' : 'Front'} version ${version.number} is ready. Tap it under the coin to see it.`, 5000); }
     } catch (e) {
       toast(escapeHtml(e.message || 'Sorry, the AI render failed. Please try again.'), 5000);
@@ -736,6 +798,7 @@
     if (name === 'review') renderReview();
     syncDesign();
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.querySelector('.panel').scrollTop = 0; // on a phone the form scrolls inside its own column
     // Move focus to the new step's heading so keyboard and screen-reader users land in the right place
     const h = document.querySelector(`.panel .step[data-step="${name}"] h2`);
     if (h && stepShown) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
@@ -751,7 +814,7 @@
   document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => showStep(b.dataset.back)));
   $('to-back').addEventListener('click', () => {
     if (!currentFront()) return;
-    if (!order.size) { toast('Pick a coin size to continue.'); sizeChips.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    if (!order.size) { toast('Pick a coin size to continue.'); openTab('size'); sizeChips.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     showStep('back');
   });
   $('to-options').addEventListener('click', () => { if (currentFront() && (!customBack() || currentBack())) showStep('options'); });
@@ -952,6 +1015,8 @@
     if (!currentVersion()) $('preview-caption').textContent = 'Your coin design.';
     for (const s of document.querySelectorAll('.panel .step')) s.hidden = s.dataset.step !== 'result';
     for (const li of $('stepper').children) { li.classList.remove('current'); li.classList.add('done'); li.style.cursor = 'default'; }
+    renderTabs();
+    document.querySelector('.panel').scrollTop = 0;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -1120,6 +1185,7 @@
     Object.assign(design, newDesign());
     Object.assign(order, { quantity: null, size: null, estimate: null, notes: '', name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
     ai.front = newSide(); ai.back = newSide(); ai.side = 'front';
+    tabOpen.front = tabOpen.back = 'describe';
     $('result').innerHTML = '';
     $('notes').value = ''; $('qty-input').value = '';
     syncControls();
@@ -1130,7 +1196,12 @@
     $('details-error').hidden = true; $('review-error').hidden = true;
     showStep('front');
   }
-  $('restart').addEventListener('click', restart);
+  $('restart').addEventListener('click', () => {
+    // On a phone this is a small icon beside the steps, easy to hit by accident
+    const started = design.front.trim() || design.logo || ai.front.versions.length;
+    if (studio.matches && started && !$('result').innerHTML && !window.confirm('Start over? This clears your coin and your details.')) return;
+    restart();
+  });
   $('another').addEventListener('click', restart);
 
   // Choice buttons show their state with the `on` class; mirror it to aria-pressed for screen readers
@@ -1143,4 +1214,5 @@
   // ---------- boot ----------
   if (!handleReturnFromCheckout()) showStep('front');
   else syncDesign();
+  fitKeyboard();
 })();

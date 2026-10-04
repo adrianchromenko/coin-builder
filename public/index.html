@@ -113,7 +113,10 @@
           <span class="test-toggle-state">Off</span>
           <span class="test-toggle-track"><span class="test-toggle-knob"></span></span>
         </button>
-        <button id="restart" class="btn dark small plain" type="button" title="Start over">Start Over</button>
+        <button id="restart" class="btn dark small plain" type="button" title="Start over" aria-label="Start over">
+          <svg class="restart-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 5V2L7.5 6.5 12 11V7.5a5.5 5.5 0 1 1-5.5 5.5h-2A7.5 7.5 0 1 0 12 5z"/></svg>
+          <span class="restart-label">Start Over</span>
+        </button>
       </div>
     </header>
 
@@ -121,8 +124,8 @@
       <li data-step="front" class="current"><span>1</span><b>Front</b></li>
       <li data-step="back"><span>2</span><b>Back</b></li>
       <li data-step="options"><span>3</span><b>Quantity</b></li>
-      <li data-step="details"><span>4</span><b>Your Details</b></li>
-      <li data-step="review"><span>5</span><b>Review &amp; Pay</b></li>
+      <li data-step="details"><span>4</span><b><span class="only-wide">Your </span>Details</b></li>
+      <li data-step="review"><span>5</span><b>Review<span class="only-wide"> &amp; Pay</span></b></li>
     </ol>
 
     <div class="builder" id="builder" data-step="front">
@@ -169,6 +172,9 @@
       </section>
       </div>
 
+      <!-- Phones only: the sections of the design form as tabs under the coin (filled in by app.js) -->
+      <nav id="tabs" class="tabs" aria-label="Design sections" hidden></nav>
+
       <!-- ============ step panels ============ -->
       <section class="panel">
 
@@ -177,8 +183,8 @@
           <h2><span class="script">Design</span> the front</h2>
           <p class="lead">Tell us about your coin in plain words. Our AI drafts the front in a minute; then you do the back, and our artists finish it before production.</p>
 
-          <section class="group">
-            <h3 class="group-title">1. Your logo or artwork <em>optional</em></h3>
+          <section class="group" data-tab="logo">
+            <h3 class="group-title"><span class="n">1. </span>Your logo or artwork <em>optional</em></h3>
             <div class="field">
               <div id="logo-drop" class="logo-drop" tabindex="0" role="button" aria-label="Upload your logo or artwork">
                 <input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
@@ -196,20 +202,20 @@
             </div>
           </section>
 
-          <section class="group">
-            <h3 class="group-title">2. Describe the front</h3>
+          <section class="group" data-tab="describe">
+            <h3 class="group-title"><span class="n">2. </span>Describe the front</h3>
             <label class="ff"><span class="label">What goes on the front, and where</span><textarea id="desc-front" rows="4" maxlength="600" placeholder='Example: Our logo in the middle. "FIRE DEPT" curved around the top, "EST. 1990" along the bottom. Navy blue background behind the logo.'></textarea></label>
             <p class="hint">Put the exact wording in double quotes and say where it goes. We read every quoted word back off the render, letter by letter.</p>
           </section>
 
-          <section class="group">
-            <h3 class="group-title">3. Style, finish and theme <em>optional</em></h3>
+          <section class="group" data-tab="style">
+            <h3 class="group-title"><span class="n">3. </span>Style, finish and theme <em>optional</em></h3>
             <label class="ff"><span class="label">Anything you would tell our designer</span><textarea id="desc-style" rows="2" maxlength="300" placeholder="Example: antique silver, rope border, red and blue enamel, patriotic feel"></textarea></label>
             <p class="hint">Metal finish, colors, border, texture, mood. Leave it blank and we go with shiny gold and a plain rim.</p>
           </section>
 
-          <section class="group">
-            <h3 class="group-title">4. Coin shape</h3>
+          <section class="group" data-tab="size">
+            <h3 class="group-title"><span class="n">4. </span>Coin shape</h3>
             <div id="coin-shape" class="seg wrap" role="group" aria-label="Coin shape">
               <button type="button" data-shape="round" class="on">Round</button>
               <button type="button" data-shape="odd">Odd shaped</button>
@@ -217,11 +223,13 @@
             <p id="shape-hint" class="hint">Round is the classic challenge coin.</p>
           </section>
 
-          <section class="group">
-            <h3 class="group-title">5. Coin size <em id="size-measure">diameter, needed for pricing</em></h3>
+          <section class="group" data-tab="size">
+            <h3 class="group-title"><span class="n">5. </span>Coin size <em id="size-measure">diameter, needed for pricing</em></h3>
             <div id="size-chips" class="seg wrap" role="group" aria-label="Coin size"></div>
             <p id="size-hint" class="hint">Most challenge coins are 1.75" or 2". Need another size? Tell us in the notes when you order.</p>
           </section>
+
+          <div class="result-slot" data-tab="result"></div>
 
           <p id="design-hint" class="hint">Describe the front of your coin to get started.</p>
           <div class="step-actions">
@@ -236,7 +244,7 @@
           <h2><span class="script">Now</span> the back</h2>
           <p class="lead">Your front is set. The back is the same coin turned over: same shape, metal, rim and border. Just tell us what goes on it.</p>
 
-          <section class="group">
+          <section class="group" data-tab="describe">
             <h3 class="group-title">What goes on the back?</h3>
             <div id="back-mode" class="seg wrap" role="group" aria-label="Back of the coin">
               <button type="button" data-mode="same" class="on">Same as the front</button>
@@ -244,11 +252,13 @@
             </div>
           </section>
 
-          <section id="back-custom" class="group" hidden>
+          <section id="back-custom" class="group" data-tab="describe" hidden>
             <h3 class="group-title">Describe the back</h3>
             <label class="ff"><span class="label">What goes on the back, and where</span><textarea id="desc-back" rows="4" maxlength="600" placeholder='Example: A bald eagle over a waving flag. "THE QUALITY IS ALWAYS HERE" curved around the top.'></textarea></label>
             <p class="hint">Put the exact wording in double quotes. Shape, metal finish and border come from your front, so there is nothing to repeat here.</p>
           </section>
+
+          <div class="result-slot" data-tab="result"></div>
 
           <p id="back-hint" class="hint"></p>
           <div class="step-actions">

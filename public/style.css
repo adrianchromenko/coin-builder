@@ -128,6 +128,7 @@ body {
 .app-header :focus-visible, .preview :focus-visible, .co-summary :focus-visible { outline-color: var(--white); }
 .btn:disabled:hover { background: var(--orange); }
 .btn.dark:disabled:hover { background: var(--black); }
+.btn.navy:disabled:hover { background: var(--navy); }
 .link { border: 0; background: transparent; color: var(--orange-text); font: inherit; font-weight: 600; cursor: pointer; padding: 0; text-decoration: underline; }
 
 /* ---------- stepper ---------- */
@@ -145,17 +146,17 @@ body {
   color: #767676; white-space: nowrap;
   border-bottom: 3px solid transparent;
 }
-.stepper li span {
+.stepper li > span {
   width: 24px; height: 24px; border-radius: 50%;
   display: grid; place-items: center;
   background: #cfcac2; color: var(--white); font-size: 12px; transition: background .15s;
 }
 .stepper li.current { color: var(--text-dark); border-bottom-color: var(--orange); }
-.stepper li.current span { background: var(--orange); }
+.stepper li.current > span { background: var(--orange); }
 .stepper li b { font-weight: 500; }
 .stepper li.done { color: var(--text-dark); cursor: pointer; }
-.stepper li.done:hover span { background: var(--orange); }
-.stepper li.done span { background: var(--black); }
+.stepper li.done:hover > span { background: var(--orange); }
+.stepper li.done > span { background: var(--black); }
 
 /* ---------- builder layout ---------- */
 .builder {
@@ -709,97 +710,272 @@ html { -webkit-text-size-adjust: 100%; }
   .send-form, .send-done { padding: 18px 20px 16px; gap: 8px; }
 }
 
-@media (max-width: 520px) {
+/* ---------- phones: the coin studio ---------- */
+/* Not a narrower copy of the desktop page: an app-like dark shell that fills the screen and never scrolls as a page.
+   The coin stays in view at the top, the sections of the design form are tabs under it, and the step's button sits at
+   the bottom. Keep this media query in step with `studio` in app.js. */
+.tabs, .restart-icon { display: none; }
+@keyframes sheet { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
+
+@media (max-width: 559px), (max-width: 720px) and (orientation: portrait) {
+  :root {
+    --s-bg: #0E0E10; --s-card: #19191C; --s-raise: #242428; --s-line: #313137;
+    --s-text: #C6C6CC; --s-strong: #F6F6F7; --s-dim: #8D8D96; --s-link: #FFA559;
+  }
+  html, body { height: 100%; overflow: hidden; }
+  body { background: var(--s-bg); }
+  .only-wide { display: none; }
+  .only-narrow { display: inline; }
+  .noscript { position: fixed; z-index: 100; top: 0; left: 0; right: 0; }
+
+  /* ----- the shell: brand bar, coin, tabs, form, button ----- */
+  /* --app-h and --app-top come from app.js while the on-screen keyboard is up, so the shell fits the part of the
+     screen that is left */
+  .app {
+    position: fixed; left: 0; right: 0; top: var(--app-top, 0px); bottom: 0; height: var(--app-h, 100dvh); min-height: 0; max-width: none;
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto minmax(0, 1fr); align-items: center;
+    background: var(--s-bg); color: var(--s-text); box-shadow: none; color-scheme: dark;
+  }
+  .topbar { grid-column: 1 / -1; padding: calc(3px + env(safe-area-inset-top)) 8px 3px; font-size: 9px; letter-spacing: 1.4px; }
+  .foot { display: none; }
+
+  /* One row: logo, the five steps, start over. The header's box is dissolved so its parts share a row with the steps. */
+  .app-header { display: contents; }
+  .brand, .stepper, .header-actions { grid-row: 2; height: 48px; display: flex; align-items: center; }
+  .brand { grid-column: 1; padding-left: var(--pad-l); }
+  .brand-logo { height: 28px; }
+  .brand-text { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); }
+  .header-actions { grid-column: 3; gap: 6px; padding-right: calc(var(--pad-r) - 8px); }
+  .header-actions .btn.small { width: 40px; min-height: 40px; padding: 0; border-radius: 50%; background: transparent; box-shadow: none; color: var(--s-dim); }
+  .restart-icon { display: block; width: 20px; height: 20px; }
+  .restart-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .test-toggle { min-height: 30px; padding: 3px 8px; font-size: 10px; letter-spacing: 1px; border-radius: 8px; }
+  .test-toggle-label, .test-toggle-track { display: none; }
+  .test-toggle::before { content: "Test"; }
+  .app:has(.test-toggle:not([hidden])) .brand-logo { display: none; }
+
+  .stepper { grid-column: 2; justify-content: center; gap: 2px; min-width: 0; padding: 0 6px; overflow: hidden; background: none; border: 0; }
+  .stepper li { flex: 0 0 auto; height: 44px; margin: 0; padding: 0 3px; gap: 6px; border: 0; font-size: 11px; letter-spacing: 1.2px; color: var(--s-strong); }
+  .stepper li > span { width: 22px; height: 22px; font-size: 11px; background: var(--s-raise); color: var(--s-dim); box-shadow: inset 0 0 0 1px var(--s-line); }
+  .stepper li.done { min-width: 30px; }
+  .stepper li.done > span, .stepper li.done:hover > span { background: transparent; color: var(--orange); box-shadow: inset 0 0 0 1.5px var(--orange); }
+  .stepper li.current { flex: 0 0 auto; height: 30px; padding: 0 11px 0 4px; border-radius: 15px; background: var(--s-raise); color: var(--s-strong); }
+  .stepper li.current > span { background: var(--orange); color: var(--white); box-shadow: none; }
+
+  .builder { grid-column: 1 / -1; grid-row: 3; align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
+
+  /* ----- the coin ----- */
+  .preview-col {
+    flex: 0 0 auto; min-width: 0; height: clamp(190px, 38dvh, 400px);
+    background: radial-gradient(120% 95% at 50% 32%, #2E2616 0%, #171618 58%, var(--s-bg) 100%);
+    border-top: 1px solid var(--s-line);
+  }
+  .preview-col { transition: height .25s ease-out; }
+  .preview-col:has(.preview-stage.empty) { height: clamp(150px, 27dvh, 280px); }
+  .builder[data-step="result"] .preview-col { height: clamp(150px, 28dvh, 260px); }
+  .preview {
+    position: static; height: 100%; max-height: none; overflow: visible;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto auto; align-items: center; gap: 0;
+    padding: 12px var(--pad-r) 10px var(--pad-l); color: var(--s-dim);
+  }
+  .preview-stage, .preview-stage.two, .preview-stage.empty,
+  .builder:not([data-step="front"]):not([data-step="back"]) .preview-stage.two {
+    grid-column: 1 / -1; width: 100%; height: 100%; max-width: none; aspect-ratio: auto;
+    background: transparent; border: 0; box-shadow: none;
+  }
+  .preview-stage.two { gap: 10px; }
+  /* Each face is a square as large as its share of the stage allows, rounded like a card */
+  .face, .preview-stage.empty .face { position: absolute; inset: 0; display: grid; place-items: center; container-type: size; overflow: visible; }
+  .preview-stage.two .face { position: relative; inset: auto; }
+  .preview-stage .face[hidden] { display: none; }
+  .face img { width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); border-radius: 16px; box-shadow: 0 14px 34px rgba(0,0,0,.6); }
+  .face-label { left: 0; top: 0; padding: 2px 8px; border-radius: 8px; font-size: 9.5px; letter-spacing: 1.2px; background: rgba(14,14,16,.78); border-color: var(--s-line); }
+  .face-empty, .preview-stage.empty .face-empty {
+    position: absolute; inset: 0; flex-direction: column; justify-content: center; gap: 12px; padding: 4px 20px;
+    text-align: center; font-size: 13px; line-height: 1.45; color: var(--s-dim);
+  }
+  .face-empty p, .preview-stage.empty .face-empty p { max-width: 280px; }
+  .face-empty b { color: var(--s-strong); }
+  .coin-mark, .preview-stage.empty .coin-mark { flex: 0 0 auto; width: clamp(60px, 11dvh, 104px); height: clamp(60px, 11dvh, 104px); box-shadow: inset 0 0 0 8px rgba(0,0,0,.18), 0 14px 34px rgba(0,0,0,.6), 0 0 60px rgba(201,151,28,.22); }
+  .preview-stage.two .face-empty { gap: 8px; padding: 4px; font-size: 12px; }
+  .preview-stage.two .coin-mark { width: 54px; height: 54px; box-shadow: inset 0 0 0 5px rgba(0,0,0,.18), 0 8px 18px rgba(0,0,0,.5); }
+  .preview-busy { border-radius: 16px; background: rgba(14,14,16,.84); padding: 12px; font-size: 13px; }
+  .preview-stage.two .preview-busy { padding: 8px; font-size: 12px; }
+  .progress { height: 6px; background: rgba(255,255,255,.14); }
+  .preview-spec { grid-column: 1 / -1; margin: 8px 0 0; font-size: 10.5px; letter-spacing: 1.4px; color: var(--s-dim); }
+  .preview-caption { display: none; }
+
+  /* Versions and "New Version" share one row under the coin */
+  .versions-wrap { grid-column: 1; grid-row: 3; flex-direction: row; align-items: center; max-width: none; min-width: 0; margin-top: 6px; }
+  .versions-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .versions { flex-wrap: nowrap; justify-content: flex-start; gap: 8px; min-width: 0; padding: 6px 8px 2px 0; overflow-x: auto; scrollbar-width: none; }
+  .versions::-webkit-scrollbar { display: none; }
+  .version { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 10px; border-color: var(--s-line); background: var(--s-card); }
+  .version img { border-radius: 8px; }
+  .version .num { border-radius: 0 6px 0 8px; }
+  .version .flag { top: -6px; right: -6px; width: 16px; height: 16px; font-size: 10px; box-shadow: 0 0 0 2px var(--s-bg); }
+  .preview-actions { grid-column: 2; grid-row: 3; margin: 6px 0 0 10px; }
+  .preview-actions .btn.navy, .preview-actions .btn.navy:hover, .preview-actions .btn.navy:disabled:hover { min-height: 40px; padding: 0 16px; border-radius: 20px; font-size: 12px; letter-spacing: 1.2px; background: var(--s-raise); color: var(--s-strong); box-shadow: inset 0 0 0 1px var(--s-line); }
+  .preview-actions .btn::before { content: "+"; font-size: 16px; line-height: 1; color: var(--orange); }
+  .preview-actions .btn::after { content: none; }
+
+  /* Past the design steps the coin is a small reminder beside its spec line */
+  .builder:is([data-step="options"], [data-step="details"]) .preview-col { height: auto; background: var(--s-card); border-bottom: 1px solid var(--s-line); }
+  .builder:is([data-step="options"], [data-step="details"]) .preview { display: flex; flex-direction: row; gap: 12px; height: auto; padding-top: 8px; padding-bottom: 8px; }
+  .builder:is([data-step="options"], [data-step="details"]) .preview .preview-stage.two { flex: 0 0 112px; width: 112px; height: 54px; gap: 4px; }
+  .builder:is([data-step="options"], [data-step="details"]) .face-label { display: none; }
+  .builder:is([data-step="options"], [data-step="details"]) .face img { border-radius: 8px; box-shadow: none; }
+  .builder:is([data-step="options"], [data-step="details"]) .preview-spec { margin: 0; text-align: left; font-size: 12px; color: var(--s-strong); }
+
+  /* ----- tabs ----- */
+  .tabs:not([hidden]) { flex: 0 0 auto; display: flex; padding: 0 calc(var(--pad-r) - 8px) 0 calc(var(--pad-l) - 8px); overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--s-line); background: var(--s-bg); }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button {
+    flex: 1 0 auto; position: relative; min-height: 46px; padding: 0 8px; border: 0; background: none; cursor: pointer; white-space: nowrap;
+    font-family: var(--font-head); font-size: 12.5px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--s-dim);
+  }
+  .tabs button.on { color: var(--s-strong); }
+  .tabs button.on::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; border-radius: 2px; background: var(--orange); }
+  /* A dot once a section is filled in; on Result it carries the proofreader's verdict */
+  .tabs button i { display: inline-block; width: 6px; height: 6px; margin-left: 5px; border-radius: 50%; vertical-align: 2px; background: var(--orange); }
+  .tabs button.ok i { background: #43a047; }
+  .tabs button.warn i { background: #FFB300; }
+  .tab-off { display: none; }
+
+  /* ----- the form ----- */
+  .panel {
+    flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    display: flex; flex-direction: column; padding: 16px var(--pad-r) 0 var(--pad-l); background: var(--s-bg);
+  }
+  .step, .details-form { flex: 1 0 auto; display: flex; flex-direction: column; }
+  .step h2 { flex-wrap: wrap; margin-bottom: 14px; font-size: 21px; color: var(--s-strong); }
+  /* The design steps are named by the step bar and the tabs; their heading stays for screen readers */
+  .step[data-step="front"] > h2, .step[data-step="back"] > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .lead { display: none; }
+  .group { border-top: 0; margin-top: 0; padding-top: 0; }
+  .group:not(.tab-off) ~ .group:not(.tab-off) { margin-top: 20px; }
+  .group-title { margin-bottom: 10px; font-size: 13px; color: var(--s-strong); }
+  .group-title .n { display: none; }
+  .group-title::before { height: 13px; }
+  .group-title em, .label em, .send-form .ff-label em { color: var(--s-dim); }
+  .group:has(.label) .group-title { display: none; } /* the field's own label says the same */
+  .label, .ff-label, .sublabel { font-size: 11.5px; color: var(--s-dim); }
+  .hint { font-size: 13px; line-height: 1.5; color: var(--s-dim); }
+  #design-hint, #back-hint { margin-top: 16px; color: var(--s-text); }
   .field.two, .details-form .ff-grid { grid-template-columns: 1fr; }
-  .panel { padding-top: 18px; padding-bottom: 26px; }
-  .topbar { font-size: 10px; letter-spacing: 1.2px; }
+  .details-form .ff-section { color: var(--s-strong); }
+  .link, .co-secure a, .summary small { color: var(--s-link); }
+  .ff-error { color: #FF8A80; }
 
-  /* Header on one line: logo, the title stacked in two rows, Start Over */
-  .app-header { padding-top: 10px; padding-bottom: 10px; gap: 8px 10px; }
-  .brand { gap: 10px; }
-  .brand-logo { height: 38px; }
-  .brand-text { padding-left: 10px; }
-  .brand-text h1 { font-size: 16px; letter-spacing: 1.2px; }
-  .brand-text h1 .script { display: block; margin: 0 0 2px; line-height: 1; }
-  .app-header .sub { display: none; }
-  .header-actions { margin-left: auto; }
-  .header-actions .btn.small { font-size: 11px; letter-spacing: .8px; padding: 8px 10px; }
-  /* Staff in test mode get the switch on a row of its own */
-  .header-actions:has(.test-toggle:not([hidden])) { width: 100%; justify-content: space-between; }
-
-  .step h2 { font-size: 22px; flex-wrap: wrap; }
-  /* Choice chips share the row equally instead of leaving a ragged gap on the right */
-  .seg.wrap { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
-  .seg.wrap button { padding-left: 4px; padding-right: 4px; line-height: 1.2; }
-  .swatches { grid-template-columns: 1fr 1fr; }
-  .swatch-btn { font-size: 11px; letter-spacing: .8px; }
-  .addon-row .seg { width: 100%; }
-  .addon-row .seg button { flex: 1; }
+  input[type="text"], input[type="email"], input[type="tel"], input[type="number"], textarea, .ff textarea {
+    background: var(--s-card); color: var(--s-strong); border: 1px solid var(--s-line); border-radius: 12px;
+  }
+  input:focus, textarea:focus, .ff textarea:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px rgba(245,130,32,.22); }
+  input::placeholder, textarea::placeholder { color: #6C6C75; }
+  input.bad, .ff textarea.bad { border-color: #EF5350; background: rgba(239,83,80,.1); }
+  input:disabled, input:read-only { background: var(--s-raise); color: var(--s-dim); }
+  input:-webkit-autofill { -webkit-text-fill-color: var(--s-strong); box-shadow: 0 0 0 100px var(--s-card) inset; caret-color: var(--s-strong); }
   .qty-input { max-width: none; }
-  .preview-stage.two .coin-mark { width: 44px; height: 44px; box-shadow: inset 0 0 0 4px rgba(0,0,0,.18), 0 6px 14px rgba(0,0,0,.5); }
 
-  /* The main button takes the room; the way back stays compact beside it */
-  .step-actions { gap: 8px; }
-  .step-actions .btn { flex: 1 1 0; padding-left: 12px; padding-right: 12px; }
-  .step-actions .btn:last-child { margin-left: 0; }
-  .step-actions .btn.back { flex: 0 1 auto; }
+  .logo-drop { padding: 20px 14px; border-color: var(--s-line); border-radius: 14px; background: var(--s-card); }
+  .logo-drop:hover, .logo-drop:focus, .logo-drop.over { border-color: var(--orange); background: rgba(245,130,32,.08); }
+  .logo-empty { color: var(--s-text); }
+  .logo-empty strong, .logo-meta strong { color: var(--s-strong); }
+  .logo-empty span, .logo-meta span { color: var(--s-dim); }
+  .logo-have img { border-color: var(--s-line); border-radius: 10px; }
 
-  /* Review: each row stacks, heading over value, so nothing is squeezed into a narrow column */
+  /* Choice chips share the row equally */
+  .seg.wrap { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; }
+  .seg.wrap button, .seg.wrap button:hover { min-height: 48px; padding: 6px 4px; line-height: 1.2; border: 1px solid var(--s-line); border-radius: 12px; background: var(--s-card); color: var(--s-strong); }
+  .seg.wrap button.on, .seg.wrap button.on:hover { background: var(--orange); border-color: var(--orange); color: var(--white); }
+  .estimate { border-left-width: 3px; border-radius: 12px; background: var(--s-card); }
+  .estimate .big { color: var(--s-strong); }
+  .estimate small { color: var(--s-dim); }
+
+  /* The Result tab: what the proofreader found, and the offer to have a designer fix it */
+  .result-slot:not(.tab-off) { display: flex; flex-direction: column; gap: 12px; }
+  .ai-check, .ai-disclaimer { max-width: none; border-radius: 12px; background: var(--s-card); }
+  .ai-check { padding: 12px 14px; }
+
+  /* Review: each row stacks, heading over value */
   .summary, .summary tbody, .summary tr, .summary th, .summary td { display: block; width: 100%; }
-  .summary th { border-bottom: 0; padding: 12px 0 2px; }
-  .summary td { padding: 0 0 12px; }
-  .review-coin .review-faces { width: 100%; }
-  .summary .review-faces img { width: calc(50% - 3px); max-width: 150px; height: auto; aspect-ratio: 1; }
+  .summary th { border-bottom: 0; padding: 12px 0 2px; color: var(--s-dim); }
+  .summary td { padding: 0 0 12px; border-bottom-color: var(--s-line); color: var(--s-text); }
+  .review-coin li:first-child { color: var(--s-strong); }
+  .review-coin .review-faces { width: 100%; gap: 8px; }
+  .summary .review-faces img { width: calc(50% - 4px); max-width: 150px; height: auto; aspect-ratio: 1; border-color: var(--s-line); border-radius: 12px; }
+  #result .head { font-size: 22px; color: var(--s-strong); }
+  #result .caption { color: var(--s-dim); }
+  #result strong, .summary strong { color: var(--s-strong); }
 
-  /* Checkout fills the screen and scrolls as one sheet, with the summary kept short so the card form is in reach */
-  .checkout { padding: 0; align-items: stretch; }
-  .co-card { max-width: none; max-height: none; height: 100dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  /* ----- buttons ----- */
+  .btn { border-radius: 12px; }
+  .btn.dark, .btn.dark:hover, .btn.dark:disabled:hover { background: var(--s-raise); color: var(--s-strong); box-shadow: inset 0 0 0 1px var(--s-line); }
+  /* Generate is struck in gold */
+  .btn.navy, .btn.navy:hover, .btn.navy:disabled:hover { background: linear-gradient(180deg, #FBE58A, #D7A328); color: #1F1600; }
+  .btn:disabled { opacity: .38; }
+
+  /* The step's buttons rest at the bottom of the form's column, over whatever scrolls beneath them */
+  .step-actions {
+    position: sticky; left: auto; right: auto; bottom: 0; order: 9; gap: 8px;
+    margin: auto calc(-1 * var(--pad-r)) 0 calc(-1 * var(--pad-l));
+    padding: 16px var(--pad-r) max(12px, env(safe-area-inset-bottom)) var(--pad-l);
+    background: linear-gradient(to bottom, rgba(14,14,16,0), var(--s-bg) 16px); border-top: 0; box-shadow: none;
+  }
+  .step-actions .btn { flex: 1 1 0; min-height: 52px; padding: 0 14px; border-radius: 14px; font-size: 15px; }
+  .step-actions .btn:last-child { margin-left: 0; }
+  .step-actions .btn.back { flex: 0 0 auto; padding: 0 16px; }
+  .step-actions + .hint { margin-top: 14px; }
+
+  .toast { position: absolute; bottom: calc(92px + env(safe-area-inset-bottom)); border-radius: 12px; background: var(--s-strong); color: #111113; box-shadow: 0 12px 34px rgba(0,0,0,.6); }
+
+  /* ----- popups ----- */
+  .checkout { top: var(--app-top, 0px); height: var(--app-h, 100dvh); padding: 0; align-items: stretch; background: rgba(0,0,0,.62); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); color-scheme: dark; }
+  .co-card { max-width: none; max-height: none; height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: var(--s-card); color: var(--s-text); box-shadow: none; }
+  .co-close { top: 0; right: 0; color: var(--s-strong); }
+  .co-form h2, .co-done h2, .send-form h2, .send-done h2 { font-size: 20px; color: var(--s-strong); }
+  .co-secure, .co-done p, .send-lead { color: var(--s-dim); }
+  .checkout input[type="text"], .checkout input[type="email"], .checkout input[type="tel"], .checkout textarea { background: var(--s-bg); }
+  /* The test checkout fills the screen, with the summary kept short so the card form is in reach */
   .co-test-bar { position: sticky; top: 0; z-index: 1; font-size: 11px; letter-spacing: 1px; padding: 12px 48px; }
-  .co-close { position: fixed; z-index: 2; }
+  .co-card:not(.send-card) .co-close { position: fixed; z-index: 2; color: var(--black); }
   .co-body { grid-template-columns: 1fr; }
-  .co-summary { display: grid; grid-template-columns: 72px 1fr; column-gap: 14px; align-items: center; padding: 14px 16px; }
+  .co-summary { display: grid; grid-template-columns: 72px 1fr; column-gap: 14px; align-items: center; padding: 14px 16px; background: #000; }
   .co-brand { display: none; }
-  .co-coin { width: 72px; height: 72px; margin: 0; }
+  .co-coin { width: 72px; height: 72px; margin: 0; border-radius: 10px; }
   .co-lines, .co-note { grid-column: 1 / -1; }
   .co-lines { margin-top: 12px; padding-top: 8px; }
   .co-lines .co-total { font-size: 18px; margin-top: 4px; padding-top: 8px; }
   .co-form { padding: 18px 16px max(24px, env(safe-area-inset-bottom)); }
   .co-row { grid-template-columns: 1fr 1fr; }
   .co-row .ff:last-child { grid-column: 1 / -1; }
-  .co-pay { min-height: 52px; }
+  .co-pay { min-height: 52px; border-radius: 14px; }
   .co-done { grid-column: 1; }
   /* The small popups slide up from the bottom as a sheet: only as tall as their form, scrolling once that fills the screen */
   .checkout.send { align-items: flex-end; }
-  .send-card { height: auto; max-height: 100dvh; display: flex; flex-direction: column; border-top: 4px solid var(--orange); animation: sheet .28s ease-out; }
+  .send-card { height: auto; max-height: 100%; display: flex; flex-direction: column; border-radius: 22px 22px 0 0; box-shadow: 0 -20px 60px rgba(0,0,0,.6); animation: sheet .28s ease-out; }
+  .send-card::before { content: ""; flex: 0 0 auto; align-self: center; width: 38px; height: 4px; margin-top: 8px; border-radius: 2px; background: var(--s-line); }
   .send-card .co-close { position: sticky; align-self: flex-end; flex: 0 0 auto; margin-bottom: -44px; }
-  .send-form, .send-done { flex: 0 0 auto; padding: 22px 18px max(22px, env(safe-area-inset-bottom)); }
-  .send-coin { width: 96px; height: 96px; }
-}
-@keyframes sheet { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
+  .send-form, .send-done { flex: 0 0 auto; padding: 14px 18px max(20px, env(safe-area-inset-bottom)); }
+  .send-coin { width: 84px; height: 84px; border-color: var(--s-line); }
+  .send-form .btn, .send-done .btn { border-radius: 14px; }
 
-@media (max-width: 360px) {
-  .topbar { font-size: 9px; letter-spacing: .6px; padding-left: 6px; padding-right: 6px; }
-  .brand { gap: 8px; }
-  .brand-logo { height: 32px; }
-  .brand-text { padding-left: 8px; }
-  .brand-text h1 { font-size: 14px; letter-spacing: 1px; }
-  .header-actions .btn.small { padding: 8px; letter-spacing: .5px; }
-  .header-actions .btn.small::after { content: none; }
-  .test-toggle-label { display: none; }
-  .test-toggle::before { content: "Test"; }
-  .swatch-btn { padding: 8px 6px; gap: 6px; font-size: 10.5px; letter-spacing: .5px; }
-  .swatch-btn .dot { width: 20px; height: 20px; }
-  .seg button { padding: 9px 10px; letter-spacing: .8px; }
-  .step h2 { font-size: 20px; }
-  .step-actions .btn { font-size: 13px; letter-spacing: 1px; padding-left: 10px; padding-right: 10px; }
-  .preview-stage.two .coin-mark { display: none; }
-  .preview-stage.two .face-label { font-size: 9px; padding: 2px 5px; left: 4px; top: 4px; }
+  /* ----- keyboard up, or a very short screen: everything above the tabs steps aside for the field being typed in ----- */
+  .kb .topbar, .kb .brand, .kb .stepper, .kb .header-actions, .kb .preview-col, .kb .send-coin { display: none; }
 }
 
-/* The narrowest phones: the step numbers close up so the name of the current step still fits */
-@media (max-width: 340px) {
-  .stepper li { padding: 12px 6px; font-size: 12px; letter-spacing: 1px; }
-  .stepper li.done { min-width: 36px; }
+/* The narrowest phones */
+@media (max-width: 350px) {
+  .topbar { font-size: 8px; letter-spacing: .8px; }
+  .brand-logo { height: 24px; }
+  .stepper li.current { padding: 0 4px; background: none; }
+  .stepper li.current b { display: none; }
+  .tabs button { font-size: 12px; letter-spacing: .8px; padding: 0 6px; }
+  .step-actions { gap: 6px; }
+  .step-actions .btn { font-size: 12.5px; letter-spacing: .6px; padding: 0 8px; }
+  .step-actions .btn.back { padding: 0 10px; }
+  .seg.wrap { gap: 6px; }
+  .seg.wrap button { font-size: 12px; letter-spacing: .6px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
