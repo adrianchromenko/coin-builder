@@ -1358,10 +1358,10 @@
   }
 
   // ---------- the Coin Nerd ----------
-  // The mascot waits in the corner while the coin is being designed and sized, and asks whether they need help. The
-  // chat is a short script, not an AI: one branch explains how to generate a coin and takes them to the description,
-  // the other is for someone the builder is not getting there, and hands them to a designer (the quote page on the
-  // main site, or the fix-my-design form when there is a render to fix).
+  // A round chat button waits in the corner while the coin is being designed and sized, with the mascot beside it
+  // saying he is there to help. The chat is a short script, not an AI: one branch explains how to generate a coin and
+  // takes them to the description, the other is for someone the builder is not getting there, and hands them to a
+  // designer (the quote page on the main site, or the fix-my-design form when there is a render to fix).
   const QUOTE_URL = 'https://coinsforanything.com/quote/';
   const nerd = { root: $('nerd'), panel: $('nerd-panel'), log: $('nerd-log'), options: $('nerd-options'), toggle: $('nerd-toggle'), teaser: $('nerd-teaser'), open: false, started: false, run: 0, teaserTimer: null };
   const nerdSeen = () => { try { return sessionStorage.getItem('cfaNerd') === '1'; } catch (_) { return false; } };
@@ -1437,16 +1437,14 @@
     if (!['go', 'fix'].includes(b.dataset.nerd)) nerdBubble(escapeHtml(b.textContent), 'you');
     NERD[b.dataset.nerd]();
   });
-  // A few seconds after the page opens he pipes up, once per visit: the chat pops open where there is room for it,
-  // and on a small screen, where it would cover the form, just the question beside his face.
+  // A moment after the page opens he pipes up in a speech bubble: "Need some help? I'm here to help!" It sits over
+  // the edge of the form, so it goes again after a few seconds (pointing at him brings it back, see style.css), and
+  // once they have opened the chat in this visit he does not say it again.
   setTimeout(() => {
-    const popupOpen = !contact.root.hidden || !revise.root.hidden || !co.root.hidden;
-    if (nerdSeen() || nerd.open || nerd.root.hidden || ai.busy || popupOpen) return;
-    nerdMarkSeen();
-    if (window.matchMedia('(min-width: 861px)').matches) { openNerd(); return; }
+    if (nerdSeen() || nerd.open || nerd.root.hidden) return;
     nerd.teaser.hidden = false;
-    nerd.teaserTimer = setTimeout(() => { nerd.teaser.hidden = true; }, 9000);
-  }, 4500);
+    nerd.teaserTimer = setTimeout(() => { nerd.teaser.hidden = true; }, 10000);
+  }, 1500);
 
   // ---------- restart ----------
   function restart() {

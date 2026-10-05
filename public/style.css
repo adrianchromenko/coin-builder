@@ -363,21 +363,36 @@ input:read-only { background: #f4f1eb; color: #777; }
 .step-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
 .step-actions .btn:last-child { margin-left: auto; }
 
-/* ---------- the Coin Nerd: the mascot in the corner, and the short chat he opens ---------- */
-.nerd { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: 14px; z-index: 40; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: none; }
+/* ---------- the Coin Nerd: a chat button in the corner with the mascot beside it, and the short chat it opens ---------- */
+.nerd { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: 14px; z-index: 40; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none; }
 .nerd[hidden] { display: none; }
 .nerd > * { pointer-events: auto; }
-.nerd-toggle { position: relative; padding: 0; border: 0; background: none; cursor: pointer; filter: drop-shadow(0 8px 10px rgba(0,0,0,.35)); animation: nerd-in .7s cubic-bezier(.2,1.5,.4,1) both; transition: transform .2s; }
-.nerd-toggle:hover { transform: translateY(-4px) rotate(-4deg); }
-.nerd-body { display: block; width: auto; height: 118px; }
+.nerd-toggle { position: relative; display: flex; align-items: flex-end; gap: 2px; padding: 0; border: 0; background: none; cursor: pointer; animation: nerd-in .7s cubic-bezier(.2,1.5,.4,1) both; }
+.nerd-body { display: block; width: auto; height: 104px; filter: drop-shadow(0 8px 10px rgba(0,0,0,.35)); transform-origin: 50% 100%; transition: transform .2s; }
+.nerd-toggle:hover .nerd-body { transform: translateY(-3px) rotate(-4deg); }
 .nerd-face { display: none; }
-/* what he says before the chat is open */
-.nerd-teaser {
-  position: absolute; right: calc(100% + 10px); bottom: 34%; width: max-content; max-width: 210px; padding: 9px 12px; text-align: left;
-  font-family: var(--font-body); font-size: 13px; font-weight: 600; line-height: 1.35; color: var(--text-dark); background: var(--white);
-  border-radius: 14px 14px 4px 14px; box-shadow: 0 8px 24px rgba(0,0,0,.3); transform-origin: right bottom; animation: nerd-pop .35s cubic-bezier(.2,1.5,.4,1) both;
+/* The round chat button: this is what says "chat". While the chat is open it is the way to close it. */
+.nerd-chat {
+  position: relative; flex: 0 0 auto; display: grid; place-items: center; width: 58px; height: 58px; margin-bottom: 4px; border-radius: 50%;
+  background: var(--orange); color: var(--white); box-shadow: 0 0 0 3px var(--white), 0 8px 20px rgba(0,0,0,.4); transition: transform .2s, background .2s;
 }
+.nerd-toggle:hover .nerd-chat { transform: scale(1.07); background: var(--orange-dark); }
+.nerd-chat .dots { fill: var(--orange); transition: fill .2s; }
+.nerd-toggle:hover .nerd-chat .dots { fill: var(--orange-dark); }
+.nerd-chat .ico-close, .nerd-toggle[aria-expanded="true"] .ico-chat { display: none; }
+.nerd-toggle[aria-expanded="true"] .ico-close { display: block; }
+/* a ring goes out from the button a few times after it arrives, to catch the eye */
+.nerd-chat::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 2px var(--orange); opacity: 0; animation: nerd-ring 1.8s ease-out 1.2s 3; }
+/* what he says before the chat is open: over his head, with the corner nearest him left sharp */
+.nerd-teaser {
+  position: absolute; right: 0; bottom: calc(100% + 6px); width: max-content; max-width: 210px; padding: 9px 13px; text-align: left;
+  font-family: var(--font-body); font-size: 13px; line-height: 1.35; color: var(--text-dark); background: var(--white);
+  border-radius: 14px 14px 14px 4px; box-shadow: 0 8px 24px rgba(0,0,0,.3); transform-origin: left bottom; animation: nerd-pop .35s cubic-bezier(.2,1.5,.4,1) both;
+}
+.nerd-teaser strong { display: block; font-weight: 700; }
 .nerd-teaser[hidden] { display: none; }
+/* after it has gone, pointing at him or the button brings it back until the chat is open */
+@media (hover: hover) { .nerd-toggle[aria-expanded="false"]:hover .nerd-teaser[hidden] { display: block; } }
 .nerd-panel {
   width: 310px; max-width: calc(100vw - 24px); display: flex; flex-direction: column; overflow: hidden;
   background: var(--white); color: var(--text); border-radius: 16px 16px 4px 16px; box-shadow: 0 18px 50px rgba(0,0,0,.4);
@@ -401,15 +416,19 @@ input:read-only { background: #f4f1eb; color: #777; }
 .nerd-options .btn.dark, .nerd-options .btn.dark:hover { background: var(--white); color: var(--text-dark); box-shadow: inset 0 0 0 1px #CFCAC2; }
 @keyframes nerd-in { from { transform: translateY(130%) rotate(8deg); } to { transform: none; } }
 @keyframes nerd-pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
-/* Where the step's buttons are pinned to the bottom of the screen he is a small round face, clear of them */
+@keyframes nerd-ring { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(1.7); } }
+/* Where the step's buttons are pinned to the bottom of the screen the pair sits clear of them, smaller: his face
+   tucked against the chat button, and what he says to the left of it */
 @media (max-width: 860px) {
   .nerd { right: max(12px, env(safe-area-inset-right)); bottom: calc(80px + env(safe-area-inset-bottom)); }
-  .nerd-toggle { filter: none; }
+  .nerd-toggle { align-items: center; gap: 0; }
   .nerd-body { display: none; }
-  .nerd-face { display: block; width: 54px; height: 54px; border-radius: 50%; background: var(--white); box-shadow: 0 0 0 2px var(--orange), 0 8px 18px rgba(0,0,0,.5); }
-  .nerd-teaser { bottom: 6px; max-width: min(210px, calc(100vw - 100px)); }
+  .nerd-face { position: relative; z-index: 1; display: block; width: 46px; height: 46px; margin-right: -10px; border-radius: 50%; background: var(--white); box-shadow: 0 0 0 2px var(--orange), 0 6px 14px rgba(0,0,0,.45); }
+  .nerd-chat { width: 52px; height: 52px; margin-bottom: 0; box-shadow: 0 0 0 2px var(--white), 0 8px 18px rgba(0,0,0,.5); }
+  .nerd-chat svg { transform: translateX(3px); } /* centred in the part of the button his face leaves showing */
+  .nerd-teaser { right: calc(100% + 8px); bottom: 4px; max-width: min(190px, calc(100vw - 130px)); border-radius: 14px 14px 4px 14px; transform-origin: right bottom; }
   .nerd-log { max-height: min(260px, calc(100dvh - 330px)); }
-  #design-hint, #back-hint { padding-right: 60px; } /* the line above the buttons ends short of his face */
+  #design-hint, #back-hint { padding-right: 94px; } /* the line above the buttons ends short of the pair */
 }
 
 /* logo upload */

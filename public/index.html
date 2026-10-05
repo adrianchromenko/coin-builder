@@ -418,9 +418,10 @@
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   </main>
 
-  <!-- The Coin Nerd: the mascot waits in the corner of the screen and offers help in a short scripted chat (see "the
-       Coin Nerd" in app.js): how to generate a coin, or the way to a designer when the builder is not getting them
-       there. The quote page opens in a new tab so the coin they have started is not lost. -->
+  <!-- The Coin Nerd: a round chat button in the corner of the screen with the mascot beside it, who says in a speech
+       bubble that he is there to help. It opens a short scripted chat (see "the Coin Nerd" in app.js): how to generate
+       a coin, or the way to a designer when the builder is not getting them there. The quote page opens in a new tab
+       so the coin they have started is not lost. -->
   <div id="nerd" class="nerd" hidden>
     <section id="nerd-panel" class="nerd-panel" aria-label="Help from the Coin Nerd" hidden>
       <header class="nerd-head">
@@ -432,9 +433,13 @@
       <div id="nerd-options" class="nerd-options"></div>
     </section>
     <button id="nerd-toggle" class="nerd-toggle" type="button" aria-expanded="false" aria-controls="nerd-panel" aria-label="Need help? Chat with the Coin Nerd">
-      <span id="nerd-teaser" class="nerd-teaser" hidden>Need help finding what you&rsquo;re looking for?</span>
-      <img class="nerd-body" src="brand/coinnerd.webp" alt="" width="94" height="118">
-      <img class="nerd-face" src="brand/coinnerd-head.webp" alt="" width="56" height="56">
+      <span id="nerd-teaser" class="nerd-teaser" hidden><strong>Need some help?</strong> I&rsquo;m here to help!</span>
+      <img class="nerd-body" src="brand/coinnerd.webp" alt="" width="83" height="104">
+      <img class="nerd-face" src="brand/coinnerd-head.webp" alt="" width="46" height="46">
+      <span class="nerd-chat" aria-hidden="true">
+        <svg class="ico-chat" viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9.5L5 21.6c-.4.3-1 0-1-.5V18a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><g class="dots"><circle cx="7.5" cy="10.5" r="1.4"/><circle cx="12" cy="10.5" r="1.4"/><circle cx="16.5" cy="10.5" r="1.4"/></g></svg>
+        <svg class="ico-close" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </span>
     </button>
   </div>
 
