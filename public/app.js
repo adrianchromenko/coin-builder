@@ -101,39 +101,80 @@
 
   // ---------- phone studio ----------
   // On a phone the builder is an app-like shell (see "phones: the coin studio" in style.css): the coin stays on screen
-  // and the sections of the design form are tabs under it. On wider screens the tabs are hidden and every section shows.
+  // and each design step is walked through one section at a time (describe, images, style, size, then the result),
+  // with Back and Next at the bottom. On wider screens every section shows at once and none of this is visible.
   const studio = window.matchMedia('(max-width: 559px), (max-width: 720px) and (orientation: portrait)');
+  // id, the name in the row under the coin, the line above the section (first word in script), optional?
   const TABS = {
-    front: [['describe', 'Describe'], ['logo', 'Images'], ['style', 'Style'], ['size', 'Size'], ['result', 'Result']],
-    back: [['describe', 'Describe'], ['result', 'Result']],
+    front: [
+      ['describe', 'Describe', 'Describe', 'the front'],
+      ['logo', 'Images', 'Add', 'your logo & images', true],
+      ['style', 'Style', 'Pick', 'a style', true],
+      ['size', 'Size', 'Choose', 'shape & size'],
+      ['result', 'Result', 'Here’s', 'your front'],
+    ],
+    back: [['describe', 'Describe', 'Now', 'the back'], ['result', 'Result', 'Here’s', 'your back']],
   };
   const tabOpen = { front: 'describe', back: 'describe' };
+  // The sections of a design step. Result is one of them while the render it reports on is the one on screen.
+  function tabsFor(step) {
+    const result = TABS[step] && ai.side === step && !(step === 'back' && !customBack()) ? sideCurrent(step) : null;
+    return { result, tabs: (TABS[step] || []).filter(([id]) => id !== 'result' || result) };
+  }
   function renderTabs() {
     const step = $('builder').dataset.step;
-    // The Result tab exists while the render it reports on is the one on screen
-    const result = TABS[step] && ai.side === step && !(step === 'back' && !customBack()) ? sideCurrent(step) : null;
-    const tabs = (TABS[step] || []).filter(([id]) => id !== 'result' || result);
+    const { result, tabs } = tabsFor(step);
     if (tabs.length && !tabs.some(([id]) => id === tabOpen[step])) tabOpen[step] = 'describe';
     const open = tabs.length ? tabOpen[step] : '';
-    if ($('builder').dataset.tab !== open) document.querySelector('.panel').scrollTop = 0; // a new tab starts at its top
+    if ($('builder').dataset.tab !== open) document.querySelector('.panel').scrollTop = 0; // a new section starts at its top
     $('builder').dataset.tab = open;
-    // A dot marks a section that is filled in; on Result it is the proofreader's verdict
+    const at = tabs.findIndex(([id]) => id === open);
+    const inputs = tabs.filter(([id]) => id !== 'result');
     const filled = step === 'front'
       ? { describe: !!design.front.trim(), logo: !!design.logo || design.refs.length > 0, style: !!design.style.trim(), size: !!order.size }
-      : { describe: customBack() && !!design.back.trim() };
-    const mark = (id) => (id === 'result' ? checkState(result).replace('unchecked', '') : filled[id] ? 'done' : '');
-    const html = tabs.map(([id, label]) => {
-      const m = mark(id);
-      return `<button type="button" class="${id === tabOpen[step] ? 'on ' : ''}${m}" data-tab="${id}"${id === tabOpen[step] ? ' aria-current="true"' : ''}>${label}${m ? '<i></i>' : ''}</button>`;
+      : { describe: !customBack() || !!design.back.trim() };
+
+    // The row under the coin: the sections in order, lit up to the one on show. On Result a dot is the proofreader's verdict.
+    const html = tabs.map(([id, label], i) => {
+      const verdict = id === 'result' ? checkState(result).replace('unchecked', '') : '';
+      return `<button type="button" class="${i === at ? 'on' : i < at ? 'past' : ''} ${verdict}" data-tab="${id}"${i === at ? ' aria-current="step"' : ''}>${label}${verdict ? '<i></i>' : ''}</button>`;
     }).join('');
     const bar = $('tabs');
     if (bar.dataset.html !== html) { bar.innerHTML = html; bar.dataset.html = html; }
     bar.hidden = tabs.length < 2;
     for (const el of document.querySelectorAll('.panel .step [data-tab]')) el.classList.toggle('tab-off', el.dataset.tab !== tabOpen[el.closest('.step').dataset.step]);
+
+    // The section on show, and the buttons that move through them. One main button at a time: Next (Skip, for an
+    // optional section left empty) until the last section, where it is Generate; after a render, the step's own
+    // Continue button on Result. Once a design has been rendered and then changed, Generate is offered on every
+    // section, so a small edit does not mean walking through them all again.
+    const el = step && document.querySelector(`.panel .step[data-step="${step}"]`);
+    if (el && TABS[step]) {
+      const phone = studio.matches;
+      const tab = tabs[at];
+      const onResult = open === 'result';
+      const editing = !result && ai[step].versions.length > 0;
+      const next = phone && !onResult && (result ? true : !editing && open !== inputs[inputs.length - 1][0]);
+      const head = el.querySelector('.sub-head');
+      const eyebrow = onResult ? `AI version ${result.number}` : inputs.length > 1 ? `Step ${at + 1} of ${inputs.length}${tab[4] ? ' · optional' : ''}` : '';
+      const headHtml = phone ? `${eyebrow ? `<small>${eyebrow}</small>` : ''}<strong><span class="script">${tab[2]}</span>${tab[3]}</strong>` : '';
+      if (head.dataset.html !== headHtml) { head.innerHTML = headHtml; head.dataset.html = headHtml; }
+      const subBack = el.querySelector('.sub-back'), subNext = el.querySelector('.sub-next');
+      subBack.hidden = !(phone && at > 0);
+      subNext.hidden = !next;
+      subNext.textContent = tab[4] && !filled[open] ? 'Skip' : 'Next';
+      subNext.disabled = !onResult && !tab[4] && open === 'describe' && !filled.describe; // nothing to render without a description
+      const off = (node, on) => { if (node) node.classList.toggle('sub-off', on); };
+      off(el.querySelector('#to-back, #to-options'), phone && !!result && !onResult);
+      off(el.querySelector('#generate-btn, #back-generate-btn'), next);
+      off(el.querySelector('[data-back]'), phone && at > 0);
+      off(el.querySelector('#design-hint, #back-hint'), next); // it talks about Generate and Continue, which are not on this screen
+    }
     // The proofreading result and the offer to fix the design: in the Result tab on a phone, under the coin otherwise
     const slot = studio.matches && TABS[ai.side] ? document.querySelector(`.panel .step[data-step="${ai.side}"] .result-slot`) : null;
     const home = slot || document.querySelector('.preview');
     if ($('ai-check').parentElement !== home) home.append($('ai-check'), $('ai-disclaimer'));
+    nerdPlace();
   }
   function openTab(id) {
     const step = $('builder').dataset.step;
@@ -142,6 +183,15 @@
     renderTabs();
   }
   $('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) openTab(b.dataset.tab); });
+  // Back and Next: one section of the step back or on
+  document.querySelector('.panel').addEventListener('click', (e) => {
+    const b = e.target.closest('.sub-back, .sub-next');
+    if (!b) return;
+    const step = $('builder').dataset.step;
+    const ids = tabsFor(step).tabs.map(([id]) => id);
+    const to = ids[ids.indexOf(tabOpen[step]) + (b.classList.contains('sub-next') ? 1 : -1)];
+    if (to) openTab(to);
+  });
   studio.addEventListener('change', () => { renderTabs(); fitKeyboard(); });
 
   // The on-screen keyboard covers the bottom of the page without resizing it. While it is up, the shell and the popups
@@ -547,12 +597,13 @@
   // The server reports stages as it reaches them (see lib/progress.js). Within a stage the bar creeps toward that
   // stage's ceiling on a timer, so it keeps moving during the long AI calls without ever running ahead of the truth.
   const STAGES = {
-    starting: { from: 2, to: 8, seconds: 4, text: 'Sending your design to the AI…' },
-    rendering: { from: 8, to: 55, seconds: 45, text: 'Rendering your coin…' },
-    checking: { from: 55, to: 75, seconds: 15, text: 'Reading the wording back, letter by letter…' },
-    retrying: { from: 60, to: 88, seconds: 45, text: 'The wording was off, so the AI is drawing it again…' },
-    finishing: { from: 90, to: 97, seconds: 6, text: 'Adding the finishing touches…' },
-    done: { from: 100, to: 100, seconds: 1, text: 'Done!' },
+    // text: what the Coin Nerd says in his speech bubble under the turning coin
+    starting: { from: 2, to: 8, seconds: 4, text: 'On it! Sending your design over…' },
+    rendering: { from: 8, to: 55, seconds: 45, text: 'Striking your coin. This is the fun part!' },
+    checking: { from: 55, to: 75, seconds: 15, text: 'Hang on, I’m proofreading every letter…' },
+    retrying: { from: 60, to: 88, seconds: 45, text: 'Hmm, I spotted a typo. Having it drawn again!' },
+    finishing: { from: 90, to: 97, seconds: 6, text: 'Giving it a quick polish…' },
+    done: { from: 100, to: 100, seconds: 1, text: 'Ta-da! Here it is!' },
   };
   const progress = { sides: new Map(), overall: null, timer: null, source: null, started: 0, line: -1 };
   // Something to read under the turning coin; the line changes every few seconds
@@ -590,9 +641,13 @@
     const s = STAGES[stage] || STAGES.starting;
     const entry = { stage, from: s.from, to: s.to, seconds: s.seconds, started: Date.now() };
     if (side) progress.sides.set(side, entry); else progress.overall = entry;
-    if (stage === 'checking' && progress.sides.size > 1) $('progress-text').textContent = 'Reading the wording on both sides, letter by letter…';
-    else if (stage === 'rendering' && progress.sides.size > 1) $('progress-text').textContent = 'Rendering the front and the back…';
-    else $('progress-text').textContent = s.text;
+    const says = stage === 'checking' && progress.sides.size > 1 ? 'Hang on, I’m proofreading both sides…'
+      : stage === 'rendering' && progress.sides.size > 1 ? 'Striking the front and the back…' : s.text;
+    const bubble = $('progress-text');
+    if (bubble.textContent !== says) {
+      bubble.textContent = says;
+      bubble.style.animation = 'none'; void bubble.offsetWidth; bubble.style.animation = ''; // the bubble pops again for a new line
+    }
     $('preview-busy').dataset.stage = stage; // the loading coin moves differently at each stage
   }
   const stagePct = (e) => e.from + (e.to - e.from) * (1 - Math.exp(-((Date.now() - e.started) / 1000) / (e.seconds / 2)));
@@ -889,7 +944,8 @@
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!contact.root.hidden) closeContact();
-    if (!revise.root.hidden) closeRevise();
+    else if (!revise.root.hidden) closeRevise();
+    else if (nerd.open) closeNerd();
   });
 
   // Coin images cannot be right-clicked, long-pressed or dragged out of the page. This only stops casual saving
@@ -914,11 +970,6 @@
       if (li.dataset.step === name) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
     }
     $('builder').dataset.step = name;
-    // "Can't find what you're looking for?" sits at the foot of the step on show, above its buttons, while the coin
-    // is being designed and sized; once they are on to their details it would only be in the way
-    const help = $('help');
-    help.hidden = !['front', 'back', 'options'].includes(name);
-    if (!help.hidden) document.querySelector(`.panel .step[data-step="${name}"] .step-actions`).before(help);
     if (name === 'front' || name === 'back') ai.side = name; // the strip and "Make Another Version" follow the face being worked on
     if (name === 'review') renderReview();
     syncDesign();
@@ -1137,7 +1188,6 @@
   function showResult(html) {
     $('result').innerHTML = html;
     $('builder').dataset.step = 'result';
-    $('help').hidden = true;
     if (!currentVersion()) $('preview-caption').textContent = 'Your coin design.';
     for (const s of document.querySelectorAll('.panel .step')) s.hidden = s.dataset.step !== 'result';
     for (const li of $('stepper').children) { li.classList.remove('current'); li.classList.add('done'); li.style.cursor = 'default'; }
@@ -1306,6 +1356,97 @@
     if (design.logo) { $('logo-thumb').src = design.logo; $('logo-name').textContent = design.logoName; }
     for (const b of sizeChips.children) b.classList.toggle('on', b.dataset.size === order.size);
   }
+
+  // ---------- the Coin Nerd ----------
+  // The mascot waits in the corner while the coin is being designed and sized, and asks whether they need help. The
+  // chat is a short script, not an AI: one branch explains how to generate a coin and takes them to the description,
+  // the other is for someone the builder is not getting there, and hands them to a designer (the quote page on the
+  // main site, or the fix-my-design form when there is a render to fix).
+  const QUOTE_URL = 'https://coinsforanything.com/quote/';
+  const nerd = { root: $('nerd'), panel: $('nerd-panel'), log: $('nerd-log'), options: $('nerd-options'), toggle: $('nerd-toggle'), teaser: $('nerd-teaser'), open: false, started: false, run: 0, teaserTimer: null };
+  const nerdSeen = () => { try { return sessionStorage.getItem('cfaNerd') === '1'; } catch (_) { return false; } };
+  const nerdMarkSeen = () => { try { sessionStorage.setItem('cfaNerd', '1'); } catch (_) {} };
+  function nerdBubble(html, who) {
+    const el = document.createElement('div');
+    el.className = 'nerd-msg ' + who;
+    el.innerHTML = html;
+    nerd.log.appendChild(el);
+    nerd.log.scrollTop = nerd.log.scrollHeight;
+    return el;
+  }
+  // He "types" for a moment, then says it and offers the next choices: [{ id, label, quiet? }] or [{ href, label }]
+  async function nerdSay(html, options = []) {
+    const run = ++nerd.run;
+    nerd.options.innerHTML = '';
+    const dots = nerdBubble('<span class="typing"><i></i><i></i><i></i></span>', 'nerd-says');
+    await sleep(600);
+    if (run !== nerd.run) { dots.remove(); return; }
+    dots.innerHTML = html;
+    nerd.options.innerHTML = options.map((o) => (o.href
+      ? `<a class="btn small" href="${o.href}" target="_blank" rel="noopener">${o.label}</a>`
+      : `<button type="button" class="btn small${o.quiet ? ' dark plain' : ''}" data-nerd="${o.id}">${o.label}</button>`)).join('');
+    nerd.log.scrollTop = nerd.log.scrollHeight;
+  }
+  const NERD_START = [{ id: 'generate', label: 'I want to generate a coin' }, { id: 'stuck', label: 'I can’t generate a coin I like' }];
+  const NERD = {
+    generate() {
+      nerdSay(currentFront()
+        ? 'You already have a render! Change your description and generate again, or tap <b>Make Another Version</b> and tell me what to do differently.'
+        : 'Easy! Tell me what goes on the front in plain words, and put any exact wording in “quotes”. Then tap <b>Generate This Coin</b> and your render shows up in a minute or two.',
+      [{ id: 'go', label: 'Take me there' }, { id: 'stuck', label: 'I can’t generate a coin I like', quiet: true }]);
+    },
+    stuck() {
+      nerdSay('No problem, that is what our designers are for. Tell us what you have in mind and a real designer will work up your coin with you, free of charge. You can also call <a href="tel:+18665835434">1-866-583-5434</a>.',
+        [{ href: QUOTE_URL, label: 'Get a Free Quote' }, ...(currentFront() ? [{ id: 'fix', label: 'Have a designer fix my render' }] : []), { id: 'generate', label: 'Show me how to generate a coin', quiet: true }]);
+    },
+    go() {
+      closeNerd();
+      if ($('result').innerHTML) return;
+      if ($('builder').dataset.step !== 'front') showStep('front');
+      openTab('describe');
+      $('desc-front').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      $('desc-front').focus({ preventScroll: true });
+    },
+    fix() { closeNerd(); openContact(); },
+  };
+  function openNerd() {
+    nerdMarkSeen();
+    clearTimeout(nerd.teaserTimer);
+    nerd.teaser.hidden = true;
+    nerd.open = true;
+    nerd.panel.hidden = false;
+    nerd.toggle.setAttribute('aria-expanded', 'true');
+    if (!nerd.started) { nerd.started = true; nerdSay('Hi, I’m the Coin Nerd! Need help finding what you’re looking for?', NERD_START); }
+  }
+  function closeNerd() {
+    nerd.open = false;
+    nerd.panel.hidden = true;
+    nerd.toggle.setAttribute('aria-expanded', 'false');
+  }
+  // He is around while the coin is being designed and sized; once they are on to their details he would only be in the way
+  function nerdPlace() {
+    const show = ['front', 'back', 'options'].includes($('builder').dataset.step);
+    if (!show && nerd.open) closeNerd();
+    nerd.root.hidden = !show;
+  }
+  nerd.toggle.addEventListener('click', () => (nerd.open ? closeNerd() : openNerd()));
+  $('nerd-close').addEventListener('click', closeNerd);
+  nerd.options.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-nerd]');
+    if (!b || !NERD[b.dataset.nerd]) return;
+    if (!['go', 'fix'].includes(b.dataset.nerd)) nerdBubble(escapeHtml(b.textContent), 'you');
+    NERD[b.dataset.nerd]();
+  });
+  // A few seconds after the page opens he pipes up, once per visit: the chat pops open where there is room for it,
+  // and on a small screen, where it would cover the form, just the question beside his face.
+  setTimeout(() => {
+    const popupOpen = !contact.root.hidden || !revise.root.hidden || !co.root.hidden;
+    if (nerdSeen() || nerd.open || nerd.root.hidden || ai.busy || popupOpen) return;
+    nerdMarkSeen();
+    if (window.matchMedia('(min-width: 861px)').matches) { openNerd(); return; }
+    nerd.teaser.hidden = false;
+    nerd.teaserTimer = setTimeout(() => { nerd.teaser.hidden = true; }, 9000);
+  }, 4500);
 
   // ---------- restart ----------
   function restart() {

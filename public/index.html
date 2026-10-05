@@ -193,7 +193,11 @@
               </div>
               <span class="mint-scan" aria-hidden="true"></span>
             </div>
-            <p id="progress-text">Sending your design to the AI…</p>
+            <!-- The Coin Nerd tells them what is going on -->
+            <div class="mint-says">
+              <img class="mint-nerd" src="brand/coinnerd-head.webp" alt="" width="38" height="38">
+              <p id="progress-text">On it! Sending your design over…</p>
+            </div>
             <p id="progress-sub" class="progress-sub" aria-hidden="true">Usually takes one to two minutes.</p>
           </div>
         </div>
@@ -214,8 +218,9 @@
       </section>
       </div>
 
-      <!-- Phones only: the sections of the design form as tabs under the coin (filled in by app.js) -->
-      <nav id="tabs" class="tabs" aria-label="Design sections" hidden></nav>
+      <!-- Phones only: the design form is walked through one section at a time. This row under the coin shows the
+           sections and how far along they are (filled in by app.js); each step's Back and Next buttons move through them. -->
+      <nav id="tabs" class="tabs" aria-label="Design steps" hidden></nav>
 
       <!-- ============ step panels ============ -->
       <section class="panel">
@@ -224,6 +229,7 @@
         <div class="step" data-step="front">
           <h2><span class="script">Design</span> the front</h2>
           <p class="lead">Tell us about your coin in plain words. Our AI drafts the front in a minute; then you do the back, and our artists finish it before production.</p>
+          <p class="sub-head" aria-hidden="true"></p>
 
           <section class="group" data-tab="logo">
             <h3 class="group-title"><span class="n">1. </span>Your logo and reference images <em>optional</em></h3>
@@ -288,6 +294,9 @@
 
           <p id="design-hint" class="hint">Describe the front of your coin to get started.</p>
           <div class="step-actions">
+            <!-- phones only: back and forth through the sections of this step -->
+            <button class="btn dark back sub-nav sub-back" type="button" hidden>Back</button>
+            <button class="btn sub-nav sub-next" type="button" hidden>Next</button>
             <button id="generate-btn" class="btn navy" type="button" disabled>Generate This Coin</button>
             <button id="to-back" class="btn" type="button" disabled hidden>Continue to the Back</button>
           </div>
@@ -298,6 +307,7 @@
         <div class="step" data-step="back" hidden>
           <h2><span class="script">Now</span> the back</h2>
           <p class="lead">Your front is set. The back is the same coin turned over: same shape, metal, rim and border. Just tell us what goes on it.</p>
+          <p class="sub-head" aria-hidden="true"></p>
 
           <section class="group" data-tab="describe">
             <h3 class="group-title">What goes on the back?</h3>
@@ -317,6 +327,8 @@
 
           <p id="back-hint" class="hint"></p>
           <div class="step-actions">
+            <button class="btn dark back sub-nav sub-back" type="button" hidden>Back</button>
+            <button class="btn sub-nav sub-next" type="button" hidden>Next</button>
             <button class="btn dark back" type="button" data-back="front">Edit the Front</button>
             <button id="back-generate-btn" class="btn navy" type="button" disabled hidden>Generate the Back</button>
             <button id="to-options" class="btn" type="button" hidden>Continue to Order</button>
@@ -395,17 +407,6 @@
           </div>
         </div>
 
-        <!-- For anyone the builder does not fit: the quote page on the main site, where a designer takes over.
-             app.js keeps this at the foot of the step on show, above its buttons, while the coin is being designed
-             and sized. It opens in a new tab so the coin they have started is not lost. -->
-        <aside id="help" class="help">
-          <div class="help-text">
-            <strong>Can&rsquo;t find what you&rsquo;re looking for?</strong>
-            <span>Our designers can help. Tell us what you have in mind and a real designer will work up your coin with you.</span>
-          </div>
-          <a class="btn dark small" href="https://coinsforanything.com/quote/" target="_blank" rel="noopener">Get a Free Quote</a>
-        </aside>
-
       </section>
     </div>
 
@@ -416,6 +417,26 @@
     <div id="drop" class="drop" hidden>Drop your logo or reference images</div>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   </main>
+
+  <!-- The Coin Nerd: the mascot waits in the corner of the screen and offers help in a short scripted chat (see "the
+       Coin Nerd" in app.js): how to generate a coin, or the way to a designer when the builder is not getting them
+       there. The quote page opens in a new tab so the coin they have started is not lost. -->
+  <div id="nerd" class="nerd" hidden>
+    <section id="nerd-panel" class="nerd-panel" aria-label="Help from the Coin Nerd" hidden>
+      <header class="nerd-head">
+        <img src="brand/coinnerd-head.webp" alt="" width="36" height="36">
+        <span><strong>The Coin Nerd</strong><small>Here to help</small></span>
+        <button id="nerd-close" class="nerd-close" type="button" aria-label="Close the chat">&times;</button>
+      </header>
+      <div id="nerd-log" class="nerd-log" aria-live="polite"></div>
+      <div id="nerd-options" class="nerd-options"></div>
+    </section>
+    <button id="nerd-toggle" class="nerd-toggle" type="button" aria-expanded="false" aria-controls="nerd-panel" aria-label="Need help? Chat with the Coin Nerd">
+      <span id="nerd-teaser" class="nerd-teaser" hidden>Need help finding what you&rsquo;re looking for?</span>
+      <img class="nerd-body" src="brand/coinnerd.webp" alt="" width="94" height="118">
+      <img class="nerd-face" src="brand/coinnerd-head.webp" alt="" width="56" height="56">
+    </button>
+  </div>
 
   <!-- Test checkout popup: no real charge, card number never leaves the browser -->
   <div id="checkout" class="checkout" hidden role="dialog" aria-modal="true" aria-labelledby="co-title">
