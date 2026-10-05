@@ -193,23 +193,35 @@
     const to = ids[ids.indexOf(tabOpen[step]) + (b.classList.contains('sub-next') ? 1 : -1)];
     if (to) openTab(to);
   });
-  studio.addEventListener('change', () => { renderTabs(); fitKeyboard(); });
+  studio.addEventListener('change', () => { renderTabs(); fitSoon(); });
 
   // The on-screen keyboard covers the bottom of the page without resizing it. While it is up, the shell and the popups
   // are fitted to the part of the screen that is left (--app-h, --app-top) and everything above the tabs steps aside
   // (.kb), so the field being typed in and the step's button stay in view.
+  // The viewport reports in bursts while the keyboard slides and the page pans. The shell is refitted once per frame
+  // at most, and only when something changed; refitting on every report makes it shake.
   const vv = window.visualViewport;
+  const fitted = { kb: null, height: '', top: '' };
+  let fitQueued = false;
   function fitKeyboard() {
+    fitQueued = false;
     const root = document.documentElement;
     const covered = vv && vv.scale < 1.1 ? window.innerHeight - vv.height : 0; // a pinch-zoom shrinks the viewport too
     const up = studio.matches && covered > 140;
-    root.classList.toggle('kb', up || (studio.matches && window.innerHeight < 460));
-    root.style.setProperty('--app-h', up ? `${Math.round(vv.height)}px` : '');
-    root.style.setProperty('--app-top', up ? `${Math.round(vv.offsetTop)}px` : '');
-    if (up && document.activeElement && document.activeElement.matches('input, textarea')) document.activeElement.scrollIntoView({ block: 'nearest' });
+    const kb = up || (studio.matches && window.innerHeight < 460);
+    const height = up ? `${Math.round(vv.height)}px` : '', top = up ? `${Math.round(vv.offsetTop)}px` : '';
+    const resized = kb !== fitted.kb || height !== fitted.height;
+    if (!resized && top === fitted.top) return;
+    Object.assign(fitted, { kb, height, top });
+    root.classList.toggle('kb', kb);
+    root.style.setProperty('--app-h', height);
+    root.style.setProperty('--app-top', top);
+    // the field being typed in comes into view when the keyboard arrives, not each time the page is nudged
+    if (up && resized && document.activeElement && document.activeElement.matches('input, textarea')) document.activeElement.scrollIntoView({ block: 'nearest' });
   }
-  if (vv) { vv.addEventListener('resize', fitKeyboard); vv.addEventListener('scroll', fitKeyboard); }
-  window.addEventListener('resize', fitKeyboard);
+  const fitSoon = () => { if (!fitQueued) { fitQueued = true; requestAnimationFrame(fitKeyboard); } };
+  if (vv) { vv.addEventListener('resize', fitSoon); vv.addEventListener('scroll', fitSoon); }
+  window.addEventListener('resize', fitSoon);
 
   // ---------- the design form ----------
   for (const [id, key] of [['desc-front', 'front'], ['desc-back', 'back'], ['desc-style', 'style']]) {
@@ -562,10 +574,12 @@
       const el = $('face-' + face);
       const img = el.querySelector('img');
       el.classList.toggle('same', same);
-      if (v) { img.src = v.image; img.hidden = false; img.alt = `${face === 'front' ? 'Front' : 'Back'} of your coin, AI version ${v.number}`; }
-      else { img.hidden = true; img.removeAttribute('src'); img.alt = ''; }
+      // only what changed is touched: this runs on every keystroke, and a picture set again is a picture drawn again
+      if (v) { if (img.getAttribute('src') !== v.image) img.src = v.image; img.hidden = false; img.alt = `${face === 'front' ? 'Front' : 'Back'} of your coin, AI version ${v.number}`; }
+      else if (!img.hidden) { img.hidden = true; img.removeAttribute('src'); img.alt = ''; }
       el.querySelector('.face-empty').hidden = !!v;
-      el.querySelector('.face-empty p').innerHTML = hint;
+      const p = el.querySelector('.face-empty p');
+      if (p.dataset.html !== hint) { p.innerHTML = hint; p.dataset.html = hint; }
       el.querySelector('.face-label').textContent = face === 'front' ? 'Front' : same ? 'Back · same as front' : 'Back';
       el.querySelector('.face-label').hidden = !two;
     };
@@ -843,6 +857,7 @@
   const checkState = (v) => (!v.check || !v.check.checked ? 'unchecked' : v.check.ok ? 'ok' : 'warn');
 
   // The strip and "Make Another Version" follow the face being worked on (the front step's face, or the back step's)
+  let versionsHtml = '';
   function renderVersions() {
     const side = ai.side;
     const s = ai[side];
@@ -851,13 +866,14 @@
     wrap.hidden = !s.versions.length || !active;
     $('versions-label').textContent = side === 'back' ? 'Back versions' : 'Front versions';
     $('ai-btn').hidden = !s.versions.length || !active; // the first render of a face starts from its step
-    $('versions').innerHTML = s.versions.map((v) => {
+    const html = s.versions.map((v) => {
       const state = checkState(v);
       const stale = side === 'back' && backStale(v);
       const label = `${side === 'back' ? 'Back' : 'Front'} version ${v.number}` + (stale ? ', drawn for a different front' : state === 'ok' ? ', wording checked' : state === 'warn' ? ', needs a look' : '') + (v.note ? `. Asked for: ${v.note}` : '');
       return `<button type="button" class="version${v.id === s.current ? ' on' : ''} ${state}${stale ? ' stale' : ''}" data-version="${v.id}" data-side="${side}" aria-pressed="${v.id === s.current}" aria-label="${label}" title="${label}">` +
         `<img src="${v.image}" alt=""><span class="num">${v.number}</span>${state === 'unchecked' || stale ? '' : `<span class="flag" aria-hidden="true">${state === 'ok' ? '✓' : '!'}</span>`}</button>`;
     }).join('');
+    if (html !== versionsHtml) { $('versions').innerHTML = html; versionsHtml = html; } // rebuilt only when it changes, not on every keystroke
     renderCheck();
   }
   $('versions').addEventListener('click', (e) => {
@@ -1647,16 +1663,21 @@
     const target = !id || !ready ? null : currentFront() ? (studio.matches ? null : $('ai-btn')) : designReady() ? $('generate-btn') : null;
     for (const el of document.querySelectorAll('.guide-pulse')) if (el !== target) el.classList.remove('guide-pulse');
     if (target) target.classList.add('guide-pulse');
-    if (!id) { coach.remove(); coach.dataset.html = ''; return; }
+    if (!id) { coach.remove(); coach.dataset.html = ''; coach.dataset.step = ''; return; }
 
     const g = GUIDE[id];
     let says, button = '';
     if (g) {
-      says = g.tip();
+      // While they type in the step he is on, he holds his line: a new one would be a different height and push
+      // the field they are typing in up or down. It changes when they leave the field.
+      const typing = group.contains(document.activeElement) && document.activeElement.matches('textarea');
+      if (!(typing && coach.dataset.step === id)) { coach.dataset.step = id; coach.dataset.tip = g.tip(); }
+      says = coach.dataset.tip;
       if (studio.matches && last) says += currentFront() ? '' : designReady() ? ' Pick a size too, then tap <b>Generate This Coin</b>.' : ` Then go back to <b>${hasArt() ? 'Describe' : 'Images'}</b>: I cannot draw a coin without it.`;
       const label = g.optional && !g.done() ? 'Skip this step' : 'Next step';
       button = `<button type="button" class="btn small coach-next"${!g.optional && id !== 'shape' && !g.done() ? ' disabled' : ''}>${label}</button>`;
     } else {
+      coach.dataset.step = '';
       says = currentFront()
         ? 'This design already has its render. Change anything above and <b>Generate This Coin</b> comes back, or tap <b>Make Another Version</b> under the coin and tell me what to do differently.'
         : 'That’s everything! Tap <b>Generate This Coin</b> and your render shows up in a minute or two.';
@@ -1682,6 +1703,7 @@
     if (e.target.closest('.coach-close')) guideStop();
     else if (e.target.closest('.coach-next')) guideNext();
   });
+  frontStep.addEventListener('focusout', (e) => { if (nerd.guide && e.target.matches('textarea')) setTimeout(guideShow, 0); }); // now he can say something new
 
   // ---------- restart ----------
   function restart() {

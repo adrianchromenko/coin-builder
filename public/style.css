@@ -218,7 +218,7 @@ body {
 .mint::before { content: ""; position: absolute; inset: 6%; border-radius: 50%; background: radial-gradient(circle, rgba(248,226,122,.34), rgba(248,226,122,0) 68%); animation: mint-glow 3s ease-in-out infinite; }
 .mint::after { content: ""; position: absolute; inset: -12%; border-radius: 50%; background: radial-gradient(circle, #fff 0%, rgba(255,241,168,.7) 30%, rgba(255,241,168,0) 68%); opacity: 0; pointer-events: none; }
 
-.mint-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.mint-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; will-change: transform; } /* on its own layer: the bar is redrawn as it fills, and nothing else should be redrawn with it */
 .mint-ring circle { fill: none; stroke-width: 2.4; }
 .mint-ring-track { stroke: rgba(255,255,255,.16); stroke-dasharray: .8 3.6; stroke-linecap: round; }
 .mint-ring-bar { stroke: var(--orange); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset .5s ease-out; filter: drop-shadow(0 0 3px rgba(245,130,32,.85)); }
@@ -233,7 +233,7 @@ body {
 /* The coin's thickness: a stack of rim-coloured discs between the two faces */
 .mint-edge { background: #8F6612; transform: translateZ(calc(var(--z) * var(--t) / 6.5)); } /* stops just short of the faces */
 /* A glint that crosses each face as it turns */
-.mint-face::after { content: ""; position: absolute; inset: 0; background: linear-gradient(112deg, rgba(255,255,255,0) 38%, rgba(255,255,255,.6) 50%, rgba(255,255,255,0) 62%) 0 0 / 300% 100% no-repeat; animation: mint-glint 3s linear infinite; }
+.mint-face::after { content: ""; position: absolute; inset: 0; background: linear-gradient(112deg, rgba(255,255,255,0) 14%, rgba(255,255,255,.6) 50%, rgba(255,255,255,0) 86%); transform: translateX(-120%); animation: mint-glint 3s linear infinite; }
 .mint-face text { font-family: var(--font-head); font-weight: 600; font-size: 13px; letter-spacing: 2.2px; text-anchor: middle; fill: #6A480B; stroke: rgba(255,243,176,.45); stroke-width: .5; paint-order: stroke; }
 .mint-face text.mint-small { font-size: 10.5px; letter-spacing: 1.6px; }
 .mint-face text.mint-mono { font-size: 44px; font-weight: 700; letter-spacing: 3px; }
@@ -246,7 +246,7 @@ body {
 .mint-spark { position: absolute; left: var(--x); top: var(--y); width: calc(var(--c) * .1); height: calc(var(--c) * .1); background: #FFF3B0; clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%); opacity: 0; animation: mint-twinkle 2.6s var(--d) ease-in-out infinite; }
 /* The proofreader's light, only while the wording is being read back */
 .mint-scan { position: absolute; width: var(--c); height: var(--c); border-radius: 50%; overflow: hidden; opacity: 0; pointer-events: none; transition: opacity .3s; }
-.mint-scan::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 22%; background: linear-gradient(rgba(255,255,255,0), rgba(255,255,255,.7), rgba(255,255,255,0)); animation: mint-scan 1.5s ease-in-out infinite alternate; }
+.mint-scan::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 22%; background: linear-gradient(rgba(255,255,255,0), rgba(255,255,255,.7), rgba(255,255,255,0)); transform: translateY(-100%); animation: mint-scan 1.5s ease-in-out infinite alternate; }
 
 .preview-busy[data-stage="checking"] .mint-coin { animation: mint-rock 2.6s ease-in-out infinite; }
 .preview-busy[data-stage="checking"] .mint-scan { opacity: 1; }
@@ -269,9 +269,11 @@ body {
 @keyframes mint-land { from { transform: rotateY(-540deg) scale(.82); } 60% { transform: rotateY(0) scale(1.1); } to { transform: rotateY(0) scale(1); } }
 @keyframes mint-float { 0%, 100% { transform: translateY(-3%); } 50% { transform: translateY(3%); } }
 @keyframes mint-glow { 0%, 100% { opacity: .65; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.06); } }
-@keyframes mint-glint { 0%, 8% { background-position: 110% 0; } 34%, 58% { background-position: -10% 0; } 84%, 100% { background-position: 110% 0; } }
+/* Everything on the coins moves by transform or opacity alone, which the phone's graphics chip does on its own:
+   nothing here asks the page to be laid out or painted again while it plays. Keep it that way. */
+@keyframes mint-glint { 0%, 8% { transform: translateX(-120%); } 34%, 58% { transform: translateX(120%); } 84%, 100% { transform: translateX(-120%); } }
 @keyframes mint-twinkle { 0%, 100% { opacity: 0; transform: scale(.2) rotate(0); } 50% { opacity: 1; transform: scale(1) rotate(45deg); } }
-@keyframes mint-scan { from { top: -22%; } to { top: 100%; } }
+@keyframes mint-scan { from { transform: translateY(-100%); } to { transform: translateY(455%); } }
 @keyframes mint-flash { 0% { opacity: 0; transform: scale(.5); } 35% { opacity: .95; } 100% { opacity: 0; transform: scale(1.25); } }
 @keyframes mint-line { from { opacity: 0; transform: translateY(4px); } }
 .preview-spec { margin: 2px 0 0; font-family: var(--font-head); font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; color: #e8e8e8; text-align: center; }
@@ -465,14 +467,11 @@ input:read-only { background: #f4f1eb; color: #777; }
 .step.guiding .group:not(.guide-on):hover, .step.guiding .group:not(.guide-on):focus-within { opacity: 1; }
 .group.guide-on { position: relative; z-index: 1; border-top-color: transparent; }
 .group.guide-on + .group { border-top-color: transparent; }
-.group.guide-on::after {
-  content: ""; position: absolute; z-index: -1; inset: 2px -16px -14px; border-radius: 16px; pointer-events: none;
-  background: linear-gradient(180deg, #FFF3E4, #FFFAF4 120px); animation: guide-ring 2s ease-in-out infinite;
-}
-@keyframes guide-ring {
-  0%, 100% { box-shadow: 0 0 0 2px var(--orange), 0 0 0 5px rgba(245,130,32,.24), 0 14px 34px rgba(245,130,32,.12); }
-  50% { box-shadow: 0 0 0 2px var(--orange), 0 0 0 10px rgba(245,130,32,.07), 0 14px 34px rgba(245,130,32,.22); }
-}
+.group.guide-on::before, .group.guide-on::after { content: ""; position: absolute; z-index: -1; inset: 2px -16px -14px; border-radius: 16px; pointer-events: none; }
+.group.guide-on::after { background: linear-gradient(180deg, #FFF3E4, #FFFAF4 120px); box-shadow: 0 0 0 2px var(--orange), 0 0 0 5px rgba(245,130,32,.2); }
+/* the breathing is a wider glow fading in and out behind the ring, so the ring itself is never painted again */
+.group.guide-on::before { box-shadow: 0 0 0 10px rgba(245,130,32,.14), 0 14px 34px rgba(245,130,32,.26); opacity: 0; animation: guide-ring 2s ease-in-out infinite; }
+@keyframes guide-ring { 50% { opacity: 1; } }
 .coach { display: flex; align-items: flex-end; gap: 10px; margin: 0 0 16px; animation: rise .3s ease-out; }
 .coach-face { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; background: var(--white); box-shadow: 0 0 0 2px var(--orange), 0 5px 12px rgba(0,0,0,.22); animation: mint-float 2.4s ease-in-out infinite; }
 .coach-says { position: relative; flex: 1; min-width: 0; padding: 10px 38px 12px 14px; color: #E9E6E1; background: var(--black); border-radius: 16px 16px 16px 4px; box-shadow: 0 10px 24px rgba(0,0,0,.2); transform-origin: left bottom; animation: nerd-pop .35s cubic-bezier(.2,1.5,.4,1) both; }
@@ -492,9 +491,10 @@ input:read-only { background: #f4f1eb; color: #777; }
 .coach-close:hover { color: var(--white); }
 .coach :focus-visible { outline-color: var(--white); }
 .step > .coach { margin: 22px 0 -6px; } /* over the step's buttons, pointing at Generate */
-/* the button he is pointing at */
-.guide-pulse { animation: guide-pulse 1.5s ease-out infinite; }
-@keyframes guide-pulse { from { box-shadow: 0 0 0 0 rgba(245,130,32,.75); } to { box-shadow: 0 0 0 16px rgba(245,130,32,0); } }
+/* the button he is pointing at: a ring goes out from it */
+.guide-pulse { position: relative; }
+.guide-pulse::before { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 0 3px var(--orange); pointer-events: none; animation: guide-pulse 1.5s ease-out infinite; }
+@keyframes guide-pulse { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(1.09, 1.5); } }
 
 /* logo upload */
 .logo-drop {
@@ -1027,7 +1027,9 @@ html { -webkit-text-size-adjust: 100%; }
     border-top: 1px solid var(--s-line);
   }
   .preview-col { transition: height .25s ease-out; }
-  .preview-col:has(.preview-stage.empty) { height: clamp(150px, 27dvh, 280px); }
+  /* Shorter while there is nothing to show yet. Once a coin has been rendered it keeps its full height, so the form
+     under it does not jump each time an edit takes the render off screen. */
+  .preview-col:has(.preview-stage.empty):not(:has(.versions-wrap:not([hidden]))) { height: clamp(150px, 27dvh, 280px); }
   .builder[data-step="result"] .preview-col { height: clamp(150px, 28dvh, 260px); }
   .preview {
     position: static; height: 100%; max-height: none; overflow: visible;
@@ -1055,7 +1057,7 @@ html { -webkit-text-size-adjust: 100%; }
   .coin-mark, .preview-stage.empty .coin-mark { --c: clamp(60px, 12dvh, 112px); margin: 0 0 calc(var(--c) * .12); }
   .preview-stage.two .face-empty { gap: 8px; padding: 4px; font-size: 12px; }
   .preview-stage.two .coin-mark { --c: 58px; }
-  .preview-busy { border-radius: 16px; padding: 10px 12px; gap: 6px; font-size: 13px; }
+  .preview-busy { border-radius: 16px; padding: 10px 12px; gap: 6px; font-size: 13px; -webkit-backdrop-filter: none; backdrop-filter: none; } /* a blur under a moving coin is heavy work for a phone, and barely shows */
   .preview-stage.two .preview-busy { padding: 8px; font-size: 12px; }
   .preview-busy #progress-text { font-size: 12.5px; }
   .preview-spec { grid-column: 1 / -1; margin: 8px 0 0; font-size: 10.5px; letter-spacing: 1.4px; color: var(--s-dim); }
@@ -1243,7 +1245,9 @@ html { -webkit-text-size-adjust: 100%; }
      a light bubble on the dark shell, and a glow around the part he is talking about. */
   .step.guiding .group:not(.guide-on), .step.guiding .lead { opacity: 1; }
   .group.guide-on { padding-top: 6px; }
-  .group.guide-on::after { inset: -6px -9px -12px; background: rgba(245,130,32,.07); }
+  .group.guide-on::before, .group.guide-on::after { inset: -6px -9px -12px; }
+  .group.guide-on::after { background: rgba(245,130,32,.07); }
+  .kb .coach { display: none; } /* the keyboard leaves room for the field and little else */
   .group.guide-on ~ .group:not(.tab-off) { margin-top: 34px; }
   .step.guiding .sub-head:not(:empty) { margin-bottom: 20px; }
   .coach { margin-bottom: 14px; }
@@ -1272,7 +1276,7 @@ html { -webkit-text-size-adjust: 100%; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   /* The loading coin holds still, face on, and the ring alone shows the progress */
   .mint-coin, .mint-float, .mint::before, .mint::after, .mint-face::after, .mint-spark, .mint-scan::before, .mint-nerd { animation: none !important; }
-  .coin-turn, .coin-float, .coin-mark::before, .coin-mark::after, .coach-face, .group.guide-on::after, .guide-pulse { animation: none !important; }
+  .coin-turn, .coin-float, .coin-mark::before, .coin-mark::after, .coach-face, .group.guide-on::before, .guide-pulse::before { animation: none !important; }
   .mint-coin, .coin-turn { transform: rotateX(9deg) rotateY(-16deg); }
   .mint-spark, .mint-scan { display: none; }
 }
