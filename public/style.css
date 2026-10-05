@@ -321,6 +321,8 @@ body {
 .panel { padding: 22px 26px 30px; min-width: 0; }
 .step { animation: rise .25s ease-out; }
 .step[hidden] { display: none; }
+/* the script word that opens a step's heading stands taller than the capitals beside it */
+.step h2 .script { font-size: 1.75em; line-height: 1; margin-right: 8px; }
 /* headings receive focus when the step changes (for screen readers); they are not controls, so no focus ring */
 .step h2:focus { outline: none; }
 .step h2 {

@@ -109,7 +109,7 @@
   const TABS = {
     front: [
       ['describe', 'Describe', 'Describe', 'the front'],
-      ['logo', 'Images', 'Add', 'your logo & images', true],
+      ['logo', 'Images', 'Add', 'your logo & images'],
       ['style', 'Style', 'Pick', 'a style', true],
       ['size', 'Size', 'Choose', 'shape & size'],
       ['result', 'Result', 'Here’s', 'your front'],
@@ -164,7 +164,7 @@
       subBack.hidden = !(phone && at > 0);
       subNext.hidden = !next;
       subNext.textContent = tab[4] && !filled[open] ? 'Skip' : 'Next';
-      subNext.disabled = !onResult && !tab[4] && open === 'describe' && !filled.describe; // nothing to render without a description
+      subNext.disabled = !onResult && ['describe', 'logo'].includes(open) && !filled[open]; // nothing to render without a description and a picture to go on
       const off = (node, on) => { if (node) node.classList.toggle('sub-off', on); };
       off(el.querySelector('#to-back, #to-options'), phone && !!result && !onResult);
       off(el.querySelector('#generate-btn, #back-generate-btn'), next);
@@ -256,7 +256,9 @@
     updateEstimate();
   }
 
-  const designReady = () => !!design.front.trim();
+  // A coin cannot be generated from words alone: it needs the logo or at least one reference image as well
+  const hasArt = () => !!design.logo || design.refs.length > 0;
+  const designReady = () => !!design.front.trim() && hasArt();
   function specLine() {
     return [order.size ? `${order.size}"` : '', oddShape() ? 'Odd shaped' : '', twoSided() ? 'Front & back' : 'Same both sides', design.logoName ? 'Your logo' : '', design.refs.length ? `${design.refs.length} reference${design.refs.length > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
   }
@@ -286,13 +288,15 @@
     $('generate-btn').hidden = !!front;
     $('to-back').hidden = !front;
     $('to-back').disabled = !front; // a missing size is asked for on the tap: on a phone this button is pinned, far from the size chips
-    $('design-hint').textContent = !design.front.trim()
-      ? 'Describe the front of your coin: what goes on it, and where.'
-      : !front
-        ? (ai.front.versions.length ? 'The description changed. Tap "Generate This Coin" to render it again.' : 'Looking good. Tap "Generate This Coin" to see it rendered.')
-        : !order.size
-          ? 'Pick a coin size, then continue to the back of your coin.'
-          : 'Happy with the front? Continue to the back. Not quite? Change the description or make another version.';
+    $('design-hint').textContent = !hasArt()
+      ? (design.front.trim() ? 'Add your logo or a reference image to go on. We need at least one before we can draw your coin.' : 'Start with your logo or a reference image, then describe the front of your coin.')
+      : !design.front.trim()
+        ? 'Describe the front of your coin: what goes on it, and where.'
+        : !front
+          ? (ai.front.versions.length ? 'The description changed. Tap "Generate This Coin" to render it again.' : 'Looking good. Tap "Generate This Coin" to see it rendered.')
+          : !order.size
+            ? 'Pick a coin size, then continue to the back of your coin.'
+            : 'Happy with the front? Continue to the back. Not quite? Change the description or make another version.';
 
     // Back step: "same as the front" needs nothing more; a different back has to be generated to match the front
     const backText = design.back.trim();
@@ -565,7 +569,7 @@
       el.querySelector('.face-label').textContent = face === 'front' ? 'Front' : same ? 'Back · same as front' : 'Back';
       el.querySelector('.face-label').hidden = !two;
     };
-    setFace('front', front, { hint: 'Describe your coin, then tap <b>Generate This Coin</b>. Your render shows up here in a minute or two.' });
+    setFace('front', front, { hint: 'Add your logo or a reference image, describe your coin, then tap <b>Generate This Coin</b>. Your render shows up here in a minute or two.' });
     $('face-back').hidden = !two;
     if (two) {
       if (!customBack()) setFace('back', front, { same: true, hint: 'The back matches the front.' });
@@ -731,7 +735,7 @@
   async function aiRender(side, note = '') {
     if (ai.busy) return;
     note = String(note || '').replace(/\s+/g, ' ').trim().slice(0, 300);
-    if (side === 'front' && !designReady()) { toast('Describe the front of your coin first.'); return; }
+    if (side === 'front' && !designReady()) { toast(hasArt() ? 'Describe the front of your coin first.' : 'Add your logo or a reference image first.'); return; }
     if (side === 'back' && !currentFront()) { toast('Generate the front first; the back is drawn to match it.'); return; }
     if (side === 'back' && !design.back.trim()) { toast('Describe the back first.'); return; }
     ai.busy = true;
@@ -1416,15 +1420,15 @@
   const clip = (s, n = 34) => { s = s.trim().replace(/\s+/g, ' '); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
   const GUIDE = {
     logo: {
-      name: 'Logo and reference photos', tab: 'logo', optional: true,
-      done: () => !!design.logo || design.refs.length > 0,
+      name: 'Logo and reference photos', tab: 'logo',
+      done: hasArt,
       have: () => [design.logo ? 'Logo added' : '', design.refs.length ? `${design.refs.length} reference photo${design.refs.length > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · '),
-      missing: 'Nothing added yet',
-      why: 'I have no logo or photos to go on yet, and coins come out much closer with those.',
+      missing: 'Needed: add at least one',
+      why: 'There is no logo or reference photo yet, and I need at least one to go on before I can draw your coin.',
       tip: () => (design.logo && design.refs.length ? 'A logo and photos, perfect. Say how to use the photos in your description, like “an eagle like the one in my photo”.'
         : design.logo ? 'Got your logo! It goes on the coin exactly as you uploaded it. Have a photo or a sketch of what you are picturing? Add it under <b>Reference images</b>.'
           : design.refs.length ? 'Nice, I’ll work from those. Say how to use them in your description, like “an eagle like the one in my photo”.'
-            : 'Got a logo? Add it in the box and it goes on your coin exactly as it is. Photos or sketches of what you have in mind go under <b>Reference images</b>. Nothing to add? Skip this one.'),
+            : 'Got a logo? Add it in the box and it goes on your coin exactly as it is. No logo? Add a photo or a sketch of what you have in mind under <b>Reference images</b>. I need at least one of them to go on.'),
     },
     describe: {
       name: 'Describe the front', tab: 'describe',
@@ -1622,14 +1626,14 @@
     nerd.guide = null;
     guideShow();
   }
-  // On to the next step that still needs doing; with none left, to Generate (or back to the description, if that
-  // was jumped over: there is no coin without it)
+  // On to the next step that still needs doing; with none left, to Generate (or back to the pictures or the
+  // description, if one was jumped over: there is no coin without them)
   function guideNext() {
     const order = guideOrder();
     nerd.passed.add(nerd.guide);
     if (nerd.guide === 'shape') design.shapePicked = true; // they looked at it and kept what was there
     const to = order.slice(order.indexOf(nerd.guide) + 1).find((id) => !GUIDE[id].done() && !nerd.passed.has(id));
-    guideStart(to || (designReady() ? 'go' : 'describe'));
+    guideStart(to || (!hasArt() ? 'logo' : designReady() ? 'go' : 'describe'));
     nerdStepsSync();
   }
   function guideShow() {
@@ -1649,7 +1653,7 @@
     let says, button = '';
     if (g) {
       says = g.tip();
-      if (studio.matches && last) says += currentFront() ? '' : designReady() ? ' Pick a size too, then tap <b>Generate This Coin</b>.' : ' Then go back to <b>Describe</b>: I cannot draw a coin without it.';
+      if (studio.matches && last) says += currentFront() ? '' : designReady() ? ' Pick a size too, then tap <b>Generate This Coin</b>.' : ` Then go back to <b>${hasArt() ? 'Describe' : 'Images'}</b>: I cannot draw a coin without it.`;
       const label = g.optional && !g.done() ? 'Skip this step' : 'Next step';
       button = `<button type="button" class="btn small coach-next"${!g.optional && id !== 'shape' && !g.done() ? ' disabled' : ''}>${label}</button>`;
     } else {
