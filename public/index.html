@@ -137,6 +137,7 @@
             <img alt="" draggable="false" hidden>
             <span class="face-label" hidden>Front</span>
             <div class="face-empty">
+              <!-- the gold coin that waits here until there is a render: app.js draws it ("the waiting coin") -->
               <span class="coin-mark" aria-hidden="true"></span>
               <p>Describe your coin, then tap <b>Generate This Coin</b>. Your render shows up here in a minute or two.</p>
             </div>
@@ -231,7 +232,7 @@
           <p class="lead">Tell us about your coin in plain words. Our AI drafts the front in a minute; then you do the back, and our artists finish it before production.</p>
           <p class="sub-head" aria-hidden="true"></p>
 
-          <section class="group" data-tab="logo">
+          <section class="group" data-tab="logo" data-guide="logo">
             <h3 class="group-title"><span class="n">1. </span>Your logo and reference images <em>optional</em></h3>
             <div class="field">
               <div id="logo-drop" class="logo-drop" tabindex="0" role="button" aria-label="Upload your logo or artwork">
@@ -263,19 +264,19 @@
             </div>
           </section>
 
-          <section class="group" data-tab="describe">
+          <section class="group" data-tab="describe" data-guide="describe">
             <h3 class="group-title"><span class="n">2. </span>Describe the front</h3>
             <label class="ff"><span class="label">What goes on the front, and where</span><textarea id="desc-front" rows="4" maxlength="600" placeholder='Example: Our logo in the middle. "FIRE DEPT" curved around the top, "EST. 1990" along the bottom. Navy blue background behind the logo.'></textarea></label>
             <p class="hint">Put the exact wording in double quotes and say where it goes. We read every quoted word back off the render, letter by letter.</p>
           </section>
 
-          <section class="group" data-tab="style">
+          <section class="group" data-tab="style" data-guide="style">
             <h3 class="group-title"><span class="n">3. </span>Style, finish and theme <em>optional</em></h3>
             <label class="ff"><span class="label">Anything you would tell our designer</span><textarea id="desc-style" rows="2" maxlength="300" placeholder="Example: antique silver, rope border, red and blue enamel, patriotic feel"></textarea></label>
             <p class="hint">Metal finish, colors, border, texture, mood. Leave it blank and we go with shiny gold and a plain rim.</p>
           </section>
 
-          <section class="group" data-tab="size">
+          <section class="group" data-tab="size" data-guide="shape">
             <h3 class="group-title"><span class="n">4. </span>Coin shape</h3>
             <div id="coin-shape" class="seg wrap" role="group" aria-label="Coin shape">
               <button type="button" data-shape="round" class="on">Round</button>
@@ -419,9 +420,10 @@
   </main>
 
   <!-- The Coin Nerd: a round chat button in the corner of the screen with the mascot beside it, who says in a speech
-       bubble that he is there to help. It opens a short scripted chat (see "the Coin Nerd" in app.js): how to generate
-       a coin, or the way to a designer when the builder is not getting them there. The quote page opens in a new tab
-       so the coin they have started is not lost. -->
+       bubble that he is there to help. It opens a short scripted chat (see "the Coin Nerd" in app.js): he checks what
+       is filled in so far and walks them through the steps of the form, lighting up each one (the groups marked
+       data-guide above), or shows the way to a designer when the builder is not getting them there. The quote page
+       opens in a new tab so the coin they have started is not lost. -->
   <div id="nerd" class="nerd" hidden>
     <section id="nerd-panel" class="nerd-panel" aria-label="Help from the Coin Nerd" hidden>
       <header class="nerd-head">

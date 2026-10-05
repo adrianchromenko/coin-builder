@@ -17,8 +17,9 @@
   const config = { pricing: false, payments: false, testMode: false, provider: '' };
   // backMode: 'same' (the back is the front again) or 'custom' (its own description, rendered to match the front)
   // shape: 'round' or 'odd' (a custom outline: shield, star, state, cut to the artwork; the words say which)
+  // shapePicked: they chose the shape themselves, rather than leaving it on round (the Coin Nerd's checklist asks)
   // refs: reference images the customer added besides the logo, as [{ id, name, data (a JPEG data URL), bad? }]
-  const newDesign = () => ({ front: '', back: '', backMode: 'same', shape: 'round', style: '', logo: null, logoName: '', refs: [] });
+  const newDesign = () => ({ front: '', back: '', backMode: 'same', shape: 'round', shapePicked: false, style: '', logo: null, logoName: '', refs: [] });
   const design = newDesign();
   const order = {
     quantity: null, size: null, estimate: null, notes: '',
@@ -225,6 +226,7 @@
     const b = e.target.closest('button[data-shape]');
     if (!b) return;
     design.shape = b.dataset.shape === 'odd' ? 'odd' : 'round';
+    design.shapePicked = true;
     syncShape();
     syncDesign();
   });
@@ -504,6 +506,42 @@
     }
   });
 
+  // ---------- the waiting coin ----------
+  // Until there is a render, a gold coin waits on the empty face (see "the waiting coin" in style.css). It is the
+  // loading coin's twin, built from the same parts: two faces with a stack of discs between them for its thickness,
+  // and sparks around it. It carries the customer's logo once they have added one; until then, a star.
+  const idleCoins = [...document.querySelectorAll('.coin-mark')];
+  idleCoins.forEach((el, k) => {
+    const id = (name) => `idle${k}-${name}`;
+    const disc = `<circle cx="100" cy="100" r="100" fill="url(#${id('gold')})"/><circle class="mint-rim" cx="100" cy="100" r="93"/><circle class="mint-beads" cx="100" cy="100" r="89"/><circle class="mint-field" cx="100" cy="100" r="52"/>`;
+    const arc = (where, text, small) => `<text${small ? ' class="mint-small"' : ''}><textPath href="#${id(where)}" startOffset="50%">${text}</textPath></text>`;
+    const edge = Array.from({ length: 13 }, (_, z) => `<i class="mint-edge" style="--z:${z - 6}"></i>`).join('');
+    const sparks = [[0, 10, 0], [96, 16, 1.3], [90, 88, .6], [4, 80, 2]].map(([x, y, d]) => `<i class="mint-spark" style="--x:${x}%;--y:${y}%;--d:${d}s"></i>`).join('');
+    el.innerHTML = `<span class="coin-float"><span class="coin-turn">
+      <span class="mint-face mint-front"><svg viewBox="0 0 200 200">
+        <defs>
+          <radialGradient id="${id('gold')}" cx="34%" cy="28%" r="85%"><stop offset="0" stop-color="#FFF3B0"/><stop offset=".32" stop-color="#EBC24A"/><stop offset=".72" stop-color="#BA871B"/><stop offset="1" stop-color="#7A5510"/></radialGradient>
+          <path id="${id('top')}" d="M 30 100 A 70 70 0 0 1 170 100"/><path id="${id('bottom')}" d="M 17 100 A 83 83 0 0 0 183 100"/>
+        </defs>
+        ${disc}${arc('top', 'COINS FOR ANYTHING')}${arc('bottom', '★ YOUR COIN HERE ★')}
+        <polygon class="mint-mark" points="100,70 107.35,89.89 128.53,90.73 111.89,103.86 117.63,124.27 100,112.5 82.37,124.27 88.11,103.86 71.47,90.73 92.65,89.89"/>
+        <image class="mint-logo" x="64" y="64" width="72" height="72" preserveAspectRatio="xMidYMid meet" style="display:none"/>
+      </svg></span>
+      <span class="mint-face mint-back"><svg viewBox="0 0 200 200">${disc}${arc('top', 'THE QUALITY IS ALWAYS HERE', true)}${arc('bottom', '★ VETERAN OWNED ★')}<text class="mint-mono" x="100" y="116">CFA</text></svg></span>
+      ${edge}</span></span>${sparks}`;
+  });
+  let idleLogoShown = null;
+  function idleLogo() {
+    if (idleLogoShown === design.logo) return;
+    idleLogoShown = design.logo;
+    for (const el of idleCoins) {
+      const img = el.querySelector('.mint-logo');
+      img.style.display = design.logo ? '' : 'none';
+      el.querySelector('.mint-mark').style.display = design.logo ? 'none' : '';
+      if (design.logo) img.setAttribute('href', design.logo); else img.removeAttribute('href');
+    }
+  }
+
   // ---------- the render on screen ----------
   // One coin on the front step. From the back step on, both faces side by side: the front on the left and, on the
   // right, the back render, or the front again (dimmed) when the back is "same as the front".
@@ -515,6 +553,7 @@
     // Nothing to show and nothing on its way: small screens shrink the stage to a short banner
     $('stage').classList.toggle('empty', !two && !front && !ai.busy);
     document.querySelector('.preview').classList.toggle('two', two);
+    idleLogo();
     const setFace = (face, v, { same = false, hint = '' } = {}) => {
       const el = $('face-' + face);
       const img = el.querySelector('img');
@@ -697,6 +736,7 @@
     if (side === 'back' && !design.back.trim()) { toast('Describe the back first.'); return; }
     ai.busy = true;
     ai.side = side;
+    guideStop(); // the Coin Nerd's walk-through ends where the render begins
     const genBtn = $(side === 'back' ? 'back-generate-btn' : 'generate-btn');
     const genLabel = genBtn.textContent;
     $('ai-btn').disabled = true;
@@ -1359,13 +1399,68 @@
 
   // ---------- the Coin Nerd ----------
   // A round chat button waits in the corner while the coin is being designed and sized, with the mascot beside it
-  // saying he is there to help. The chat is a short script, not an AI: one branch explains how to generate a coin and
-  // takes them to the description, the other is for someone the builder is not getting there, and hands them to a
-  // designer (the quote page on the main site, or the fix-my-design form when there is a render to fix).
+  // saying he is there to help. The chat is a short script, not an AI. Whichever way they come in, he first checks
+  // what is filled in so far and shows it as a list of the form's steps; from there he walks them through the form,
+  // lighting up one step at a time ("the walk-through" below). When everything is filled in and the coin is still
+  // not what they want, he hands them to a designer (the quote page on the main site, or the fix-my-design form when
+  // there is a render to fix).
   const QUOTE_URL = 'https://coinsforanything.com/quote/';
-  const nerd = { root: $('nerd'), panel: $('nerd-panel'), log: $('nerd-log'), options: $('nerd-options'), toggle: $('nerd-toggle'), teaser: $('nerd-teaser'), open: false, started: false, run: 0, teaserTimer: null };
+  const nerd = { root: $('nerd'), panel: $('nerd-panel'), log: $('nerd-log'), options: $('nerd-options'), toggle: $('nerd-toggle'), teaser: $('nerd-teaser'), open: false, started: false, run: 0, teaserTimer: null, guide: null, passed: new Set() };
   const nerdSeen = () => { try { return sessionStorage.getItem('cfaNerd') === '1'; } catch (_) { return false; } };
   const nerdMarkSeen = () => { try { sessionStorage.setItem('cfaNerd', '1'); } catch (_) {} };
+
+  // The steps of the front as he knows them. Each one matches a group of the form (data-guide in index.html).
+  // tab: the section it is in on a phone. done: is it filled in? have: what they put there, for the list.
+  // missing: what the list says while it is empty. why: what he says when it is the next thing to do.
+  // tip: what he says beside the step while it is lit up.
+  const clip = (s, n = 34) => { s = s.trim().replace(/\s+/g, ' '); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
+  const GUIDE = {
+    logo: {
+      name: 'Logo and reference photos', tab: 'logo', optional: true,
+      done: () => !!design.logo || design.refs.length > 0,
+      have: () => [design.logo ? 'Logo added' : '', design.refs.length ? `${design.refs.length} reference photo${design.refs.length > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · '),
+      missing: 'Nothing added yet',
+      why: 'I have no logo or photos to go on yet, and coins come out much closer with those.',
+      tip: () => (design.logo && design.refs.length ? 'A logo and photos, perfect. Say how to use the photos in your description, like “an eagle like the one in my photo”.'
+        : design.logo ? 'Got your logo! It goes on the coin exactly as you uploaded it. Have a photo or a sketch of what you are picturing? Add it under <b>Reference images</b>.'
+          : design.refs.length ? 'Nice, I’ll work from those. Say how to use them in your description, like “an eagle like the one in my photo”.'
+            : 'Got a logo? Add it in the box and it goes on your coin exactly as it is. Photos or sketches of what you have in mind go under <b>Reference images</b>. Nothing to add? Skip this one.'),
+    },
+    describe: {
+      name: 'Describe the front', tab: 'describe',
+      done: () => !!design.front.trim(),
+      have: () => `“${clip(design.front)}”`,
+      missing: 'Not written yet',
+      why: 'The front has no description yet, and that is the one thing I cannot draw a coin without.',
+      tip: () => (!design.front.trim() ? 'This is the big one. Tell me what goes on the front and where, in plain words. Put exact wording in "double quotes", like "FIRE DEPT" around the top.'
+        : !/["“”]/.test(design.front) ? 'Good start! Any wording that has to be spelled exactly goes in "double quotes", so I can check it letter by letter.'
+          : 'That’s what I need. The more you tell me about what goes where, the closer the coin comes out.'),
+    },
+    style: {
+      name: 'Style and finish', tab: 'style', optional: true,
+      done: () => !!design.style.trim(),
+      have: () => `“${clip(design.style)}”`,
+      missing: 'Blank: shiny gold, plain rim',
+      why: 'There is nothing about the style yet. Tell me the metal, the colors and the border, and the coin comes out much closer to what you have in mind.',
+      tip: () => (design.style.trim() ? 'Great, that sets the look. Anything else you would tell a designer goes here too.'
+        : 'How should it look? Name the metal, the colors and the border, like “antique silver, rope border, red and blue enamel”. Leave it blank and you get shiny gold with a plain rim.'),
+    },
+    shape: {
+      name: 'Round or odd shaped', tab: 'size',
+      done: () => design.shapePicked || ai.front.versions.length > 0,
+      have: () => (oddShape() ? 'Odd shaped' : 'Round'),
+      missing: 'Round, unless you change it',
+      why: 'One thing left to choose: a round coin, or an odd shaped one.',
+      tip: () => (oddShape() ? 'Odd shaped it is! Say which shape in your description or style notes: a shield, a star, your state. Left unsaid, I cut it to your artwork.'
+        : design.shapePicked ? 'Round it is, the classic challenge coin.'
+          : 'Round is the classic challenge coin. Pick <b>Odd shaped</b> for a shield, a star, your state, or a coin cut to your logo.'),
+    },
+  };
+  const GUIDE_IDS = Object.keys(GUIDE);
+  // Down the form on a wide screen; on a phone, in the order of the row under the coin
+  const guideOrder = () => (studio.matches ? TABS.front.map(([tab]) => GUIDE_IDS.find((id) => GUIDE[id].tab === tab)).filter(Boolean) : GUIDE_IDS);
+  const guideFirst = () => guideOrder().find((id) => !GUIDE[id].done()) || null;
+
   function nerdBubble(html, who) {
     const el = document.createElement('div');
     el.className = 'nerd-msg ' + who;
@@ -1374,39 +1469,77 @@
     nerd.log.scrollTop = nerd.log.scrollHeight;
     return el;
   }
-  // He "types" for a moment, then says it and offers the next choices: [{ id, label, quiet? }] or [{ href, label }]
-  async function nerdSay(html, options = []) {
+  // What is filled in so far: the steps as a list, the next one to do marked. A row goes straight to its step.
+  function nerdStepsHtml() {
+    const order = guideOrder();
+    const done = order.filter((id) => GUIDE[id].done()).length;
+    const next = order.find((id) => !GUIDE[id].done() && !nerd.passed.has(id)); // not one they chose to skip
+    return `<p class="nerd-steps-head"><span><b>${done} of ${order.length}</b> done</span><span class="nerd-meter"><i style="width:${Math.round(done / order.length * 100)}%"></i></span></p>`
+      + order.map((id, i) => {
+        const g = GUIDE[id], ok = g.done();
+        const note = ok ? g.have() : g.missing + (g.optional ? ' · optional' : '');
+        return `<button type="button" class="nerd-step${ok ? ' done' : ''}${id === next ? ' next' : ''}" data-guide-go="${id}"><span class="num">${ok ? '✓' : i + 1}</span>`
+          + `<span class="what"><b>${g.name}</b><small>${escapeHtml(note)}</small></span><span class="tag">${id !== next ? '' : done ? 'Next' : 'Start here'}</span></button>`;
+      }).join('');
+  }
+  // There is one list in the chat at a time, and it keeps up with the form
+  function nerdStepsSync() {
+    const card = nerd.log.querySelector('.nerd-steps');
+    if (!card) return;
+    const html = nerdStepsHtml();
+    if (card.dataset.html !== html) { card.innerHTML = html; card.dataset.html = html; }
+  }
+  // He "types" for a moment, then says it and offers the next choices: [{ id, label, quiet? }] or [{ href, label }].
+  // steps: the list of what is filled in goes under what he said.
+  async function nerdSay(html, options = [], { steps = false } = {}) {
     const run = ++nerd.run;
     nerd.options.innerHTML = '';
     const dots = nerdBubble('<span class="typing"><i></i><i></i><i></i></span>', 'nerd-says');
     await sleep(600);
     if (run !== nerd.run) { dots.remove(); return; }
     dots.innerHTML = html;
+    if (steps) {
+      for (const old of nerd.log.querySelectorAll('.nerd-steps')) old.remove();
+      const card = document.createElement('div');
+      card.className = 'nerd-steps';
+      nerd.log.appendChild(card);
+      nerdStepsSync();
+    }
     nerd.options.innerHTML = options.map((o) => (o.href
       ? `<a class="btn small" href="${o.href}" target="_blank" rel="noopener">${o.label}</a>`
       : `<button type="button" class="btn small${o.quiet ? ' dark plain' : ''}" data-nerd="${o.id}">${o.label}</button>`)).join('');
     nerd.log.scrollTop = nerd.log.scrollHeight;
   }
   const NERD_START = [{ id: 'generate', label: 'I want to generate a coin' }, { id: 'stuck', label: 'I can’t generate a coin I like' }];
+  const NERD_DESIGNER = { id: 'designer', label: 'I’d rather talk to a designer', quiet: true };
   const NERD = {
     generate() {
-      nerdSay(currentFront()
-        ? 'You already have a render! Change your description and generate again, or tap <b>Make Another Version</b> and tell me what to do differently.'
-        : 'Easy! Tell me what goes on the front in plain words, and put any exact wording in “quotes”. Then tap <b>Generate This Coin</b> and your render shows up in a minute or two.',
-      [{ id: 'go', label: 'Take me there' }, { id: 'stuck', label: 'I can’t generate a coin I like', quiet: true }]);
+      const next = guideFirst();
+      nerdSay(next
+        ? `Easy! There are ${guideOrder().length} quick steps, then you tap <b>Generate This Coin</b>. I had a look at what you have so far. Next up: <b>${GUIDE[next].name.toLowerCase()}</b>.`
+        : currentFront()
+          ? 'You already have a render! Change your description and generate again, or tap <b>Make Another Version</b> and tell me what to do differently.'
+          : 'Easy! You have filled in every step already. All that is left is to tap <b>Generate This Coin</b>, and your render shows up in a minute or two.',
+      [{ id: 'go', label: next ? 'Show me what to do' : 'Take me there' }, { id: 'stuck', label: 'I can’t generate a coin I like', quiet: true }], { steps: true });
     },
+    // Someone the builder is not working for: before anything else, what have they filled in, and what is missing?
     stuck() {
+      const next = guideFirst();
+      if (!next && currentFront()) {
+        nerdSay('I had a look, and you have filled in every step, so this one is a job for our designers. Tell us what you have in mind and a real designer will work up your coin with you, free of charge. You can also call <a href="tel:+18665835434">1-866-583-5434</a>.',
+          [{ href: QUOTE_URL, label: 'Get a Free Quote' }, { id: 'fix', label: 'Have a designer fix my render' }, { id: 'go', label: 'Let me try again myself', quiet: true }], { steps: true });
+        return;
+      }
+      const none = !GUIDE_IDS.some((id) => GUIDE[id].done());
+      nerdSay('Let’s sort that out. First, here is what you have filled in so far. ' + (none ? 'Nothing yet, so let’s go through it together, one step at a time.'
+        : next ? GUIDE[next].why : 'Every step is filled in, so you are ready: all that is left is to tap <b>Generate This Coin</b>.'),
+      [{ id: 'go', label: next ? 'Show me what to do' : 'Take me there' }, NERD_DESIGNER], { steps: true });
+    },
+    designer() {
       nerdSay('No problem, that is what our designers are for. Tell us what you have in mind and a real designer will work up your coin with you, free of charge. You can also call <a href="tel:+18665835434">1-866-583-5434</a>.',
         [{ href: QUOTE_URL, label: 'Get a Free Quote' }, ...(currentFront() ? [{ id: 'fix', label: 'Have a designer fix my render' }] : []), { id: 'generate', label: 'Show me how to generate a coin', quiet: true }]);
     },
-    go() {
-      closeNerd();
-      if ($('result').innerHTML) return;
-      if ($('builder').dataset.step !== 'front') showStep('front');
-      openTab('describe');
-      $('desc-front').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      $('desc-front').focus({ preventScroll: true });
-    },
+    go() { closeNerd(); guideStart(); },
     fix() { closeNerd(); openContact(); },
   };
   function openNerd() {
@@ -1417,6 +1550,7 @@
     nerd.panel.hidden = false;
     nerd.toggle.setAttribute('aria-expanded', 'true');
     if (!nerd.started) { nerd.started = true; nerdSay('Hi, I’m the Coin Nerd! Need help finding what you’re looking for?', NERD_START); }
+    nerd.log.scrollTop = nerd.log.scrollHeight;
   }
   function closeNerd() {
     nerd.open = false;
@@ -1425,9 +1559,17 @@
   }
   // He is around while the coin is being designed and sized; once they are on to their details he would only be in the way
   function nerdPlace() {
-    const show = ['front', 'back', 'options'].includes($('builder').dataset.step);
+    const step = $('builder').dataset.step;
+    const show = ['front', 'back', 'options'].includes(step);
     if (!show && nerd.open) closeNerd();
     nerd.root.hidden = !show;
+    if (nerd.guide) {
+      if (step !== 'front' || ai.busy || $('result').innerHTML) nerd.guide = null;
+      // on a phone the step's own Back and Next move through the sections, and he follows
+      else if (studio.matches) nerd.guide = GUIDE_IDS.find((id) => GUIDE[id].tab === tabOpen.front) || null;
+    }
+    guideShow();
+    nerdStepsSync();
   }
   nerd.toggle.addEventListener('click', () => (nerd.open ? closeNerd() : openNerd()));
   $('nerd-close').addEventListener('click', closeNerd);
@@ -1436,6 +1578,10 @@
     if (!b || !NERD[b.dataset.nerd]) return;
     if (!['go', 'fix'].includes(b.dataset.nerd)) nerdBubble(escapeHtml(b.textContent), 'you');
     NERD[b.dataset.nerd]();
+  });
+  nerd.log.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-guide-go]');
+    if (b) { closeNerd(); guideStart(b.dataset.guideGo); }
   });
   // A moment after the page opens he pipes up in a speech bubble: "Need some help? I'm here to help!" It sits over
   // the edge of the form, so it goes again after a few seconds (pointing at him brings it back, see style.css), and
@@ -1446,12 +1592,100 @@
     nerd.teaserTimer = setTimeout(() => { nerd.teaser.hidden = true; }, 10000);
   }, 1500);
 
+  // ---------- the walk-through ----------
+  // The Coin Nerd takes them through the front one step at a time. The step he is on is lit up in the form (see "the
+  // walk-through" in style.css) with his face beside it saying what to do there, and a button to the next step that
+  // still needs doing. After the last one he points at Generate (nerd.guide is then 'go'). On a phone the sections
+  // already come one at a time with their own Back and Next, so there he only talks; nerdPlace keeps him on the
+  // section on show.
+  const coach = document.createElement('div');
+  coach.className = 'coach';
+  const frontStep = document.querySelector('.panel .step[data-step="front"]');
+  function guideStart(id) {
+    if ($('result').innerHTML) return;
+    if (id === undefined) nerd.passed.clear(); // from the chat: a fresh walk, starting at the first step not done
+    id = id || guideFirst() || 'go';
+    const order = guideOrder();
+    if (id === 'go' && studio.matches) id = order[order.length - 1]; // on a phone Generate is on the last section
+    nerd.guide = id;
+    if ($('builder').dataset.step !== 'front') showStep('front');
+    if (studio.matches) openTab(GUIDE[id].tab);
+    else {
+      guideShow();
+      (id === 'go' ? coach : frontStep.querySelector(`[data-guide="${id}"]`)).scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const field = id !== 'go' && frontStep.querySelector(`[data-guide="${id}"] textarea`);
+      if (field) field.focus({ preventScroll: true });
+    }
+  }
+  function guideStop() {
+    if (!nerd.guide) return;
+    nerd.guide = null;
+    guideShow();
+  }
+  // On to the next step that still needs doing; with none left, to Generate (or back to the description, if that
+  // was jumped over: there is no coin without it)
+  function guideNext() {
+    const order = guideOrder();
+    nerd.passed.add(nerd.guide);
+    if (nerd.guide === 'shape') design.shapePicked = true; // they looked at it and kept what was there
+    const to = order.slice(order.indexOf(nerd.guide) + 1).find((id) => !GUIDE[id].done() && !nerd.passed.has(id));
+    guideStart(to || (designReady() ? 'go' : 'describe'));
+    nerdStepsSync();
+  }
+  function guideShow() {
+    const id = nerd.guide;
+    const group = GUIDE[id] ? frontStep.querySelector(`[data-guide="${id}"]`) : null;
+    for (const el of frontStep.querySelectorAll('.guide-on')) if (el !== group) el.classList.remove('guide-on');
+    frontStep.classList.toggle('guiding', !!group);
+    // What he points at once the steps are done: Generate, or "Make Another Version" while this design has its render
+    const order = guideOrder(), at = order.indexOf(id), last = at === order.length - 1;
+    const ready = id === 'go' || (studio.matches && last);
+    const target = !id || !ready ? null : currentFront() ? (studio.matches ? null : $('ai-btn')) : designReady() ? $('generate-btn') : null;
+    for (const el of document.querySelectorAll('.guide-pulse')) if (el !== target) el.classList.remove('guide-pulse');
+    if (target) target.classList.add('guide-pulse');
+    if (!id) { coach.remove(); coach.dataset.html = ''; return; }
+
+    const g = GUIDE[id];
+    let says, button = '';
+    if (g) {
+      says = g.tip();
+      if (studio.matches && last) says += currentFront() ? '' : designReady() ? ' Pick a size too, then tap <b>Generate This Coin</b>.' : ' Then go back to <b>Describe</b>: I cannot draw a coin without it.';
+      const label = g.optional && !g.done() ? 'Skip this step' : 'Next step';
+      button = `<button type="button" class="btn small coach-next"${!g.optional && id !== 'shape' && !g.done() ? ' disabled' : ''}>${label}</button>`;
+    } else {
+      says = currentFront()
+        ? 'This design already has its render. Change anything above and <b>Generate This Coin</b> comes back, or tap <b>Make Another Version</b> under the coin and tell me what to do differently.'
+        : 'That’s everything! Tap <b>Generate This Coin</b> and your render shows up in a minute or two.';
+    }
+    const dots = order.map((k, i) => `<i class="${GUIDE[k].done() ? 'done' : ''}${i === at ? ' at' : ''}"></i>`).join('');
+    const html = `<img class="coach-face" src="brand/coinnerd-head.webp" alt="" width="44" height="44">`
+      + `<div class="coach-says"><p class="coach-top"><b>${g ? `Step ${at + 1} of ${order.length}` : 'Ready to go'}</b><span class="coach-dots" aria-hidden="true">${dots}</span></p>`
+      + `<p class="coach-text">${says}</p>${button ? `<p class="coach-actions">${button}</p>` : ''}`
+      + `<button type="button" class="coach-close" aria-label="Stop the walk-through">&times;</button></div>`;
+    // Beside the step he is on: under its title, or over the step's buttons when he is pointing at Generate
+    if (group) {
+      const title = group.querySelector('.group-title');
+      if (coach.previousElementSibling !== title) title.after(coach);
+      group.classList.add('guide-on');
+    } else if (coach.nextElementSibling !== $('design-hint')) $('design-hint').before(coach);
+    if (coach.dataset.html !== html) {
+      const held = coach.contains(document.activeElement); // the button just pressed is rebuilt: keep the keyboard here
+      coach.innerHTML = html; coach.dataset.html = html;
+      if (held) (coach.querySelector('.coach-next:not(:disabled)') || coach.querySelector('.coach-close')).focus({ preventScroll: true });
+    }
+  }
+  coach.addEventListener('click', (e) => {
+    if (e.target.closest('.coach-close')) guideStop();
+    else if (e.target.closest('.coach-next')) guideNext();
+  });
+
   // ---------- restart ----------
   function restart() {
     Object.assign(design, newDesign());
     Object.assign(order, { quantity: null, size: null, estimate: null, notes: '', name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
     ai.front = newSide(); ai.back = newSide(); ai.side = 'front';
     tabOpen.front = tabOpen.back = 'describe';
+    guideStop();
     $('result').innerHTML = '';
     $('notes').value = ''; $('qty-input').value = '';
     syncControls();
@@ -1463,7 +1697,7 @@
     showStep('front');
   }
   $('restart').addEventListener('click', () => {
-    // On a phone this is a small icon beside the steps, easy to hit by accident
+    // On a phone the button sits in the header, a stray thumb away: check before wiping a coin they have started
     const started = design.front.trim() || design.logo || design.refs.length || ai.front.versions.length;
     if (studio.matches && started && !$('result').innerHTML && !window.confirm('Start over? This clears your coin and your details.')) return;
     restart();
