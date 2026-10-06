@@ -214,28 +214,51 @@
   // (.kb), so the field being typed in and the step's button stay in view.
   // The viewport reports in bursts while the keyboard slides and the page pans. The shell is refitted once per frame
   // at most, and only when something changed; refitting on every report makes it shake.
+  // The keyboard is only reported once it has slid up, and by then the phone has panned the page to the tapped field;
+  // rearranging the shell at that point makes the form jump twice. So the shell makes room in the tap itself (typing),
+  // at the height the keyboard had last time (kbHeight): the field is already where it will stay, with nothing left to
+  // pan to, and the report that follows changes little or nothing.
   const vv = window.visualViewport;
-  const fitted = { kb: null, height: '', top: '' };
+  const touch = window.matchMedia('(pointer: coarse)');
+  const fitted = { kb: null, up: false, height: '', top: '' };
   let fitQueued = false;
+  let typing = false, kbHeight = 0, kbWait = 0, kbAbsent = false;
+  const typedIn = (el) => !!el && el.matches && el.matches('textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="button"]):not([type="submit"])') && !el.readOnly && !el.disabled;
   function fitKeyboard() {
     fitQueued = false;
     const root = document.documentElement;
     const covered = vv && vv.scale < 1.1 ? window.innerHeight - vv.height : 0; // a pinch-zoom shrinks the viewport too
     const up = studio.matches && covered > 140;
-    const kb = up || (studio.matches && window.innerHeight < 460);
-    const height = up ? `${Math.round(vv.height)}px` : '', top = up ? `${Math.round(vv.offsetTop)}px` : '';
+    if (up) kbHeight = covered;
+    else if (fitted.up) typing = false; // put away without leaving the field (Android's back button)
+    const early = !up && typing && studio.matches;
+    const kb = up || early || (studio.matches && window.innerHeight < 460);
+    const height = up ? `${Math.round(vv.height)}px` : early && kbHeight ? `${Math.round(window.innerHeight - kbHeight)}px` : '';
+    const top = up ? `${Math.round(vv.offsetTop)}px` : '';
     const resized = kb !== fitted.kb || height !== fitted.height;
-    if (!resized && top === fitted.top) return;
-    Object.assign(fitted, { kb, height, top });
+    if (!resized && top === fitted.top) { fitted.up = up; return; }
+    Object.assign(fitted, { kb, up, height, top });
     root.classList.toggle('kb', kb);
     root.style.setProperty('--app-h', height);
     root.style.setProperty('--app-top', top);
-    // the field being typed in comes into view when the keyboard arrives, not each time the page is nudged
-    if (up && resized && document.activeElement && document.activeElement.matches('input, textarea')) document.activeElement.scrollIntoView({ block: 'nearest' });
+    // the field being typed in comes into view when the shell makes room, not each time the page is nudged
+    if ((up || early) && resized && typedIn(document.activeElement)) document.activeElement.scrollIntoView({ block: 'nearest' });
   }
   const fitSoon = () => { if (!fitQueued) { fitQueued = true; requestAnimationFrame(fitKeyboard); } };
   if (vv) { vv.addEventListener('resize', fitSoon); vv.addEventListener('scroll', fitSoon); }
   window.addEventListener('resize', fitSoon);
+  // A tap on a field: make room now, before the keyboard moves. A phone with no on-screen keyboard (one is plugged
+  // in) never reports it, so the shell goes back to normal and stops making room for the rest of the visit.
+  function startTyping(e) {
+    if (typing || kbAbsent || !vv || !touch.matches || !studio.matches || !typedIn(e.target)) return;
+    typing = true;
+    fitKeyboard();
+    clearTimeout(kbWait);
+    kbWait = setTimeout(() => { if (typing && !fitted.up) { kbAbsent = true; typing = false; fitSoon(); } }, 1500);
+  }
+  document.addEventListener('focusin', startTyping);
+  document.addEventListener('click', startTyping); // a field still in focus after the keyboard was put away
+  document.addEventListener('focusout', (e) => { if (typing && !typedIn(e.relatedTarget)) { typing = false; fitSoon(); } });
 
   // ---------- the design form ----------
   for (const [id, key] of [['desc-front', 'front'], ['desc-back', 'back'], ['desc-style', 'style']]) {
