@@ -1001,9 +1001,9 @@ html { -webkit-text-size-adjust: 100%; }
   .noscript { position: fixed; z-index: 100; top: 0; left: 0; right: 0; }
 
   /* ----- the shell: brand bar, coin, tabs, form, button ----- */
-  /* --app-h comes from app.js while the on-screen keyboard is up: the shell ends where the keyboard begins */
+  /* The shell fills the screen and does not react to the on-screen keyboard: the phone slides the page for that */
   .app {
-    position: fixed; left: 0; right: 0; top: 0; bottom: 0; height: var(--app-h, 100dvh); min-height: 0; max-width: none;
+    position: fixed; left: 0; right: 0; top: 0; bottom: 0; height: 100dvh; min-height: 0; max-width: none;
     display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto minmax(0, 1fr); align-items: center;
     background: var(--s-bg); color: var(--s-text); box-shadow: none; color-scheme: dark;
   }
@@ -1162,6 +1162,8 @@ html { -webkit-text-size-adjust: 100%; }
   .size-select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(245,130,32,.22); }
   .size-select.bad { border-color: #EF5350; background-color: rgba(239,83,80,.1); }
   .logo-link .btn.small { min-height: 44px; }
+  /* An iPhone zooms the whole page in when a field with text under 16px is tapped, and leaves it zoomed */
+  .logo-link input, .size-select { font-size: 16px; }
 
   .logo-drop { padding: 20px 14px; border-color: var(--s-line); border-radius: 14px; background: var(--s-card); }
   .logo-drop:hover, .logo-drop:focus, .logo-drop.over { border-color: var(--orange); background: rgba(245,130,32,.08); }
@@ -1217,7 +1219,7 @@ html { -webkit-text-size-adjust: 100%; }
   .toast { position: absolute; bottom: calc(92px + env(safe-area-inset-bottom)); border-radius: 12px; background: var(--s-strong); color: #111113; box-shadow: 0 12px 34px rgba(0,0,0,.6); }
 
   /* ----- popups ----- */
-  .checkout { top: 0; height: var(--app-h, 100dvh); padding: 0; align-items: stretch; background: rgba(0,0,0,.62); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); color-scheme: dark; }
+  .checkout { top: 0; height: 100dvh; padding: 0; align-items: stretch; background: rgba(0,0,0,.62); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); color-scheme: dark; }
   .co-card { max-width: none; max-height: none; height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: var(--s-card); color: var(--s-text); box-shadow: none; }
   .co-close { top: 0; right: 0; color: var(--s-strong); }
   .co-form h2, .co-done h2, .send-form h2, .send-done h2 { font-size: 20px; color: var(--s-strong); }
@@ -1248,7 +1250,7 @@ html { -webkit-text-size-adjust: 100%; }
   .send-form .btn, .send-done .btn { border-radius: 14px; }
 
   /* ----- a very short screen (a phone held sideways): everything above the tabs steps aside for the form ----- */
-  .kb .topbar, .kb .brand, .kb .header-actions, .kb .preview-col, .kb .send-coin, .kb .nerd { display: none; }
+  @media (max-height: 459px) { .topbar, .brand, .header-actions, .preview-col, .send-coin, .nerd { display: none; } }
 
   /* ----- the Coin Nerd's walk-through ----- */
   /* The sections already come one at a time here, with their own Back and Next, so he only says what to do in each:
@@ -1257,7 +1259,7 @@ html { -webkit-text-size-adjust: 100%; }
   .group.guide-on { padding-top: 6px; }
   .group.guide-on::before, .group.guide-on::after { inset: -6px -9px -12px; }
   .group.guide-on::after { background: rgba(245,130,32,.07); }
-  .kb .coach { display: none; } /* the keyboard leaves room for the field and little else */
+  @media (max-height: 459px) { .coach { display: none; } } /* a short screen leaves room for the field and little else */
   .group.guide-on ~ .group:not(.tab-off) { margin-top: 34px; }
   .step.guiding .sub-head:not(:empty) { margin-bottom: 20px; }
   .coach { margin-bottom: 14px; }

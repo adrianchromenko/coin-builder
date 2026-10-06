@@ -207,38 +207,24 @@
     const to = ids[ids.indexOf(tabOpen[step]) + (b.classList.contains('sub-next') ? 1 : -1)];
     if (to) openTab(to);
   });
-  studio.addEventListener('change', () => { renderTabs(); fitSoon(); });
+  studio.addEventListener('change', renderTabs);
 
-  // The on-screen keyboard covers the bottom of the page without resizing it, and the phone slides the page up on its
-  // own, in step with the keyboard, to bring the tapped field into view. That slide is left alone. Rearranging the
-  // shell on top of it (hiding the coin, moving the form to the top of the screen) is what made the page jump and look
-  // as if it had scrolled to the end. One thing is done once the keyboard is up: the shell and the popups end where
-  // the keyboard begins (--app-h), so the step's button rests on the keyboard instead of behind it. Nothing in view
-  // moves for that. A very short screen (a phone held sideways) has no room for the coin at all, keyboard or not:
-  // there everything above the tabs steps aside (.kb).
-  const vv = window.visualViewport;
-  const fitted = { kb: null, up: false, height: '' };
-  let fitQueued = false;
+  // The on-screen keyboard: the page does nothing about it. The phone slides the page up by itself to show the field
+  // being typed in, in step with the keyboard, and slides it back afterwards. Everything this page used to add on top
+  // (fitting the shell to the space above the keyboard, hiding the coin, nudging the field into view) was a second
+  // movement after the phone's own, and that second movement is what looked glitchy. A screen too short for the coin
+  // (a phone held sideways, or a browser that shrinks the page for the keyboard) is handled in style.css alone.
+  // One leftover is tidied here: some iPhones leave the page slid up after the keyboard has gone. If it is still off
+  // its place a moment after typing ends, it is put back.
   const typedIn = (el) => !!el && el.matches && el.matches('textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="button"]):not([type="submit"])');
-  function fitKeyboard() {
-    fitQueued = false;
-    const root = document.documentElement;
-    const covered = vv && vv.scale < 1.1 ? window.innerHeight - vv.height : 0; // a pinch-zoom shrinks the viewport too
-    const up = studio.matches && covered > 140;
-    const kb = studio.matches && window.innerHeight < 460;
-    // down to the keyboard: what the phone slid out of view at the top, plus what is left on screen
-    const height = up ? `${Math.round(vv.offsetTop + vv.height)}px` : '';
-    if (kb === fitted.kb && up === fitted.up && height === fitted.height) return;
-    const arrived = up && !fitted.up;
-    Object.assign(fitted, { kb, up, height });
-    root.classList.toggle('kb', kb);
-    root.style.setProperty('--app-h', height);
-    // the step's button now sits over the foot of the form: a field that ended up under it is nudged clear, once
-    if (arrived && typedIn(document.activeElement)) document.activeElement.scrollIntoView({ block: 'nearest' });
-  }
-  const fitSoon = () => { if (!fitQueued) { fitQueued = true; requestAnimationFrame(fitKeyboard); } };
-  if (vv) { vv.addEventListener('resize', fitSoon); vv.addEventListener('scroll', fitSoon); }
-  window.addEventListener('resize', fitSoon);
+  document.addEventListener('focusout', (e) => {
+    if (!studio.matches || !typedIn(e.target)) return;
+    setTimeout(() => {
+      if (typedIn(document.activeElement)) return; // on to the next field: the keyboard stays up
+      const vv = window.visualViewport;
+      if ((vv && vv.offsetTop > 1) || window.scrollY > 1) window.scrollTo(0, 0);
+    }, 450);
+  });
 
   // ---------- the design form ----------
   for (const [id, key] of [['desc-front', 'front'], ['desc-back', 'back'], ['desc-style', 'style']]) {
@@ -1782,5 +1768,4 @@
   // ---------- boot ----------
   if (!handleReturnFromCheckout()) showStep('front');
   else syncDesign();
-  fitKeyboard();
 })();
