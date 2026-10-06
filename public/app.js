@@ -209,56 +209,36 @@
   });
   studio.addEventListener('change', () => { renderTabs(); fitSoon(); });
 
-  // The on-screen keyboard covers the bottom of the page without resizing it. While it is up, the shell and the popups
-  // are fitted to the part of the screen that is left (--app-h, --app-top) and everything above the tabs steps aside
-  // (.kb), so the field being typed in and the step's button stay in view.
-  // The viewport reports in bursts while the keyboard slides and the page pans. The shell is refitted once per frame
-  // at most, and only when something changed; refitting on every report makes it shake.
-  // The keyboard is only reported once it has slid up, and by then the phone has panned the page to the tapped field;
-  // rearranging the shell at that point makes the form jump twice. So the shell makes room in the tap itself (typing),
-  // at the height the keyboard had last time (kbHeight): the field is already where it will stay, with nothing left to
-  // pan to, and the report that follows changes little or nothing.
+  // The on-screen keyboard covers the bottom of the page without resizing it, and the phone slides the page up on its
+  // own, in step with the keyboard, to bring the tapped field into view. That slide is left alone. Rearranging the
+  // shell on top of it (hiding the coin, moving the form to the top of the screen) is what made the page jump and look
+  // as if it had scrolled to the end. One thing is done once the keyboard is up: the shell and the popups end where
+  // the keyboard begins (--app-h), so the step's button rests on the keyboard instead of behind it. Nothing in view
+  // moves for that. A very short screen (a phone held sideways) has no room for the coin at all, keyboard or not:
+  // there everything above the tabs steps aside (.kb).
   const vv = window.visualViewport;
-  const touch = window.matchMedia('(pointer: coarse)');
-  const fitted = { kb: null, up: false, height: '', top: '' };
+  const fitted = { kb: null, up: false, height: '' };
   let fitQueued = false;
-  let typing = false, kbHeight = 0, kbWait = 0, kbAbsent = false;
-  const typedIn = (el) => !!el && el.matches && el.matches('textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="button"]):not([type="submit"])') && !el.readOnly && !el.disabled;
+  const typedIn = (el) => !!el && el.matches && el.matches('textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="button"]):not([type="submit"])');
   function fitKeyboard() {
     fitQueued = false;
     const root = document.documentElement;
     const covered = vv && vv.scale < 1.1 ? window.innerHeight - vv.height : 0; // a pinch-zoom shrinks the viewport too
     const up = studio.matches && covered > 140;
-    if (up) kbHeight = covered;
-    else if (fitted.up) typing = false; // put away without leaving the field (Android's back button)
-    const early = !up && typing && studio.matches;
-    const kb = up || early || (studio.matches && window.innerHeight < 460);
-    const height = up ? `${Math.round(vv.height)}px` : early && kbHeight ? `${Math.round(window.innerHeight - kbHeight)}px` : '';
-    const top = up ? `${Math.round(vv.offsetTop)}px` : '';
-    const resized = kb !== fitted.kb || height !== fitted.height;
-    if (!resized && top === fitted.top) { fitted.up = up; return; }
-    Object.assign(fitted, { kb, up, height, top });
+    const kb = studio.matches && window.innerHeight < 460;
+    // down to the keyboard: what the phone slid out of view at the top, plus what is left on screen
+    const height = up ? `${Math.round(vv.offsetTop + vv.height)}px` : '';
+    if (kb === fitted.kb && up === fitted.up && height === fitted.height) return;
+    const arrived = up && !fitted.up;
+    Object.assign(fitted, { kb, up, height });
     root.classList.toggle('kb', kb);
     root.style.setProperty('--app-h', height);
-    root.style.setProperty('--app-top', top);
-    // the field being typed in comes into view when the shell makes room, not each time the page is nudged
-    if ((up || early) && resized && typedIn(document.activeElement)) document.activeElement.scrollIntoView({ block: 'nearest' });
+    // the step's button now sits over the foot of the form: a field that ended up under it is nudged clear, once
+    if (arrived && typedIn(document.activeElement)) document.activeElement.scrollIntoView({ block: 'nearest' });
   }
   const fitSoon = () => { if (!fitQueued) { fitQueued = true; requestAnimationFrame(fitKeyboard); } };
   if (vv) { vv.addEventListener('resize', fitSoon); vv.addEventListener('scroll', fitSoon); }
   window.addEventListener('resize', fitSoon);
-  // A tap on a field: make room now, before the keyboard moves. A phone with no on-screen keyboard (one is plugged
-  // in) never reports it, so the shell goes back to normal and stops making room for the rest of the visit.
-  function startTyping(e) {
-    if (typing || kbAbsent || !vv || !touch.matches || !studio.matches || !typedIn(e.target)) return;
-    typing = true;
-    fitKeyboard();
-    clearTimeout(kbWait);
-    kbWait = setTimeout(() => { if (typing && !fitted.up) { kbAbsent = true; typing = false; fitSoon(); } }, 1500);
-  }
-  document.addEventListener('focusin', startTyping);
-  document.addEventListener('click', startTyping); // a field still in focus after the keyboard was put away
-  document.addEventListener('focusout', (e) => { if (typing && !typedIn(e.relatedTarget)) { typing = false; fitSoon(); } });
 
   // ---------- the design form ----------
   for (const [id, key] of [['desc-front', 'front'], ['desc-back', 'back'], ['desc-style', 'style']]) {
@@ -606,12 +586,14 @@
   // ---------- the waiting coin ----------
   // Until there is a render, a gold coin waits on the empty face (see "the waiting coin" in style.css). It is the
   // loading coin's twin, built from the same parts: two faces with a stack of discs between them for its thickness,
-  // and sparks around it. It carries the customer's logo once they have added one; until then, a star.
+  // and sparks around it. It carries the customer's logo once they have added one; until then, a star. Its back
+  // carries the company logo.
   const idleCoins = [...document.querySelectorAll('.coin-mark')];
   idleCoins.forEach((el, k) => {
     const id = (name) => `idle${k}-${name}`;
-    const disc = `<circle cx="100" cy="100" r="100" fill="url(#${id('gold')})"/><circle class="mint-rim" cx="100" cy="100" r="93"/><circle class="mint-beads" cx="100" cy="100" r="89"/><circle class="mint-field" cx="100" cy="100" r="52"/>`;
-    const arc = (where, text, small) => `<text${small ? ' class="mint-small"' : ''}><textPath href="#${id(where)}" startOffset="50%">${text}</textPath></text>`;
+    const disc = `<circle cx="100" cy="100" r="100" fill="url(#${id('gold')})"/><circle class="mint-rim" cx="100" cy="100" r="93"/><circle class="mint-beads" cx="100" cy="100" r="89"/>`;
+    const field = '<circle class="mint-field" cx="100" cy="100" r="52"/>';
+    const arc = (where, text) => `<text><textPath href="#${id(where)}" startOffset="50%">${text}</textPath></text>`;
     const edge = Array.from({ length: 13 }, (_, z) => `<i class="mint-edge" style="--z:${z - 6}"></i>`).join('');
     const sparks = [[0, 10, 0], [96, 16, 1.3], [90, 88, .6], [4, 80, 2]].map(([x, y, d]) => `<i class="mint-spark" style="--x:${x}%;--y:${y}%;--d:${d}s"></i>`).join('');
     el.innerHTML = `<span class="coin-float"><span class="coin-turn">
@@ -620,11 +602,11 @@
           <radialGradient id="${id('gold')}" cx="34%" cy="28%" r="85%"><stop offset="0" stop-color="#FFF3B0"/><stop offset=".32" stop-color="#EBC24A"/><stop offset=".72" stop-color="#BA871B"/><stop offset="1" stop-color="#7A5510"/></radialGradient>
           <path id="${id('top')}" d="M 30 100 A 70 70 0 0 1 170 100"/><path id="${id('bottom')}" d="M 17 100 A 83 83 0 0 0 183 100"/>
         </defs>
-        ${disc}${arc('top', 'COINS FOR ANYTHING')}${arc('bottom', '★ YOUR COIN HERE ★')}
+        ${disc}${field}${arc('top', 'COINS FOR ANYTHING')}${arc('bottom', '★ YOUR COIN HERE ★')}
         <polygon class="mint-mark" points="100,70 107.35,89.89 128.53,90.73 111.89,103.86 117.63,124.27 100,112.5 82.37,124.27 88.11,103.86 71.47,90.73 92.65,89.89"/>
         <image class="mint-logo" x="64" y="64" width="72" height="72" preserveAspectRatio="xMidYMid meet" style="display:none"/>
       </svg></span>
-      <span class="mint-face mint-back"><svg viewBox="0 0 200 200">${disc}${arc('top', 'THE QUALITY IS ALWAYS HERE', true)}${arc('bottom', '★ VETERAN OWNED ★')}<text class="mint-mono" x="100" y="116">CFA</text></svg></span>
+      <span class="mint-face mint-back"><svg viewBox="0 0 200 200">${disc}${arc('top', '★ EST. 2002 ★')}${arc('bottom', '★ VETERAN OWNED ★')}<image class="mint-brand" href="brand/logo-coin.webp" x="17" y="64.7" width="166" height="72.5"/></svg></span>
       ${edge}</span></span>${sparks}`;
   });
   let idleLogoShown = null;
