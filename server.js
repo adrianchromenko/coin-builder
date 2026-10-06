@@ -360,10 +360,15 @@ app.post('/api/generate', (req, res) => {
       if (!frontImage && getProvider().name !== 'demo') return res.status(400).json({ error: 'Generate the front first; the back is drawn to match it. If your front is a few days old, please generate it again.' });
     }
 
+    // A change the customer asked for ("Make Another Version" with a note) is made to the version they were looking
+    // at: that render leads the AI's input, so the result is that picture with the change, on the same face.
+    const baseRenderId = design.note && /^[0-9a-f]{32}$/.test(String(b.baseRenderId || '')) ? b.baseRenderId : null;
+    const baseImage = baseRenderId ? readOriginal(baseRenderId) : null;
+
     // Every render below this line costs money, so the cheap checks come first.
     // 1. The very same face was rendered recently: hand back that result for free. Not when the customer asked for
     //    another version of the same design: a new version has to be a new render.
-    const key = guard.fingerprint(logo ? logo.buffer : Buffer.alloc(0), { side, ...design, frontRenderId, refs: ownRefs.map((r) => crypto.createHash('sha1').update(r.buffer).digest('hex')) });
+    const key = guard.fingerprint(logo ? logo.buffer : Buffer.alloc(0), { side, ...design, frontRenderId, baseRenderId, refs: ownRefs.map((r) => crypto.createHash('sha1').update(r.buffer).digest('hex')) });
     const repeat = b.fresh === '1' ? null : guard.cached(key);
     if (repeat) {
       console.log('[coin-builder] repeat render served from cache');
@@ -398,7 +403,7 @@ app.post('/api/generate', (req, res) => {
       }
       const result = await provider.generate({
         mode: 'described', logo, ownRefs, shape: design.shape, style: design.style, sideName: side, description: design.description, note: design.note,
-        frontImage, refNames: frontRenderId ? refsByRender.get(frontRenderId) : null,
+        frontImage, baseImage, refNames: frontRenderId ? refsByRender.get(frontRenderId) : null,
         onProgress: (event) => report({ side, ...event }),
       });
       report({ stage: 'finishing' });

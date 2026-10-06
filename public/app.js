@@ -843,6 +843,11 @@
     const signature = sideSignature(side);
     const anchor = frontRenderId(); // the front this back is drawn to match
     const anchorKey = frontKey();
+    // A change they asked for is made to the version on screen, so that picture goes along. Without it the AI was only
+    // ever shown the front, and a change asked of the back came out as the front again. (Not a back that was drawn
+    // for a different front: that one is no longer this coin.)
+    const shown = sideCurrent(side);
+    const base = note && shown && shown.renderId && !(side === 'back' && backStale(shown)) ? shown.renderId : '';
     // Another version of a face already rendered: tell the server not to hand back the cached one
     const fresh = ai[side].versions.some((v) => v.signature === signature);
     try {
@@ -861,6 +866,7 @@
         form.append('side', side);
         form.append('description', text);
         if (note) form.append('note', note);
+        if (base) form.append('baseRenderId', base);
         form.append('shape', snapshot.shape);
         form.append('style', snapshot.style);
         if (side === 'back') form.append('frontRenderId', anchor || '');
