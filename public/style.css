@@ -212,7 +212,9 @@ body {
 }
 .preview-busy[data-stage="retrying"] .mint-nerd { animation: nerd-shake .5s ease-in-out 3; }
 @keyframes nerd-shake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
-.progress-sub { min-height: 1.5em; animation: mint-line .6s ease-out; }
+/* The reading matter under him: a fun fact or a tip, two lines at most, in a box that keeps its height as they change */
+.progress-sub { min-height: 3em; max-width: 36em; line-height: 1.5; opacity: .85; animation: mint-line .6s ease-out; }
+.progress-sub strong { color: var(--orange); font-weight: 700; }
 .mint { --c: 132px; position: relative; flex: 0 0 auto; width: calc(var(--c) * 1.36); height: calc(var(--c) * 1.36); display: grid; place-items: center; }
 @supports (width: 1cqw) { .mint { --c: clamp(54px, min(46cqw, 42cqh), 190px); } }
 .mint::before { content: ""; position: absolute; inset: 6%; border-radius: 50%; background: radial-gradient(circle, rgba(248,226,122,.34), rgba(248,226,122,0) 68%); animation: mint-glow 3s ease-in-out infinite; }
@@ -818,6 +820,8 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 /* Over half the stage there is room for the coin and its stage line, not for the reading matter under it */
 .preview-stage.two .preview-busy { padding: 10px; gap: 6px; }
 .preview-stage.two .preview-busy .progress-sub { display: none; }
+/* ...unless that half is tall enough to hold it in small print (a phone held upright, a large desktop window) */
+@container (min-height: 270px) { .preview-stage.two .preview-busy .progress-sub { display: block; font-size: 10.5px; line-height: 1.35; min-height: 4.05em; } }
 .preview-stage.two .preview-busy #progress-text { font-size: 11.5px; padding: 6px 9px; }
 .preview-stage.two .mint-says { gap: 6px; }
 .preview-stage.two .mint-nerd { width: 28px; height: 28px; }
@@ -1065,6 +1069,7 @@ html { -webkit-text-size-adjust: 100%; }
   .preview-busy { border-radius: 16px; padding: 10px 12px; gap: 6px; font-size: 13px; -webkit-backdrop-filter: none; backdrop-filter: none; } /* a blur under a moving coin is heavy work for a phone, and barely shows */
   .preview-stage.two .preview-busy { padding: 8px; font-size: 12px; }
   .preview-busy #progress-text { font-size: 12.5px; }
+  .progress-sub { font-size: 11.5px; line-height: 1.4; min-height: 2.8em; }
   .preview-spec { grid-column: 1 / -1; margin: 8px 0 0; font-size: 10.5px; letter-spacing: 1.4px; color: var(--s-dim); }
   .preview-caption { display: none; }
 

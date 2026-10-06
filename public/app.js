@@ -744,16 +744,37 @@
     finishing: { from: 90, to: 97, seconds: 6, text: 'Giving it a quick polish…' },
     done: { from: 100, to: 100, seconds: 1, text: 'Ta-da! Here it is!' },
   };
-  const progress = { sides: new Map(), overall: null, timer: null, source: null, started: 0, line: -1 };
-  // Something to read under the turning coin; the line changes every few seconds
-  const WAIT_LINES = [
-    'Usually takes one to two minutes.',
-    'Wording in "double quotes" is read back letter by letter.',
+  const progress = { sides: new Map(), overall: null, timer: null, source: null, started: 0, line: -1, lines: [] };
+  // Something to read under the turning coin; the line changes every few seconds. First how long it takes, then fun
+  // facts about Coins For Anything with a tip between them now and then. The facts come in a new order for each
+  // render, since most customers sit through several. Each fits on two lines of a phone, so keep new ones under about
+  // 80 characters. (The figures match the line at the foot of the page.)
+  const WAIT_FIRST = 'Usually takes one to two minutes.';
+  const WAIT_FACTS = [
+    'We have minted over 20 million coins across more than 60,000 designs.',
+    'More than 50,000 companies, units and organizations trust us with their coins.',
+    'Every coin is 3.5mm thick: 0.5mm over the industry standard, free of charge.',
+    'A thicker coin has more weight in the hand and room for deeper 3D relief.',
+    'We have been making custom coins since November 2002.',
+    'It all started with a Marine at Camp Lejeune: our founder, Jeff Morin.',
+    'Our very first custom coin was made for the mother of a Marine.',
+    'We invented Die Mold Insurance, which keeps your coin’s mold on file forever.',
+    'Coins do not have to be round: we make squares, ovals, hexagons and cut-outs.',
+    'Some of our coins double as bottle openers.',
+    'We mint for the military, police, fire departments, companies and nonprofits.',
     'Our artists redraw every coin by hand before it is minted.',
     'Tradition says: caught without your coin, you buy the round.',
-    'Over 20 million coins minted, and counting.',
-    'Not quite right? You can make another version afterwards.',
   ];
+  const WAIT_TIPS = [
+    'Not quite right? You can make another version afterwards.',
+    'Wording in "double quotes" is read back letter by letter.',
+  ];
+  function waitLines() {
+    const facts = WAIT_FACTS.map((text) => ['Fun fact:', text]);
+    for (let i = facts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [facts[i], facts[j]] = [facts[j], facts[i]]; }
+    WAIT_TIPS.forEach((text, i) => facts.splice(3 + i * 5, 0, ['', text]));
+    return [['', WAIT_FIRST], ...facts];
+  }
   // The loading coin (see "the mint" in style.css): its thickness is a stack of discs between the two faces, and
   // sparks sit around the ring
   (function buildMint() {
@@ -770,7 +791,7 @@
   }
   function progressReset() {
     progress.sides.clear(); progress.overall = null;
-    progress.started = Date.now(); progress.line = -1;
+    progress.started = Date.now(); progress.line = -1; progress.lines = waitLines();
     progressSet('starting');
     progressTick();
     clearInterval(progress.timer);
@@ -796,11 +817,13 @@
     const pct = Math.round(entries.reduce((n, e) => n + stagePct(e), 0) / entries.length);
     $('mint-ring-bar').style.strokeDashoffset = 100 - pct;
     $('mint').setAttribute('aria-valuenow', pct);
-    const line = Math.floor((Date.now() - progress.started) / 5500) % WAIT_LINES.length;
+    const line = Math.floor((Date.now() - progress.started) / 6500) % progress.lines.length;
     if (line !== progress.line) {
       progress.line = line;
       const sub = $('progress-sub');
-      sub.textContent = WAIT_LINES[line];
+      const [label, text] = progress.lines[line];
+      sub.textContent = text;
+      if (label) { const b = document.createElement('strong'); b.textContent = label + ' '; sub.prepend(b); }
       sub.style.animation = 'none'; void sub.offsetWidth; sub.style.animation = ''; // play its fade-in again
     }
   }
