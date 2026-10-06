@@ -2,7 +2,7 @@
 
 A web app where a customer describes a custom coin in plain words, sees it AI-rendered, and orders it.
 
-The customer optionally uploads a logo, describes the front in their own words, adds style notes, picks round or odd shaped, picks a size and generates the front. Then the back: the same design again (no render), or its own description, rendered with the finished front as the AI's reference so shape, rim, border and finish match. The wording is proofread, and a standing note says AI can misspell things with a **Contact Us to Fix My Design** popup that emails the designers. Ordering collects quantity, then one form for contact, billing and shipping details, saves the order under `orders/`, and hands off to Stripe Checkout when pricing and a Stripe key are configured.
+Three stages. **Front:** the customer adds a logo, seal or reference image (a file, or a link to their website: the server pulls the logo off the page, see `lib/fetchimage.js`), describes the front in their own words, adds style notes, picks round or odd shaped, and generates it. **Back:** its own description by default (nearly every coin has one), rendered with the finished front as the AI's reference so shape, rim, border and finish match, with its own reference images; or the same design again, or blank (neither needs a render). The wording is proofread, and a standing note says AI can misspell things with a **Contact Us to Fix My Design** popup that emails the designers. **Submit for quote:** one form with the quantity (typed in), the size (a list from 1" to 4" by quarter inch, or "Other" written in), contact, billing and shipping details and notes; it saves the order under `orders/`, and hands off to Stripe Checkout when pricing and a Stripe key are configured.
 
 ## Run locally
 
@@ -38,6 +38,7 @@ Without an API key the server runs in **demo mode** and returns a local SVG mock
 | `MAIL_REPLY_TO` | From address | Where customers' replies go |
 | `LEAD_WEBHOOK_URL` | | Every lead is POSTed here as JSON |
 | `MAIL_PREVIEW_DIR` | | Testing: write emails to `.eml` files here instead of sending |
+| `FETCH_LIMIT_PER_HOUR` | `40` | How many "paste a link" logo fetches one visitor may ask for in an hour |
 | `TEST_MODE` | | `1` forces test mode for everyone (see below) |
 | `RENDERS_PER_HOUR`, `RENDERS_PER_DAY` | `10`, `25` | AI renders one visitor (IP) may make |
 | `RENDERS_PER_DAY_TOTAL` | `300` | AI renders the whole site may make per day (ET); the team is emailed at 80% and 100% |
@@ -77,7 +78,7 @@ In test mode:
 
 - Nothing is sent to the AI provider; a placeholder coin marked TEST RENDER is shown instead.
 - The design email and the "fix my design" message are saved as leads but not sent.
-- The order flow runs as normal: quantity, then one form for contact details, billing address and shipping address, then review.
+- The quote form runs as normal: quantity, size, contact details, billing and shipping address, sent as one request.
 - Orders are saved to `orders/` with a `TEST-` id and `"status": "test"`. Stripe Checkout and `ORDER_WEBHOOK_URL` are never called.
 - After the order is saved a **test checkout popup** opens: order summary, card form, Pay button, success screen. Use `4242 4242 4242 4242`, any future expiry, any CVC. Nothing is charged and the card number never leaves the browser; only the last four digits are saved with the order, which moves to `"status": "test_paid"`. When no `PRICE_TABLE` is set a sample price is shown.
 

@@ -179,10 +179,10 @@ body {
 .preview-svg, .preview-ai { width: 100%; height: 100%; display: block; }
 /* Coin pictures ignore the pointer, so a right-click or long-press lands on the box around them (no "Save image"),
    and they cannot be selected, dragged out, or called up with the iOS long-press menu. */
-.preview-stage img, .preview-svg, .version img, .review-coin img, .co-coin {
+.preview-stage img, .preview-svg, .version img, .co-coin {
   pointer-events: none; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-touch-callout: none;
 }
-.preview-stage, .version, .review-coin, .co-summary { -webkit-touch-callout: none; }
+.preview-stage, .version, .co-summary { -webkit-touch-callout: none; }
 .preview-svg svg { width: 100%; height: 100%; display: block; }
 .preview-ai[hidden], .preview-svg[hidden] { display: none; }
 .preview-busy {
@@ -279,6 +279,8 @@ body {
 .preview-spec { margin: 2px 0 0; font-family: var(--font-head); font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; color: #e8e8e8; text-align: center; }
 .preview-spec:empty { display: none; }
 .builder[data-step="result"] #ai-btn { display: none; }
+/* On the quote step the coin is a reminder: versions, another version and the proofreader's notes stay on the design steps */
+.builder[data-step="quote"] :is(.preview-actions, .versions-wrap, .ai-check, .ai-disclaimer) { display: none; }
 .preview-caption { margin: 0; font-size: 12px; color: #999; text-align: center; min-height: 18px; }
 /* When the column is taller than the screen it scrolls. Without this its lines of text are squeezed instead, and the
    button under them ends up on top of the words. */
@@ -508,6 +510,11 @@ input:read-only { background: #f4f1eb; color: #777; }
 .logo-empty span { font-size: 12px; color: #666; }
 .logo-empty[hidden], .logo-have[hidden] { display: none; }
 .logo-have { display: flex; align-items: center; gap: 14px; text-align: left; }
+/* The address of their website or of a picture, and the button that goes and gets it */
+.logo-link { display: flex; gap: 8px; margin-top: 10px; }
+.logo-link input { flex: 1 1 auto; min-width: 0; }
+.logo-link .btn { flex: 0 0 auto; white-space: nowrap; }
+.logo-link + .hint { margin-top: 6px; }
 .logo-have img { width: 64px; height: 64px; object-fit: contain; background: #fff; border: 1px solid var(--line); }
 .logo-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .logo-meta strong { color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -601,7 +608,20 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .addon-tile .tick { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; border: 2px solid #b9b3a9; background: var(--white); display: grid; place-items: center; transition: background .15s, border-color .15s; }
 .addon-tile.on .tick { background: var(--orange); border-color: var(--orange); }
 .addon-tile.on .tick::after { content: ""; width: 9px; height: 5px; border: solid var(--white); border-width: 0 0 2px 2px; transform: translateY(-1px) rotate(-45deg); }
-.qty-input { margin-top: 10px; max-width: 220px; }
+.qty-input { max-width: 220px; }
+.details-form > .group:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+.details-form .notes { margin-top: 14px; }
+/* The size list, drawn like the text fields, with its own arrow; "Other" opens a field for the size in words beside it */
+.size-row { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 10px 12px; align-items: end; }
+.size-row .ff[hidden] { display: none; }
+.size-select {
+  width: 100%; appearance: none; -webkit-appearance: none; cursor: pointer;
+  background: var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='%23555' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center / 18px;
+  color: var(--text-dark); border: 1px solid #CFCAC2; border-radius: 0;
+  padding: 10px 38px 10px 12px; font-size: 15px; font-family: var(--font-body); line-height: 1.4; outline: none;
+}
+.size-select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(245,130,32,.18); }
+.size-select.bad { border-color: #c62828; background-color: #fff5f5; }
 
 .group + .estimate { margin-top: 18px; }
 .estimate {
@@ -621,19 +641,6 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 #ship-fields[hidden] { display: none; }
 .ff-error { color: #c62828; font-size: 13px; margin: 10px 0 0; }
 .ff-error[hidden] { display: none; }
-
-/* review table */
-.summary { border-collapse: collapse; width: 100%; margin-top: 4px; table-layout: fixed; }
-.summary th, .summary td { text-align: left; vertical-align: top; padding: 9px 10px 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
-.summary th { width: 120px; font-family: var(--font-head); font-weight: 600; font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dark); }
-.summary td { color: var(--text); overflow-wrap: anywhere; } /* a long email or an unbroken word wraps instead of widening the page */
-.summary td .link { margin-left: 8px; font-size: 12px; white-space: nowrap; }
-.summary td > .review-coin + .link { margin: 6px 0 0; display: inline-block; }
-.review-coin { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
-.review-coin ul { margin: 0; padding: 0; list-style: none; flex: 1; min-width: 160px; }
-.review-coin li:first-child { font-weight: 700; color: var(--text-dark); }
-.summary small { color: var(--orange-text); font-weight: 600; }
-.summary img { width: 120px; height: 120px; display: block; background: #1E1E1E; border: 1px solid var(--line); }
 
 /* result */
 #result .head { font-family: var(--font-head); font-size: 24px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dark); margin: 0 0 10px; }
@@ -815,7 +822,6 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .preview-stage.two .mint-says { gap: 6px; }
 .preview-stage.two .mint-nerd { width: 28px; height: 28px; }
 .version.stale { opacity: .4; }
-.review-coin .review-faces { display: flex; gap: 6px; }
 
 /* ---------- the waiting coin ---------- */
 /* Until there is a render, a gold coin waits on the empty face. It is the loading coin's quieter twin, built by app.js
@@ -886,8 +892,7 @@ html { -webkit-text-size-adjust: 100%; }
   /* Once the coin is designed, the order steps only need a reminder of it; versions and fixes live on the design steps */
   .builder:not([data-step="front"]):not([data-step="back"]) :is(.preview-actions, .versions-wrap, .ai-check, .ai-disclaimer, .preview-caption) { display: none; }
   .builder:not([data-step="front"]):not([data-step="back"]) .preview-stage.two { max-width: 300px; max-width: min(300px, calc(2 * (100dvh - 150px))); }
-  /* The review table shows the coin itself, and a thank-you page without a render has nothing to show */
-  .builder[data-step="review"] .preview-col { display: none; }
+  /* A thank-you page without a render has nothing to show */
   .builder[data-step="result"] .preview-col:not(:has(.face img:not([hidden]))) { display: none; }
 
   /* The step's buttons: a bar fixed to the bottom of the screen, edge to edge. Fixed rather than sticky, so it is
@@ -948,7 +953,7 @@ html { -webkit-text-size-adjust: 100%; }
   .stepper li { padding-top: 8px; padding-bottom: 8px; }
 
   .builder { grid-template-columns: minmax(200px, 34%) 1fr; }
-  .builder[data-step="review"], .builder[data-step="result"]:not(:has(.face img:not([hidden]))) { grid-template-columns: 1fr; }
+  .builder[data-step="result"]:not(:has(.face img:not([hidden]))) { grid-template-columns: 1fr; }
   .preview { position: sticky; top: 0; max-height: 100dvh; overflow-y: auto; padding: 12px 12px 12px var(--pad-l); }
   .preview-stage, .preview-stage.two, .builder:not([data-step="front"]):not([data-step="back"]) .preview-stage.two { max-width: none; }
   .preview-stage:not(.two):not(.empty) { max-width: calc(100dvh - 96px); }
@@ -956,7 +961,7 @@ html { -webkit-text-size-adjust: 100%; }
   .preview-stage.two .coin-mark { display: none; }
   .preview-actions .btn { font-size: 12px; letter-spacing: 1px; padding-left: 12px; padding-right: 12px; }
   .panel { --panel-l: 18px; padding-top: 16px; padding-left: var(--panel-l); }
-  .builder[data-step="review"] .panel, .builder[data-step="result"]:not(:has(.face img:not([hidden]))) .panel { --panel-l: var(--pad-l); }
+  .builder[data-step="result"]:not(:has(.face img:not([hidden]))) .panel { --panel-l: var(--pad-l); }
 
   /* Beside the coin, the bar stays inside the form's column */
   .step-actions {
@@ -1078,12 +1083,12 @@ html { -webkit-text-size-adjust: 100%; }
   .preview-actions .btn::after { content: none; }
 
   /* Past the design steps the coin is a small reminder beside its spec line */
-  .builder:is([data-step="options"], [data-step="details"]) .preview-col { height: auto; background: var(--s-card); border-bottom: 1px solid var(--s-line); }
-  .builder:is([data-step="options"], [data-step="details"]) .preview { display: flex; flex-direction: row; gap: 12px; height: auto; padding-top: 8px; padding-bottom: 8px; }
-  .builder:is([data-step="options"], [data-step="details"]) .preview .preview-stage.two { flex: 0 0 112px; width: 112px; height: 54px; gap: 4px; }
-  .builder:is([data-step="options"], [data-step="details"]) .face-label { display: none; }
-  .builder:is([data-step="options"], [data-step="details"]) .face img { border-radius: 8px; box-shadow: none; }
-  .builder:is([data-step="options"], [data-step="details"]) .preview-spec { flex: 1 1 0; min-width: 0; margin: 0; text-align: left; font-size: 12px; color: var(--s-strong); }
+  .builder[data-step="quote"] .preview-col { height: auto; background: var(--s-card); border-bottom: 1px solid var(--s-line); }
+  .builder[data-step="quote"] .preview { display: flex; flex-direction: row; gap: 12px; height: auto; padding-top: 8px; padding-bottom: 8px; }
+  .builder[data-step="quote"] .preview .preview-stage.two { flex: 0 0 112px; width: 112px; height: 54px; gap: 4px; }
+  .builder[data-step="quote"] .face-label { display: none; }
+  .builder[data-step="quote"] .face img { border-radius: 8px; box-shadow: none; }
+  .builder[data-step="quote"] .preview-spec { flex: 1 1 0; min-width: 0; margin: 0; text-align: left; font-size: 12px; color: var(--s-strong); }
 
   /* ----- the sections of a design step, walked through one at a time ----- */
   .tabs:not([hidden]) { flex: 0 0 auto; display: flex; padding: 0 calc(var(--pad-r) - 8px) 0 calc(var(--pad-l) - 8px); overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--s-line); background: var(--s-bg); }
@@ -1109,7 +1114,7 @@ html { -webkit-text-size-adjust: 100%; }
   .sub-head:not(:empty) { display: flex; flex-direction: column; gap: 2px; margin: 0 0 14px; }
   .sub-head small { font-family: var(--font-head); font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--orange); }
   .sub-head strong { font-family: var(--font-head); font-weight: 600; font-size: 21px; letter-spacing: 1.6px; text-transform: uppercase; line-height: 1.25; color: var(--s-strong); }
-  .group[data-tab="logo"] .group-title { display: none; } /* the line above says it */
+  .group[data-tab="logo"] .group-title, .group[data-tab="images"] .group-title { display: none; } /* the line above says it */
 
   /* ----- the form ----- */
   .panel {
@@ -1133,7 +1138,7 @@ html { -webkit-text-size-adjust: 100%; }
   #design-hint, #back-hint { margin-top: 16px; color: var(--s-text); }
   .field.two, .details-form .ff-grid { grid-template-columns: 1fr; }
   .details-form .ff-section { color: var(--s-strong); }
-  .link, .co-secure a, .summary small { color: var(--s-link); }
+  .link, .co-secure a { color: var(--s-link); }
   .ff-error { color: #FF8A80; }
 
   input[type="text"], input[type="email"], input[type="tel"], input[type="number"], textarea, .ff textarea {
@@ -1145,6 +1150,14 @@ html { -webkit-text-size-adjust: 100%; }
   input:disabled, input:read-only { background: var(--s-raise); color: var(--s-dim); }
   input:-webkit-autofill { -webkit-text-fill-color: var(--s-strong); box-shadow: 0 0 0 100px var(--s-card) inset; caret-color: var(--s-strong); }
   .qty-input { max-width: none; }
+  .size-row { grid-template-columns: 1fr; }
+  .size-select {
+    background-color: var(--s-card); color: var(--s-strong); border: 1px solid var(--s-line); border-radius: 12px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='%23C6C6CC' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  }
+  .size-select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(245,130,32,.22); }
+  .size-select.bad { border-color: #EF5350; background-color: rgba(239,83,80,.1); }
+  .logo-link .btn.small { min-height: 44px; }
 
   .logo-drop { padding: 20px 14px; border-color: var(--s-line); border-radius: 14px; background: var(--s-card); }
   .logo-drop:hover, .logo-drop:focus, .logo-drop.over { border-color: var(--orange); background: rgba(245,130,32,.08); }
@@ -1174,16 +1187,9 @@ html { -webkit-text-size-adjust: 100%; }
   .ai-check, .ai-disclaimer { max-width: none; border-radius: 12px; background: var(--s-card); }
   .ai-check { padding: 12px 14px; }
 
-  /* Review: each row stacks, heading over value */
-  .summary, .summary tbody, .summary tr, .summary th, .summary td { display: block; width: 100%; }
-  .summary th { border-bottom: 0; padding: 12px 0 2px; color: var(--s-dim); }
-  .summary td { padding: 0 0 12px; border-bottom-color: var(--s-line); color: var(--s-text); }
-  .review-coin li:first-child { color: var(--s-strong); }
-  .review-coin .review-faces { width: 100%; gap: 8px; }
-  .summary .review-faces img { width: calc(50% - 4px); max-width: 150px; height: auto; aspect-ratio: 1; border-color: var(--s-line); border-radius: 12px; }
   #result .head { font-size: 22px; color: var(--s-strong); }
   #result .caption { color: var(--s-dim); }
-  #result strong, .summary strong { color: var(--s-strong); }
+  #result strong { color: var(--s-strong); }
 
   /* ----- buttons ----- */
   .btn { border-radius: 12px; }

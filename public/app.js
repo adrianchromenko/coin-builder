@@ -5,8 +5,8 @@
 
   // The customer tells us what the coin is for and describes each face in their own words. There are no option
   // grids: the server turns the description into the AI prompt, and the artists finish the coin before production.
-  const SIZES = ['1.5', '1.75', '2', '2.5', '3'];
-  const QUANTITIES = [50, 100, 250, 500, 1000];
+  // Size and quantity are typed in with the quote; the sizes on offer are the <select> in index.html (keep in step
+  // with SIZES in lib/pricing.js), plus "other" with the size in their words.
 
   const money = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -15,14 +15,17 @@
 
   // ---------- state ----------
   const config = { pricing: false, payments: false, testMode: false, provider: '' };
-  // backMode: 'same' (the back is the front again) or 'custom' (its own description, rendered to match the front)
+  // backMode: 'custom' (its own description, rendered to match the front: nearly every coin), 'same' (the back is the
+  //   front again) or 'blank' (plain metal, no design)
   // shape: 'round' or 'odd' (a custom outline: shield, star, state, cut to the artwork; the words say which)
   // shapePicked: they chose the shape themselves, rather than leaving it on round (the Coin Nerd's checklist asks)
-  // refs: reference images the customer added besides the logo, as [{ id, name, data (a JPEG data URL), bad? }]
-  const newDesign = () => ({ front: '', back: '', backMode: 'same', shape: 'round', shapePicked: false, style: '', logo: null, logoName: '', refs: [] });
+  // refs: reference images the customer added besides the logo, as [{ id, name, data (a JPEG data URL), bad? }];
+  //   backRefs: the same, for the back alone
+  const newDesign = () => ({ front: '', back: '', backMode: 'custom', shape: 'round', shapePicked: false, style: '', logo: null, logoName: '', refs: [], backRefs: [] });
   const design = newDesign();
+  // size: one of the sizes in the <select>, or 'other' with the size written in sizeOther
   const order = {
-    quantity: null, size: null, estimate: null, notes: '',
+    quantity: null, size: null, sizeOther: '', estimate: null, notes: '',
     name: '', email: '', phone: '', company: '',
     billStreet: '', billCityStateZip: '', billCountry: 'United States',
     street: '', cityStateZip: '', country: 'United States',
@@ -42,10 +45,16 @@
   const currentVersion = currentFront; // the order, the contact form and checkout are anchored on the front
   let busy = false;
   const customBack = () => design.backMode === 'custom';
+  const blankBack = () => design.backMode === 'blank';
   const oddShape = () => design.shape === 'odd';
   const twoSided = () => customBack() && !!design.back.trim();
+  // The pictures a render of the back is shown: its own, or the front's when it has none
+  const backRefs = () => (design.backRefs.length ? design.backRefs : design.refs);
+  const sideRefs = (side) => (side === 'back' ? backRefs() : design.refs);
+  // The size in words, for the spec line, the test checkout and the thank-you
+  const sizeText = () => (order.size === 'other' ? order.sizeOther.trim() || 'custom size' : order.size ? `${order.size}"` : '');
   // The design as the server records it on renders, orders and leads
-  const designPayload = () => ({ shape: design.shape, front: design.front.trim(), back: twoSided() ? design.back.trim() : '', backMode: design.backMode, style: design.style.trim(), logoName: design.logoName, refNames: design.refs.map((r) => r.name) });
+  const designPayload = () => ({ shape: design.shape, front: design.front.trim(), back: twoSided() ? design.back.trim() : '', backMode: design.backMode, style: design.style.trim(), logoName: design.logoName, refNames: design.refs.map((r) => r.name), backRefNames: design.backRefs.map((r) => r.name) });
 
   const configReady = fetch('/api/config').then((r) => r.json()).then((c) => {
     Object.assign(config, c);
@@ -75,7 +84,7 @@
     testToggle.setAttribute('aria-pressed', testState.on ? 'true' : 'false');
     testToggle.querySelector('.test-toggle-state').textContent = testState.on ? 'On' : 'Off';
     testToggle.hidden = !testState.on; // customers never see the switch; staff get it once /?test=1 turns test mode on
-    $('review-test').hidden = !testState.on;
+    $('quote-test').hidden = !testState.on;
     if (persist) {
       try { on ? sessionStorage.setItem('cfaTestMode', '1') : sessionStorage.removeItem('cfaTestMode'); } catch (_) {}
     }
@@ -102,25 +111,30 @@
 
   // ---------- phone studio ----------
   // On a phone the builder is an app-like shell (see "phones: the coin studio" in style.css): the coin stays on screen
-  // and each design step is walked through one section at a time (describe, images, style, size, then the result),
+  // and each design step is walked through one section at a time (describe, images, style, shape, then the result),
   // with Back and Next at the bottom. On wider screens every section shows at once and none of this is visible.
   const studio = window.matchMedia('(max-width: 559px), (max-width: 720px) and (orientation: portrait)');
   // id, the name in the row under the coin, the line above the section (first word in script), optional?
   const TABS = {
     front: [
       ['describe', 'Describe', 'Describe', 'the front'],
-      ['logo', 'Images', 'Add', 'your logo & images'],
+      ['logo', 'Images', 'Add', 'your logo, seal or images'],
       ['style', 'Style', 'Pick', 'a style', true],
-      ['size', 'Size', 'Choose', 'shape & size'],
+      ['shape', 'Shape', 'Choose', 'a shape'],
       ['result', 'Result', 'Here’s', 'your front'],
     ],
-    back: [['describe', 'Describe', 'Now', 'the back'], ['result', 'Result', 'Here’s', 'your back']],
+    back: [
+      ['describe', 'Describe', 'Now', 'the back'],
+      ['images', 'Images', 'Add', 'pictures for the back', true],
+      ['result', 'Result', 'Here’s', 'your back'],
+    ],
   };
   const tabOpen = { front: 'describe', back: 'describe' };
-  // The sections of a design step. Result is one of them while the render it reports on is the one on screen.
+  // The sections of a design step. Result is one of them while the render it reports on is the one on screen; the
+  // back's pictures only while the back has a design of its own.
   function tabsFor(step) {
     const result = TABS[step] && ai.side === step && !(step === 'back' && !customBack()) ? sideCurrent(step) : null;
-    return { result, tabs: (TABS[step] || []).filter(([id]) => id !== 'result' || result) };
+    return { result, tabs: (TABS[step] || []).filter(([id]) => (id !== 'result' || result) && (id !== 'images' || customBack())) };
   }
   function renderTabs() {
     const step = $('builder').dataset.step;
@@ -132,8 +146,8 @@
     const at = tabs.findIndex(([id]) => id === open);
     const inputs = tabs.filter(([id]) => id !== 'result');
     const filled = step === 'front'
-      ? { describe: !!design.front.trim(), logo: !!design.logo || design.refs.length > 0, style: !!design.style.trim(), size: !!order.size }
-      : { describe: !customBack() || !!design.back.trim() };
+      ? { describe: !!design.front.trim(), logo: !!design.logo || design.refs.length > 0, style: !!design.style.trim(), shape: true }
+      : { describe: !customBack() || !!design.back.trim(), images: design.backRefs.length > 0 };
 
     // The row under the coin: the sections in order, lit up to the one on show. On Result a dot is the proofreader's verdict.
     const html = tabs.map(([id, label], i) => {
@@ -166,7 +180,7 @@
       subNext.textContent = tab[4] && !filled[open] ? 'Skip' : 'Next';
       subNext.disabled = !onResult && ['describe', 'logo'].includes(open) && !filled[open]; // nothing to render without a description and a picture to go on
       const off = (node, on) => { if (node) node.classList.toggle('sub-off', on); };
-      off(el.querySelector('#to-back, #to-options'), phone && !!result && !onResult);
+      off(el.querySelector('#to-back, #to-quote'), phone && !!result && !onResult);
       off(el.querySelector('#generate-btn, #back-generate-btn'), next);
       off(el.querySelector('[data-back]'), phone && at > 0);
       off(el.querySelector('#design-hint, #back-hint'), next); // it talks about Generate and Continue, which are not on this screen
@@ -247,23 +261,22 @@
     $('shape-hint').textContent = oddShape()
       ? 'Say what shape in your description or style notes: a shield, a star, your state, or cut to your logo. Left unsaid, we cut it to your artwork.'
       : 'Round is the classic challenge coin.';
-    // An odd-shaped coin has no diameter: its size is the longest side, which is what it is priced by
-    $('size-measure').textContent = oddShape() ? 'longest side, needed for pricing' : 'diameter, needed for pricing';
+    // An odd-shaped coin has no diameter: its size is the longest side, which is what it is priced by (asked for with the quote)
+    $('size-measure').textContent = oddShape() ? 'longest side' : 'diameter';
     $('size-hint').textContent = oddShape()
-      ? 'Measure the longest side of the shape. Most coins are 1.75" or 2" across. Need another size? Tell us in the notes when you order.'
-      : 'Most challenge coins are 1.75" or 2". Need another size? Tell us in the notes when you order.';
+      ? 'Measure the longest side of the shape. Most coins are 1.75" or 2" across. Choose "Other" for a size that is not listed.'
+      : 'Most challenge coins are 1.75" or 2". Choose "Other" for a size that is not listed.';
   }
 
-  const sizeChips = $('size-chips');
-  for (const s of SIZES) {
-    const b = document.createElement('button');
-    b.type = 'button'; b.textContent = s + '"'; b.dataset.size = s;
-    b.addEventListener('click', () => setSize(s));
-    sizeChips.appendChild(b);
-  }
+  // Size: picked from the list on the quote step, or "Other" with the size written in
+  const sizeSelect = $('size-select');
+  const sizeOtherInput = $('size-other');
+  sizeSelect.addEventListener('change', () => { setSize(sizeSelect.value); if (order.size === 'other') sizeOtherInput.focus(); });
+  sizeOtherInput.addEventListener('input', (e) => { order.sizeOther = e.target.value; e.target.classList.remove('bad'); syncDesign(); updateEstimate(); });
   function setSize(s) {
-    order.size = s;
-    for (const b of sizeChips.children) b.classList.toggle('on', b.dataset.size === s);
+    order.size = s || null;
+    sizeSelect.classList.remove('bad');
+    $('size-other-field').hidden = order.size !== 'other';
     syncDesign();
     updateEstimate();
   }
@@ -272,13 +285,15 @@
   const hasArt = () => !!design.logo || design.refs.length > 0;
   const designReady = () => !!design.front.trim() && hasArt();
   function specLine() {
-    return [order.size ? `${order.size}"` : '', oddShape() ? 'Odd shaped' : '', twoSided() ? 'Front & back' : 'Same both sides', design.logoName ? 'Your logo' : '', design.refs.length ? `${design.refs.length} reference${design.refs.length > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
+    const refs = design.refs.length + design.backRefs.length;
+    const back = customBack() ? (design.back.trim() ? 'Front & back' : '') : blankBack() ? 'Blank back' : 'Same both sides';
+    return [sizeText(), oddShape() ? 'Odd shaped' : '', back, design.logoName ? 'Your logo' : '', refs ? `${refs} reference${refs > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
   }
   // What a render of each face depends on. A back render is also tied to the front render it was matched against.
   const logoKey = () => (design.logo ? design.logo.length : 0);
-  const refsKey = () => design.refs.map((r) => r.id).join();
-  const frontSignature = () => JSON.stringify({ shape: design.shape, front: design.front.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey(), refs: refsKey() });
-  const backSignature = () => JSON.stringify({ shape: design.shape, back: design.back.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey(), refs: refsKey(), front: frontKey() });
+  const refsKey = (list) => list.map((r) => r.id).join();
+  const frontSignature = () => JSON.stringify({ shape: design.shape, front: design.front.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey(), refs: refsKey(design.refs) });
+  const backSignature = () => JSON.stringify({ shape: design.shape, back: design.back.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey(), refs: refsKey(backRefs()), front: frontKey() });
   const sideSignature = (side) => (side === 'back' ? backSignature() : frontSignature());
 
   // A design change means the render on screen no longer matches; earlier versions stay in the strip.
@@ -299,34 +314,35 @@
     $('generate-btn').disabled = !ready || ai.busy;
     $('generate-btn').hidden = !!front;
     $('to-back').hidden = !front;
-    $('to-back').disabled = !front; // a missing size is asked for on the tap: on a phone this button is pinned, far from the size chips
+    $('to-back').disabled = !front;
     $('design-hint').textContent = !hasArt()
       ? (design.front.trim() ? 'Add your logo or a reference image to go on. We need at least one before we can draw your coin.' : 'Start with your logo or a reference image, then describe the front of your coin.')
       : !design.front.trim()
         ? 'Describe the front of your coin: what goes on it, and where.'
         : !front
           ? (ai.front.versions.length ? 'The description changed. Tap "Generate This Coin" to render it again.' : 'Looking good. Tap "Generate This Coin" to see it rendered.')
-          : !order.size
-            ? 'Pick a coin size, then continue to the back of your coin.'
-            : 'Happy with the front? Continue to the back. Not quite? Change the description or make another version.';
+          : 'Happy with the front? Continue to the back. Not quite? Change the description or make another version.';
 
-    // Back step: "same as the front" needs nothing more; a different back has to be generated to match the front
+    // Back step: a design of its own has to be generated to match the front; "same as the front" and "blank" need nothing more
     const backText = design.back.trim();
     $('back-custom').hidden = !customBack();
+    $('back-images').hidden = !customBack();
     for (const b of $('back-mode').children) b.classList.toggle('on', b.dataset.mode === design.backMode);
     const backDone = !customBack() || !!back;
     $('back-generate-btn').hidden = backDone;
     $('back-generate-btn').disabled = !backText || !front || ai.busy;
-    $('to-options').hidden = !backDone;
+    $('to-quote').hidden = !backDone;
     $('back-hint').textContent = !front
       ? 'Generate the front first; the back is drawn to match it.'
-      : !customBack()
-        ? 'The back will carry the same design as the front. Continue to your order, or choose "A different design".'
-        : !backText
-          ? 'Describe the back: what goes on it, and where.'
-          : !back
-            ? (ai.back.versions.length ? 'The back or the front changed. Tap "Generate the Back" to render it again to match.' : 'Tap "Generate the Back" to see it rendered to match your front.')
-            : 'Happy with it? Continue to your order. Not quite? Change the description or make another version.';
+      : blankBack()
+        ? 'The back will be plain metal with no design. Continue to your quote, or choose "A different design".'
+        : !customBack()
+          ? 'The back will carry the same design as the front. Continue to your quote, or choose "A different design".'
+          : !backText
+            ? 'Describe the back: what goes on it, and where.'
+            : !back
+              ? (ai.back.versions.length ? 'The back or the front changed. Tap "Generate the Back" to render it again to match.' : 'Tap "Generate the Back" to see it rendered to match your front.')
+              : 'Happy with it? Continue to your quote. Not quite? Change the description or make another version.';
     renderPreview();
     renderVersions();
     renderRefs();
@@ -402,18 +418,48 @@
     if (!/^image\/(png|jpe?g|webp|svg\+xml)$/i.test(file.type)) { toast('Please use a PNG, JPG, WEBP, or SVG image.'); return; }
     if (file.size > 10 * 1024 * 1024) { toast('Please keep the image under 10 MB.'); return; }
     const reader = new FileReader();
-    reader.onload = async () => {
-      design.logo = await prepareLogo(reader.result);
-      design.logoName = file.name;
-      logoDrop.classList.remove('bad');
-      $('logo-thumb').src = design.logo;
-      $('logo-name').textContent = file.name;
-      logoDrop.querySelector('.logo-empty').hidden = true;
-      logoDrop.querySelector('.logo-have').hidden = false;
-      syncDesign();
-    };
+    reader.onload = () => setLogoData(reader.result, file.name);
     reader.readAsDataURL(file);
   }
+  // The logo as a data URL: from a file, or fetched from a link
+  async function setLogoData(dataUrl, name) {
+    design.logo = await prepareLogo(dataUrl);
+    design.logoName = name;
+    logoDrop.classList.remove('bad');
+    $('logo-thumb').src = design.logo;
+    $('logo-name').textContent = name;
+    logoDrop.querySelector('.logo-empty').hidden = true;
+    logoDrop.querySelector('.logo-have').hidden = false;
+    syncDesign();
+  }
+  // "Or paste a link": the server fetches the picture at the address, or finds the logo on the page there
+  const logoUrl = $('logo-url');
+  const logoFetch = $('logo-fetch');
+  async function fetchLogo() {
+    const url = logoUrl.value.trim();
+    if (!url) { toast('Paste a link to your website, or to a picture, first.'); logoUrl.focus(); return; }
+    if (logoFetch.disabled) return;
+    logoFetch.disabled = true;
+    logoFetch.innerHTML = 'Looking… <span class="typing"><i></i><i></i><i></i></span>';
+    logoUrl.classList.remove('bad');
+    try {
+      const res = await fetch('/api/fetch-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'We could not fetch that link.');
+      await setLogoData(data.image, data.name || url);
+      logoUrl.value = '';
+      toast(data.fromPage ? 'Found a logo on that page. Not the right picture? Remove it and upload the file instead.' : 'Got it: that picture is your logo now.', 4500);
+    } catch (e) {
+      logoUrl.classList.add('bad');
+      toast(escapeHtml(e.message || 'We could not fetch that link.'), 5000);
+    } finally {
+      logoFetch.disabled = false;
+      logoFetch.textContent = 'Grab Logo';
+    }
+  }
+  logoFetch.addEventListener('click', fetchLogo);
+  logoUrl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); fetchLogo(); } });
+  logoUrl.addEventListener('input', () => logoUrl.classList.remove('bad'));
   function clearLogo() {
     design.logo = null; design.logoName = '';
     logoDrop.classList.remove('bad');
@@ -453,42 +499,53 @@
       img.src = dataUrl;
     });
   }
-  async function addRefs(files) {
+  // side: 'front' or 'back', the face the pictures are for
+  const ownRefs = (side) => (side === 'back' ? design.backRefs : design.refs);
+  async function addRefs(side, files) {
+    const list = ownRefs(side);
     let skipped = 0, full = false;
     for (const file of files) {
-      if (design.refs.length >= MAX_REFS) { full = true; break; }
+      if (list.length >= MAX_REFS) { full = true; break; }
       if (!/^image\/(png|jpe?g|webp)$/i.test(file.type) || file.size > 20 * 1024 * 1024) { skipped++; continue; }
       const raw = await readFile(file);
       const data = raw && await prepareReference(raw);
       if (!data) { skipped++; continue; }
-      if (design.refs.length >= MAX_REFS) { full = true; break; }
-      design.refs.push({ id: 'r' + (++refSeq), name: file.name, data });
+      if (list.length >= MAX_REFS) { full = true; break; }
+      list.push({ id: 'r' + (++refSeq), name: file.name, data });
     }
     if (full) toast(`You can add up to ${MAX_REFS} reference images.`);
     else if (skipped) toast('Reference images need to be PNG, JPG or WEBP pictures under 20 MB.');
     syncDesign();
   }
+  // The three places pictures are shown and added: the front's, the back's, and the "Make Another Version" popup,
+  // which shows the pictures of the face being redrawn
+  const REF_BOXES = [['refs', 'ref-add', 'ref-files', () => 'front'], ['back-refs', 'back-ref-add', 'back-ref-files', () => 'back'], ['revise-refs', 'revise-ref-add', 'revise-ref-files', () => ai.side]];
   function renderRefs() {
-    const box = $('refs');
-    const key = design.refs.map((r) => r.id + (r.bad ? '!' : '')).join();
-    if (box.dataset.key !== key) {
-      box.dataset.key = key;
-      for (const n of box.querySelectorAll('.ref')) n.remove();
-      $('ref-add').insertAdjacentHTML('beforebegin', design.refs.map((r) => {
-        const name = escapeHtml(r.name);
-        return `<div class="ref${r.bad ? ' bad' : ''}" title="${name}${r.bad ? ' (we cannot use this one)' : ''}"><img src="${r.data}" alt="${name}"><button type="button" class="ref-remove" data-ref="${r.id}" aria-label="Remove ${name}">&times;</button></div>`;
-      }).join(''));
+    for (const [boxId, addId, , sideOf] of REF_BOXES) {
+      const box = $(boxId), side = sideOf(), list = ownRefs(side);
+      const key = side + ':' + list.map((r) => r.id + (r.bad ? '!' : '')).join();
+      if (box.dataset.key !== key) {
+        box.dataset.key = key;
+        for (const n of box.querySelectorAll('.ref')) n.remove();
+        $(addId).insertAdjacentHTML('beforebegin', list.map((r) => {
+          const name = escapeHtml(r.name);
+          return `<div class="ref${r.bad ? ' bad' : ''}" title="${name}${r.bad ? ' (we cannot use this one)' : ''}"><img src="${r.data}" alt="${name}"><button type="button" class="ref-remove" data-ref="${r.id}" data-side="${side}" aria-label="Remove ${name}">&times;</button></div>`;
+        }).join(''));
+      }
+      $(addId).hidden = list.length >= MAX_REFS;
     }
-    $('ref-add').hidden = design.refs.length >= MAX_REFS;
   }
-  $('ref-add').addEventListener('click', () => $('ref-files').click());
-  $('ref-files').addEventListener('change', (e) => { addRefs([...e.target.files]); e.target.value = ''; });
-  $('refs').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-ref]');
-    if (!b) return;
-    design.refs = design.refs.filter((r) => r.id !== b.dataset.ref);
-    syncDesign();
-  });
+  for (const [boxId, addId, filesId, sideOf] of REF_BOXES) {
+    $(addId).addEventListener('click', () => $(filesId).click());
+    $(filesId).addEventListener('change', (e) => { addRefs(sideOf(), [...e.target.files]); e.target.value = ''; });
+    $(boxId).addEventListener('click', (e) => {
+      const b = e.target.closest('[data-ref]');
+      if (!b) return;
+      if (b.dataset.side === 'back') design.backRefs = design.backRefs.filter((r) => r.id !== b.dataset.ref);
+      else design.refs = design.refs.filter((r) => r.id !== b.dataset.ref);
+      syncDesign();
+    });
+  }
   // The server screens every upload before it reaches the AI; one it will not use is marked, so the customer can see
   // which to take out
   function markRejected(snapshot, rejected) {
@@ -506,11 +563,12 @@
     dragDepth = 0; $('drop').hidden = true;
     const files = [...((e.dataTransfer && e.dataTransfer.files) || [])];
     if (!files.length) return;
-    // Dropped on the reference images, they all go there. Anywhere else the first one is the logo, and any others
-    // that came with it are references.
-    const onRefs = document.elementsFromPoint(e.clientX, e.clientY).some((el) => el.id === 'ref-field');
-    if (onRefs) addRefs(files);
-    else { setLogo(files[0]); if (files.length > 1) addRefs(files.slice(1)); }
+    // Dropped on the reference images (the front's or the back's), they all go there. Anywhere else the first one
+    // is the logo, and any others that came with it are references for the front.
+    const under = document.elementsFromPoint(e.clientX, e.clientY);
+    if (under.some((el) => el.id === 'back-ref-field')) { addRefs('back', files); return; }
+    if (under.some((el) => el.id === 'ref-field')) addRefs('front', files);
+    else { setLogo(files[0]); if (files.length > 1) addRefs('front', files.slice(1)); }
     tabOpen.front = 'logo';
     showStep('front');
   });
@@ -580,13 +638,14 @@
       el.querySelector('.face-empty').hidden = !!v;
       const p = el.querySelector('.face-empty p');
       if (p.dataset.html !== hint) { p.innerHTML = hint; p.dataset.html = hint; }
-      el.querySelector('.face-label').textContent = face === 'front' ? 'Front' : same ? 'Back · same as front' : 'Back';
+      el.querySelector('.face-label').textContent = face === 'front' ? 'Front' : same ? 'Back · same as front' : blankBack() ? 'Back · blank' : 'Back';
       el.querySelector('.face-label').hidden = !two;
     };
     setFace('front', front, { hint: 'Add your logo or a reference image, describe your coin, then tap <b>Generate This Coin</b>. Your render shows up here in a minute or two.' });
     $('face-back').hidden = !two;
     if (two) {
-      if (!customBack()) setFace('back', front, { same: true, hint: 'The back matches the front.' });
+      if (blankBack()) setFace('back', null, { hint: 'The back is plain metal, with no design.' });
+      else if (!customBack()) setFace('back', front, { same: true, hint: 'The back matches the front.' });
       else setFace('back', back, { hint: 'Describe the back, then tap <b>Generate the Back</b>. It is drawn to match your front.' });
     }
     const shown = sideCurrent(ai.side);
@@ -594,7 +653,7 @@
       ? (shown.demo
         ? (isTest() ? 'Test mode: a stand-in for the AI render.' : 'Demo render (add an API key on the server for real AI renders).')
         : `${ai.side === 'back' ? 'Back' : 'Front'}, AI version ${shown.number}, shown with a light preview watermark. The artwork made for your order is clean and full quality.`)
-      : ai.side === 'back' && !customBack() ? 'Same design on both sides.' : 'Your AI render appears here.';
+      : ai.side === 'back' && blankBack() ? 'A blank back: plain metal.' : ai.side === 'back' && !customBack() ? 'Same design on both sides.' : 'Your AI render appears here.';
   }
 
   // ---------- AI render ----------
@@ -766,7 +825,8 @@
     revealStage();
     mintLogo(design.logo);
     progressReset();
-    const snapshot = { ...designPayload(), logo: design.logo, refs: design.refs.slice() };
+    // refs: the pictures this render is shown (the back's own, or the front's when it has none)
+    const snapshot = { ...designPayload(), logo: design.logo, refs: sideRefs(side).slice(), backRefs: design.backRefs.slice() };
     const text = side === 'back' ? snapshot.back : snapshot.front;
     const signature = sideSignature(side);
     const anchor = frontRenderId(); // the front this back is drawn to match
@@ -839,7 +899,7 @@
     if (v.signature !== sideSignature(side)) {
       const d = v.design;
       if (side === 'front') Object.assign(design, { shape: d.shape || 'round', front: d.front, style: d.style, logo: d.logo, logoName: d.logoName, refs: (d.refs || []).slice() });
-      else Object.assign(design, { back: d.back, backMode: 'custom' });
+      else Object.assign(design, { back: d.back, backMode: 'custom', backRefs: (d.backRefs || []).slice() });
       syncControls();
     }
     s.current = id;
@@ -1010,12 +1070,12 @@
 
   // Coin images cannot be right-clicked, long-pressed or dragged out of the page. This only stops casual saving
   // (a screenshot is always possible), which is why everything that reaches the browser is watermarked already.
-  const isCoinImage = (t) => !!(t && t.closest && t.closest('.preview-col, .review-coin, .co-summary, .versions'));
+  const isCoinImage = (t) => !!(t && t.closest && t.closest('.preview-col, .co-summary, .versions'));
   document.addEventListener('contextmenu', (e) => { if (isCoinImage(e.target)) e.preventDefault(); });
   document.addEventListener('dragstart', (e) => { if (e.target.tagName === 'IMG' || isCoinImage(e.target)) e.preventDefault(); });
 
   // ---------- steps ----------
-  const STEPS = ['front', 'back', 'options', 'details', 'review'];
+  const STEPS = ['front', 'back', 'quote'];
   let stepShown = false; // skip the focus move on first load
   function showStep(name) {
     for (const s of document.querySelectorAll('.panel .step')) s.hidden = s.dataset.step !== name;
@@ -1031,7 +1091,7 @@
     }
     $('builder').dataset.step = name;
     if (name === 'front' || name === 'back') ai.side = name; // the strip and "Make Another Version" follow the face being worked on
-    if (name === 'review') renderReview();
+    if (name === 'quote') updateOrderButton();
     syncDesign();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     document.querySelector('.panel').scrollTop = 0; // on a phone the form scrolls inside its own column
@@ -1048,41 +1108,29 @@
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('li.done')) { e.preventDefault(); e.target.click(); }
   });
   document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => showStep(b.dataset.back)));
-  $('to-back').addEventListener('click', () => {
-    if (!currentFront()) return;
-    if (!order.size) { toast('Pick a coin size to continue.'); openTab('size'); sizeChips.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-    showStep('back');
-  });
-  $('to-options').addEventListener('click', () => { if (currentFront() && (!customBack() || currentBack())) showStep('options'); });
-  $('to-details').addEventListener('click', () => { if (order.quantity && order.size) showStep('details'); });
+  $('to-back').addEventListener('click', () => { if (currentFront()) showStep('back'); });
+  $('to-quote').addEventListener('click', () => { if (currentFront() && (!customBack() || currentBack())) showStep('quote'); });
 
-  // ---------- step 2: quantity ----------
-  const qtyChips = $('qty-chips');
-  for (const q of QUANTITIES) {
-    const b = document.createElement('button');
-    b.type = 'button'; b.textContent = q.toLocaleString(); b.dataset.qty = q;
-    b.addEventListener('click', () => { setQuantity(q); $('qty-input').value = ''; });
-    qtyChips.appendChild(b);
-  }
-  $('qty-input').addEventListener('input', (e) => {
+  // ---------- step 3: the quote ----------
+  // How many, what size, who to send it to: one form. Quantity is typed in (no chips); the size comes from the list,
+  // or "Other" with the size written in. The pricing estimate shows when the server has a price table.
+  const form = $('quote-form');
+  const qtyInput = $('qty-input');
+  qtyInput.addEventListener('input', (e) => {
     const q = parseInt(e.target.value, 10);
-    setQuantity(q > 0 && q <= 100000 ? q : null);
-  });
-  function setQuantity(q) {
-    order.quantity = q;
-    for (const b of qtyChips.children) b.classList.toggle('on', +b.dataset.qty === q);
+    order.quantity = q > 0 && q <= 100000 ? q : null;
     updateEstimate();
-  }
+  });
   $('notes').addEventListener('input', (e) => { order.notes = e.target.value; });
+  const sizeOk = () => !!order.size && (order.size !== 'other' || !!order.sizeOther.trim());
 
   async function updateEstimate() {
-    const ok = !!(order.quantity && order.size);
-    $('to-details').disabled = !ok;
+    const ok = !!order.quantity && sizeOk();
     order.estimate = null;
     const box = $('estimate');
     if (!ok) { box.hidden = true; updateOrderButton(); return; }
     await configReady;
-    if (!config.pricing) {
+    if (!config.pricing || order.size === 'other') {
       box.innerHTML = '<small>Our team confirms exact pricing by email, usually within one business day.</small>';
       box.hidden = false;
       updateOrderButton();
@@ -1100,18 +1148,18 @@
     updateOrderButton();
   }
 
-  // ---------- step 3: details form ----------
-  const form = $('details-form');
   const same = form.elements.same;
   const syncShip = () => { $('ship-fields').hidden = same.checked; };
   same.addEventListener('change', syncShip);
   syncShip();
   form.addEventListener('input', (e) => {
     if (e.target && e.target.classList) e.target.classList.remove('bad');
-    if (!form.querySelector('input.bad')) $('details-error').hidden = true;
+    if (!form.querySelector('.bad')) $('quote-error').hidden = true;
   });
+  // Everything is checked at once; what is missing is listed, and the first field that needs fixing is brought into view
   form.addEventListener('submit', (e) => {
     e.preventDefault();
+    if (busy) return;
     const v = (n) => form.elements[n].value.trim();
     const next = {
       name: v('name'), email: v('email'), phone: v('phone'), company: v('company'),
@@ -1120,65 +1168,37 @@
     if (same.checked) { next.street = next.billStreet; next.cityStateZip = next.billCityStateZip; next.country = next.billCountry; }
     else { next.street = v('street'); next.cityStateZip = v('cityStateZip'); next.country = v('country'); }
 
+    const missing = [];
+    const mark = (el, bad, label) => { el.classList.toggle('bad', bad); if (bad) missing.push(label); };
+    mark(qtyInput, !order.quantity, 'how many coins');
+    mark(sizeSelect, !order.size, 'the coin size');
+    mark(sizeOtherInput, order.size === 'other' && !order.sizeOther.trim(), 'the size you have in mind');
     const required = [
       ['name', 'your name'], ['email', 'your email'],
       ['billStreet', 'billing street address'], ['billCityStateZip', 'billing city, state, ZIP'], ['billCountry', 'billing country'],
       ['street', 'shipping street address'], ['cityStateZip', 'shipping city, state, ZIP'], ['country', 'shipping country'],
     ];
-    const missing = [];
     for (const [id, label] of required) {
       const skip = same.checked && ['street', 'cityStateZip', 'country'].includes(id);
-      const bad = !skip && !next[id];
-      form.elements[id].classList.toggle('bad', bad);
-      if (bad) missing.push(label);
+      mark(form.elements[id], !skip && !next[id], label);
     }
     if (next.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next.email)) { form.elements.email.classList.add('bad'); missing.push('a valid email'); }
-    const err = $('details-error');
+    const err = $('quote-error');
     if (missing.length) {
       err.textContent = 'Please add: ' + missing.join(', ') + '.';
       err.hidden = false;
-      // The message sits at the foot of the form, which on a phone can be off screen: go to the first field that needs fixing
-      const first = form.querySelector('input.bad');
+      const first = form.querySelector('.bad');
       if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); first.focus({ preventScroll: true }); }
       return;
     }
     err.hidden = true;
     Object.assign(order, next);
-    showStep('review');
+    placeOrder();
   });
 
-  // ---------- step 4: review ----------
   function updateOrderButton() {
-    $('place-order').textContent = isTest() ? 'Place Test Order' : (config.payments && order.estimate ? 'Pay Now' : 'Send to Coins for Anything');
+    $('place-order').textContent = isTest() ? 'Place Test Order' : (config.payments && order.estimate ? 'Pay Now' : 'Submit for Quote');
   }
-
-  function renderReview() {
-    updateOrderButton();
-    const o = order;
-    const v = currentFront();
-    const bk = customBack() ? currentBack() : null;
-    const sameAddr = o.street === o.billStreet && o.cityStateZip === o.billCityStateZip && o.country === o.billCountry;
-    const edit = (step) => `<button class="link" type="button" data-edit="${step}">Edit</button>`;
-    const rows = [
-      ['Coin', `<div class="review-coin">${v ? '<div class="review-faces"><img id="review-img" alt="Front of your coin"><img id="review-img-back" alt="Back of your coin"></div>' : ''}<ul>` +
-               [oddShape() ? 'Shape: odd shaped' : 'Shape: round', `Front: ${design.front.trim()}`, twoSided() ? `Back: ${design.back.trim()}` : 'Back: same design as the front',
-                design.style.trim() ? `Style: ${design.style.trim()}` : '', design.logoName ? `Logo: ${design.logoName}` : '', design.refs.length ? `Reference images: ${design.refs.length}` : '',
-                v ? `Front: AI version ${v.number}${bk ? `. Back: AI version ${bk.number}` : ''}` : 'No AI render: our artists draw it from your description'].filter(Boolean).map((t) => `<li>${escapeHtml(t)}</li>`).join('') +
-               `</ul></div>${edit('front')}`],
-      ['Quantity', `${o.quantity.toLocaleString()} × ${o.size}"${oddShape() ? ' (longest side)' : ''} ${edit('options')}`],
-      o.estimate ? ['Estimate', `${money(o.estimate.total)} (${money(o.estimate.unit)} each)`] : null,
-      ['Contact', `${escapeHtml(o.name)}<br>${escapeHtml(o.email)}${o.phone ? '<br>' + escapeHtml(o.phone) : ''}${o.company ? '<br>' + escapeHtml(o.company) : ''} ${edit('details')}`],
-      ['Bill to', `${escapeHtml(o.billStreet)}<br>${escapeHtml(o.billCityStateZip)}<br>${escapeHtml(o.billCountry)}`],
-      ['Ship to', sameAddr ? 'Same as billing' : `${escapeHtml(o.street)}<br>${escapeHtml(o.cityStateZip)}<br>${escapeHtml(o.country)}`],
-      o.notes.trim() ? ['Notes', escapeHtml(o.notes.trim())] : null,
-    ].filter(Boolean);
-    const table = $('review-table');
-    table.innerHTML = rows.map(([k, val]) => `<tr><th>${k}</th><td>${val}</td></tr>`).join('');
-    table.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => showStep(b.dataset.edit)));
-    if (v) { $('review-img').src = v.image; $('review-img-back').src = bk ? bk.image : v.image; }
-  }
-
-  $('place-order').addEventListener('click', placeOrder);
 
   async function placeOrder() {
     if (busy) return;
@@ -1187,7 +1207,7 @@
     const label = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Sending…';
-    $('review-error').hidden = true;
+    $('quote-error').hidden = true;
     try {
       const v = currentFront();
       const bk = customBack() ? currentBack() : null;
@@ -1197,6 +1217,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           size: order.size,
+          sizeOther: order.sizeOther.trim(),
           quantity: order.quantity,
           name: order.name, email: order.email, phone: order.phone, company: order.company,
           billStreet: order.billStreet, billCityStateZip: order.billCityStateZip, billCountry: order.billCountry,
@@ -1229,15 +1250,15 @@
       }
       showResult(
         `<p class="head"><span class="script">Thank you</span> so much for your business!</p>` +
-        `<p>Your coin request <strong>${escapeHtml(data.orderId)}</strong> has been sent to the <strong>Coins for Anything team for review</strong>. ` +
-        `We'll be in touch at <strong>${escapeHtml(order.email)}</strong> ${order.estimate ? 'with your invoice, a proof to approve, and next steps' : 'with pricing, a proof to approve, and next steps'} within one business day.</p>` +
+        `<p>Your quote request <strong>${escapeHtml(data.orderId)}</strong> for ${order.quantity.toLocaleString()} ${escapeHtml(sizeText())} coins has been sent to the <strong>Coins for Anything team</strong>. ` +
+        `We'll be in touch at <strong>${escapeHtml(order.email)}</strong> ${order.estimate ? 'with your quote, a proof to approve, and next steps' : 'with your quote, a proof to approve, and next steps'} within one business day.</p>` +
         '<p>The Quality is Always Here.</p>'
       );
     } catch (e) {
-      const err = $('review-error');
+      const err = $('quote-error');
       err.textContent = e.message || 'Something went wrong. Please try again.';
       err.hidden = false;
-      err.scrollIntoView({ behavior: 'smooth', block: 'center' }); // it sits under the table, out of sight on a phone
+      err.scrollIntoView({ behavior: 'smooth', block: 'center' }); // it sits at the foot of the form, out of sight on a phone
     } finally {
       busy = false;
       btn.disabled = false;
@@ -1294,7 +1315,7 @@
       const sample = !o.estimate;
       const amount = o.estimate ? o.estimate.total : Math.round(o.quantity * 6.95 * 100) / 100;
       $('co-coin').src = image || '';
-      $('co-item').innerHTML = `<strong>${o.quantity.toLocaleString()} × Custom ${escapeHtml(o.size)}" Coin</strong><br>` +
+      $('co-item').innerHTML = `<strong>${o.quantity.toLocaleString()} × Custom ${escapeHtml(sizeText())} Coin</strong><br>` +
         `<span style="color:#999">Order ${escapeHtml(orderId)}${o.estimate ? ` &middot; ${money(o.estimate.unit)} each` : ''}</span>`;
       $('co-subtotal').textContent = money(amount);
       $('co-total').textContent = money(amount);
@@ -1380,7 +1401,7 @@
         '<p class="caption">Test mode: no real charge was made. The order is saved in orders/ with status test_paid.</p>'
       );
     } else {
-      const err = $('review-error');
+      const err = $('quote-error');
       err.innerHTML = `Checkout was closed for test order <strong>${escapeHtml(orderId)}</strong>. No charge was made. <button class="link" type="button" id="retry-pay">Open checkout again</button>`;
       err.hidden = false;
       err.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1409,12 +1430,16 @@
     $('desc-front').value = design.front; $('desc-back').value = design.back; $('desc-style').value = design.style;
     for (const b of $('back-mode').children) b.classList.toggle('on', b.dataset.mode === design.backMode);
     $('back-custom').hidden = !customBack();
+    $('back-images').hidden = !customBack();
     syncShape();
     logoDrop.classList.remove('bad');
     logoDrop.querySelector('.logo-empty').hidden = !!design.logo;
     logoDrop.querySelector('.logo-have').hidden = !design.logo;
     if (design.logo) { $('logo-thumb').src = design.logo; $('logo-name').textContent = design.logoName; }
-    for (const b of sizeChips.children) b.classList.toggle('on', b.dataset.size === order.size);
+    sizeSelect.value = order.size || '';
+    sizeOtherInput.value = order.sizeOther;
+    $('size-other-field').hidden = order.size !== 'other';
+    qtyInput.value = order.quantity || '';
   }
 
   // ---------- the Coin Nerd ----------
@@ -1466,7 +1491,7 @@
         : 'How should it look? Name the metal, the colors and the border, like “antique silver, rope border, red and blue enamel”. Leave it blank and you get shiny gold with a plain rim.'),
     },
     shape: {
-      name: 'Round or odd shaped', tab: 'size',
+      name: 'Round or odd shaped', tab: 'shape',
       done: () => design.shapePicked || ai.front.versions.length > 0,
       have: () => (oddShape() ? 'Odd shaped' : 'Round'),
       missing: 'Round, unless you change it',
@@ -1577,10 +1602,10 @@
     nerd.panel.hidden = true;
     nerd.toggle.setAttribute('aria-expanded', 'false');
   }
-  // He is around while the coin is being designed and sized; once they are on to their details he would only be in the way
+  // He is around while the coin is being designed; once they are on to their quote he would only be in the way
   function nerdPlace() {
     const step = $('builder').dataset.step;
-    const show = ['front', 'back', 'options'].includes(step);
+    const show = ['front', 'back'].includes(step);
     if (!show && nerd.open) closeNerd();
     nerd.root.hidden = !show;
     if (nerd.guide) {
@@ -1673,7 +1698,7 @@
       const typing = group.contains(document.activeElement) && document.activeElement.matches('textarea');
       if (!(typing && coach.dataset.step === id)) { coach.dataset.step = id; coach.dataset.tip = g.tip(); }
       says = coach.dataset.tip;
-      if (studio.matches && last) says += currentFront() ? '' : designReady() ? ' Pick a size too, then tap <b>Generate This Coin</b>.' : ` Then go back to <b>${hasArt() ? 'Describe' : 'Images'}</b>: I cannot draw a coin without it.`;
+      if (studio.matches && last) says += currentFront() ? '' : designReady() ? ' Then tap <b>Generate This Coin</b>.' : ` Then go back to <b>${hasArt() ? 'Describe' : 'Images'}</b>: I cannot draw a coin without it.`;
       const label = g.optional && !g.done() ? 'Skip this step' : 'Next step';
       button = `<button type="button" class="btn small coach-next"${!g.optional && id !== 'shape' && !g.done() ? ' disabled' : ''}>${label}</button>`;
     } else {
@@ -1708,18 +1733,17 @@
   // ---------- restart ----------
   function restart() {
     Object.assign(design, newDesign());
-    Object.assign(order, { quantity: null, size: null, estimate: null, notes: '', name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
+    Object.assign(order, { quantity: null, size: null, sizeOther: '', estimate: null, notes: '', name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
     ai.front = newSide(); ai.back = newSide(); ai.side = 'front';
     tabOpen.front = tabOpen.back = 'describe';
     guideStop();
     $('result').innerHTML = '';
-    $('notes').value = ''; $('qty-input').value = '';
+    form.reset(); syncShip(); // the whole quote form: quantity, size, notes and the details
+    for (const el of form.querySelectorAll('.bad')) el.classList.remove('bad');
+    logoUrl.value = ''; logoUrl.classList.remove('bad');
     syncControls();
-    for (const b of qtyChips.children) b.classList.remove('on');
     $('estimate').hidden = true;
-    $('to-details').disabled = true;
-    form.reset(); syncShip();
-    $('details-error').hidden = true; $('review-error').hidden = true;
+    $('quote-error').hidden = true;
     showStep('front');
   }
   $('restart').addEventListener('click', () => {

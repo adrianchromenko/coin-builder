@@ -18,6 +18,7 @@ const { sideBySide } = require('./lib/composite');
 const progress = require('./lib/progress');
 const { siteUrl } = require('./lib/site');
 const { screenUploads } = require('./lib/moderate');
+const { fetchImage, FetchError } = require('./lib/fetchimage');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -147,7 +148,9 @@ app.get('/api/quote', (req, res) => {
 app.post('/api/orders', async (req, res) => {
   const b = req.body || {};
   const quantity = parseInt(b.quantity, 10);
+  // size: one of SIZES, or "other" with the size in the customer's words (sizeOther)
   const size = String(b.size || '');
+  const sizeOther = size === 'other' ? String(b.sizeOther || '').replace(/[\r\n<>]/g, ' ').trim().slice(0, 60) : '';
   const name = String(b.name || '').trim().slice(0, 120);
   const email = String(b.email || '').trim().slice(0, 200);
   const phone = String(b.phone || '').trim().slice(0, 40);
@@ -169,8 +172,8 @@ app.post('/api/orders', async (req, res) => {
     aiRendered: d.aiRendered === true,
     aiVersion: Number.isInteger(d.aiVersion) ? d.aiVersion : null,
     renderId: /^[0-9a-f]{32}$/.test(String(d.renderId || '')) ? d.renderId : null,
-    // The back: its own render, or the front again (backMode "same")
-    backMode: d.backMode === 'custom' ? 'custom' : 'same',
+    // The back: its own render (backMode "custom", the usual), the front again ("same"), or plain metal ("blank")
+    backMode: ['custom', 'same', 'blank'].includes(d.backMode) ? d.backMode : 'custom',
     backRenderId: /^[0-9a-f]{32}$/.test(String(d.backRenderId || '')) ? d.backRenderId : null,
     backVersion: Number.isInteger(d.backVersion) ? d.backVersion : null,
     aiVersionsMade: Number.isInteger(d.aiVersionsMade) ? d.aiVersionsMade : 0,
@@ -181,7 +184,7 @@ app.post('/api/orders', async (req, res) => {
   if (!design.front) return res.status(400).json({ error: 'Please describe the front of your coin.' });
 
   if (!quantity || quantity < 1 || quantity > 100000) return res.status(400).json({ error: 'Please enter a valid quantity.' });
-  if (!SIZES.includes(size)) return res.status(400).json({ error: 'Please choose a valid coin size.' });
+  if (!SIZES.includes(size) && !(size === 'other' && sizeOther)) return res.status(400).json({ error: size === 'other' ? 'Please tell us the size you have in mind.' : 'Please choose a coin size.' });
   if (!name) return res.status(400).json({ error: 'Please tell us your name.' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
   if (!street || !cityStateZip || !country) return res.status(400).json({ error: 'Please enter a complete shipping address.' });
@@ -192,11 +195,14 @@ app.post('/api/orders', async (req, res) => {
     // An AI version is ordered by its id, and staff get the clean originals from the server's own copy, front and
     // back side by side; the browser only ever had the watermarked previews. Test orders send their stand-in picture.
     const front = readOriginal(design.renderId);
-    const back = front ? (readOriginal(design.backRenderId) || front) : null;
+    // A blank back has no render and goes out as the front alone; "same" shows the front twice
+    const back = front && design.backMode !== 'blank' ? (readOriginal(design.backRenderId) || front) : null;
     const imageDataUrl = front ? `data:image/png;base64,${(await sideBySide(front, back)).toString('base64')}` : (typeof b.image === 'string' ? b.image : '');
     const record = saveOrder({
       finishLabel: 'Challenge',
       size,
+      sizeOther,
+      sizeLabel: size === 'other' ? `Other: ${sizeOther}` : `${size}"`,
       quantity,
       name,
       email,
@@ -211,7 +217,7 @@ app.post('/api/orders', async (req, res) => {
       ip: req.ip,
       test: isTest,
     });
-    console.log(`[coin-builder] ${isTest ? 'TEST order' : 'order'} ${record.id}: ${quantity} x ${size}" for ${email}`);
+    console.log(`[coin-builder] ${isTest ? 'TEST order' : 'order'} ${record.id}: ${quantity} x ${record.sizeLabel} for ${email}`);
 
     if (isTest) {
       return res.json({ ok: true, orderId: record.id, estimate: record.estimate, checkoutUrl: null, test: true });
@@ -271,10 +277,13 @@ function describedDesign(body) {
     style: freeText(body.style, 300),
     front: freeText(body.front, 600),
     back: freeText(body.back, 600),
-    // The names of the reference images the customer added (the files themselves only go to the AI render)
-    refNames: (Array.isArray(body.refNames) ? body.refNames : []).slice(0, MAX_OWN_REFS).map((n) => String(n).replace(/[\r\n<>]/g, ' ').trim().slice(0, 120)).filter(Boolean),
+    // The names of the reference images the customer added, for the front and for the back (the files themselves
+    // only go to the AI render)
+    refNames: refNames(body.refNames),
+    backRefNames: refNames(body.backRefNames),
   };
 }
+const refNames = (list) => (Array.isArray(list) ? list : []).slice(0, MAX_OWN_REFS).map((n) => String(n).replace(/[\r\n<>]/g, ' ').trim().slice(0, 120)).filter(Boolean);
 
 // Which factory photos a front render was shown, so its back is shown the very same ones
 const refsByRender = new Map();
@@ -423,6 +432,24 @@ function tooMany(map, key, max) {
   map.set(key, [...recent, now]);
   return false;
 }
+
+// "Or paste a link": the logo fetched from the customer's website, or a picture at the address they gave (see
+// lib/fetchimage.js). The server goes out to an address a stranger typed, so it is limited per visitor.
+const fetchesByIp = new Map();
+app.post('/api/fetch-image', async (req, res) => {
+  const address = String((req.body || {}).url || '').trim().slice(0, 2000);
+  if (!address) return res.status(400).json({ error: 'Please paste a link first.' });
+  if (tooMany(fetchesByIp, req.ip, Number(process.env.FETCH_LIMIT_PER_HOUR || 40))) return res.status(429).json({ error: 'That is a lot of links in a short time. Please upload the file instead.' });
+  try {
+    const got = await fetchImage(address);
+    console.log(`[coin-builder] logo fetched from ${got.fromPage ? 'the page at' : ''} ${address.slice(0, 120)}`);
+    res.json({ ok: true, image: got.image, name: got.name, fromPage: got.fromPage });
+  } catch (e) {
+    const known = e instanceof FetchError;
+    if (!known) console.warn('[coin-builder] fetch-image failed:', e.message);
+    res.status(known ? e.status : 502).json({ error: known ? e.message : 'We could not reach that link. Please check it, or upload the file instead.' });
+  }
+});
 
 
 // "Contact us to fix my design": the message, the design in the customer's words and their latest render go to the team.

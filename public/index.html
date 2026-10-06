@@ -123,9 +123,7 @@
     <ol id="stepper" class="stepper" aria-label="Progress">
       <li data-step="front" class="current"><span>1</span><b>Front</b></li>
       <li data-step="back"><span>2</span><b>Back</b></li>
-      <li data-step="options"><span>3</span><b>Quantity</b></li>
-      <li data-step="details"><span>4</span><b><span class="only-wide">Your </span>Details</b></li>
-      <li data-step="review"><span>5</span><b>Review<span class="only-wide"> &amp; Pay</span></b></li>
+      <li data-step="quote"><span>3</span><b>Submit<span class="only-wide"> for</span> Quote</b></li>
     </ol>
 
     <div class="builder" id="builder" data-step="front">
@@ -226,20 +224,21 @@
       <!-- ============ step panels ============ -->
       <section class="panel">
 
-        <!-- Step 1: the front. Logo, wording, style, shape and size all live here; the back inherits them. -->
+        <!-- Step 1: the front. Logo, wording, style and shape live here; the back inherits them. Size and quantity are
+             asked for with the quote (step 3). -->
         <div class="step" data-step="front">
           <h2><span class="script">Design</span> the front</h2>
           <p class="lead">Tell us about your coin in plain words. Our AI drafts the front in a minute; then you do the back, and our artists finish it before production.</p>
           <p class="sub-head" aria-hidden="true"></p>
 
           <section class="group" data-tab="logo" data-guide="logo">
-            <h3 class="group-title"><span class="n">1. </span>Your logo and reference images <em>at least one is needed</em></h3>
+            <h3 class="group-title"><span class="n">1. </span>Your logo, seal, or reference images <em>at least one is needed</em></h3>
             <div class="field">
-              <div id="logo-drop" class="logo-drop" tabindex="0" role="button" aria-label="Upload your logo or artwork">
+              <div id="logo-drop" class="logo-drop" tabindex="0" role="button" aria-label="Upload your logo or seal">
                 <input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
                 <div class="logo-empty">
                   <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path fill="currentColor" d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/></svg>
-                  <strong>Upload your logo</strong>
+                  <strong>Upload your logo or seal</strong>
                   <span><span class="only-mouse">PNG, JPG, WEBP or SVG · drag &amp; drop, paste, or click</span><span class="only-touch">Tap to choose a photo or file</span> · transparent PNG looks best</span>
                 </div>
                 <div class="logo-have" hidden>
@@ -248,9 +247,16 @@
                   <button id="logo-remove" class="link" type="button">Remove</button>
                 </div>
               </div>
+              <!-- No file handy? The address of their website (the server pulls the logo off the page, see
+                   lib/fetchimage.js) or of a picture on it does the same job. -->
+              <div class="logo-link">
+                <input id="logo-url" type="url" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false" enterkeyhint="go" placeholder="Or paste a link to your website or logo" aria-label="Link to your website or logo">
+                <button id="logo-fetch" class="btn small dark" type="button">Grab Logo</button>
+              </div>
+              <p class="hint">Paste your website&rsquo;s address and we pull the logo off the page. A link straight to a picture works too.</p>
             </div>
-            <!-- Anything else that shows what they have in mind. These go to the AI with every render; app.js adds a
-                 thumbnail for each one in front of the Add button. -->
+            <!-- Anything else that shows what they have in mind. These go to the AI with every render of the front;
+                 app.js adds a thumbnail for each one in front of the Add button. -->
             <div id="ref-field" class="field">
               <span class="label">Reference images <em>up to 8</em></span>
               <div id="refs" class="refs">
@@ -276,19 +282,13 @@
             <p class="hint">Metal finish, colors, border, texture, mood. Leave it blank and we go with shiny gold and a plain rim.</p>
           </section>
 
-          <section class="group" data-tab="size" data-guide="shape">
+          <section class="group" data-tab="shape" data-guide="shape">
             <h3 class="group-title"><span class="n">4. </span>Coin shape</h3>
             <div id="coin-shape" class="seg wrap" role="group" aria-label="Coin shape">
               <button type="button" data-shape="round" class="on">Round</button>
               <button type="button" data-shape="odd">Odd shaped</button>
             </div>
             <p id="shape-hint" class="hint">Round is the classic challenge coin.</p>
-          </section>
-
-          <section class="group" data-tab="size">
-            <h3 class="group-title"><span class="n">5. </span>Coin size <em id="size-measure">diameter, needed for pricing</em></h3>
-            <div id="size-chips" class="seg wrap" role="group" aria-label="Coin size"></div>
-            <p id="size-hint" class="hint">Most challenge coins are 1.75" or 2". Need another size? Tell us in the notes when you order.</p>
           </section>
 
           <div class="result-slot" data-tab="result"></div>
@@ -303,8 +303,9 @@
           </div>
         </div>
 
-        <!-- Step 2: the back. Same coin turned over: "same as the front" needs nothing; a different design is
-             rendered with the finished front as its reference, so shape, rim, border and finish match. -->
+        <!-- Step 2: the back. Same coin turned over. Nearly every coin has its own design on the back, so that is the
+             default: it is rendered with the finished front as its reference, so shape, rim, border and finish match.
+             "Same as the front" and "Blank" (plain metal) need no render. -->
         <div class="step" data-step="back" hidden>
           <h2><span class="script">Now</span> the back</h2>
           <p class="lead">Your front is set. The back is the same coin turned over: same shape, metal, rim and border. Just tell us what goes on it.</p>
@@ -313,15 +314,31 @@
           <section class="group" data-tab="describe">
             <h3 class="group-title">What goes on the back?</h3>
             <div id="back-mode" class="seg wrap" role="group" aria-label="Back of the coin">
-              <button type="button" data-mode="same" class="on">Same as the front</button>
-              <button type="button" data-mode="custom">A different design</button>
+              <button type="button" data-mode="custom" class="on">A different design</button>
+              <button type="button" data-mode="same">Same as the front</button>
+              <button type="button" data-mode="blank">Blank</button>
             </div>
           </section>
 
-          <section id="back-custom" class="group" data-tab="describe" hidden>
+          <section id="back-custom" class="group" data-tab="describe">
             <h3 class="group-title">Describe the back</h3>
             <label class="ff"><span class="label">What goes on the back, and where</span><textarea id="desc-back" rows="4" maxlength="600" placeholder='Example: A bald eagle over a waving flag. "THE QUALITY IS ALWAYS HERE" curved around the top.'></textarea></label>
             <p class="hint">Put the exact wording in double quotes. Shape, metal finish and border come from your front, so there is nothing to repeat here.</p>
+          </section>
+
+          <!-- Pictures for the back alone. They go to the AI with every render of the back, with the logo and the front. -->
+          <section id="back-images" class="group" data-tab="images">
+            <h3 class="group-title">Reference images for the back <em>optional, up to 8</em></h3>
+            <div id="back-ref-field" class="field">
+              <div id="back-refs" class="refs">
+                <button id="back-ref-add" class="ref-add" type="button">
+                  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                  <span>Add images</span>
+                </button>
+              </div>
+              <input id="back-ref-files" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+              <p class="hint">Photos, sketches or examples for the back. Your logo and your front render go along on their own; with nothing added here, the front&rsquo;s reference images are sent too.</p>
+            </div>
           </section>
 
           <div class="result-slot" data-tab="result"></div>
@@ -332,71 +349,81 @@
             <button class="btn sub-nav sub-next" type="button" hidden>Next</button>
             <button class="btn dark back" type="button" data-back="front">Edit the Front</button>
             <button id="back-generate-btn" class="btn navy" type="button" disabled hidden>Generate the Back</button>
-            <button id="to-options" class="btn" type="button" hidden>Continue to Order</button>
+            <button id="to-quote" class="btn" type="button" hidden>Continue to Quote</button>
           </div>
         </div>
 
-        <!-- Step 2: quantity -->
-        <div class="step" data-step="options" hidden>
-          <h2><span class="script">How many</span> coins?</h2>
-          <div class="field">
-            <span class="label">Quantity</span>
-            <div id="qty-chips" class="seg wrap"></div>
-            <input id="qty-input" class="qty-input" type="number" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" min="1" max="100000" placeholder="Or type a quantity" aria-label="Custom quantity">
-            <p class="hint">We recommend a minimum of 25 coins. The price per coin drops as quantity goes up.</p>
-          </div>
-          <div id="estimate" class="estimate" hidden></div>
-          <div class="field">
-            <label class="ff"><span class="label">Notes for our team <em>(optional)</em></span><textarea id="notes" rows="2" maxlength="1000" placeholder="Add-ons like epoxy, key chains or numbering, a deadline, anything else…"></textarea></label>
-          </div>
-          <div class="step-actions">
-            <button class="btn dark back" type="button" data-back="back">Back</button>
-            <button id="to-details" class="btn" type="button" disabled>Continue</button>
-          </div>
-        </div>
+        <!-- Step 3: the quote. How many, what size, and who to send it to; one form, sent as one request. -->
+        <div class="step" data-step="quote" hidden>
+          <h2><span class="script">Submit</span> for quote <span id="quote-test" class="test-tag" hidden>TEST</span></h2>
+          <p class="lead">Tell us how many coins, what size, and where to send your quote. Our artists draw up your design and you approve a proof before anything is made.</p>
+          <form id="quote-form" class="details-form" novalidate>
+            <section class="group">
+              <h3 class="group-title"><span class="n">1. </span>How many coins?</h3>
+              <label class="ff"><span class="ff-label">Quantity <i>*</i></span><input id="qty-input" class="qty-input" type="number" inputmode="numeric" pattern="[0-9]*" enterkeyhint="next" min="1" max="100000" placeholder="e.g. 100"></label>
+              <p class="hint">We recommend at least 25 coins. The price per coin drops as the quantity goes up.</p>
+            </section>
 
-        <!-- Step 3: details form -->
-        <div class="step" data-step="details" hidden>
-          <h2><span class="script">Your</span> details</h2>
-          <form id="details-form" class="details-form" novalidate>
-            <div class="ff-grid">
-              <label class="ff"><span class="ff-label">Full name <i>*</i></span><input type="text" name="name" autocomplete="name" autocapitalize="words" enterkeyhint="next"></label>
-              <label class="ff"><span class="ff-label">Email <i>*</i></span><input type="email" name="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="next" placeholder="you@example.com"></label>
-              <label class="ff"><span class="ff-label">Phone</span><input type="tel" name="phone" inputmode="tel" autocomplete="tel" enterkeyhint="next"></label>
-              <label class="ff"><span class="ff-label">Company / organization</span><input type="text" name="company" autocomplete="organization"></label>
-            </div>
-            <p class="ff-section">Billing address</p>
-            <div class="ff-grid">
-              <label class="ff wide"><span class="ff-label">Street address, suite / unit <i>*</i></span><input type="text" name="billStreet" autocomplete="billing street-address"></label>
-              <label class="ff"><span class="ff-label">City, state, ZIP <i>*</i></span><input type="text" name="billCityStateZip" autocomplete="billing address-level2" placeholder="Austin, TX 78701"></label>
-              <label class="ff"><span class="ff-label">Country <i>*</i></span><input type="text" name="billCountry" value="United States" autocomplete="billing country-name"></label>
-            </div>
-            <label class="ff-check"><input type="checkbox" name="same" checked> Ship to the same address</label>
-            <div id="ship-fields">
-              <p class="ff-section">Shipping address</p>
-              <div class="ff-grid">
-                <label class="ff wide"><span class="ff-label">Street address, suite / unit <i>*</i></span><input type="text" name="street" autocomplete="shipping street-address"></label>
-                <label class="ff"><span class="ff-label">City, state, ZIP <i>*</i></span><input type="text" name="cityStateZip" autocomplete="shipping address-level2" placeholder="Austin, TX 78701"></label>
-                <label class="ff"><span class="ff-label">Country <i>*</i></span><input type="text" name="country" value="United States" autocomplete="shipping country-name"></label>
+            <section class="group">
+              <h3 class="group-title"><span class="n">2. </span>Coin size <em id="size-measure">diameter</em></h3>
+              <div class="size-row">
+                <label class="ff"><span class="ff-label">Size <i>*</i></span>
+                  <select id="size-select" class="size-select">
+                    <option value="">Choose a size</option>
+                    <option value="1">1"</option>
+                    <option value="1.25">1.25"</option>
+                    <option value="1.5">1.5"</option>
+                    <option value="1.75">1.75"</option>
+                    <option value="2">2"</option>
+                    <option value="2.25">2.25"</option>
+                    <option value="2.5">2.5"</option>
+                    <option value="2.75">2.75"</option>
+                    <option value="3">3"</option>
+                    <option value="3.25">3.25"</option>
+                    <option value="3.5">3.5"</option>
+                    <option value="3.75">3.75"</option>
+                    <option value="4">4"</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label id="size-other-field" class="ff" hidden><span class="ff-label">What size? <i>*</i></span><input id="size-other" type="text" maxlength="60" placeholder='e.g. 4.5" or 60 mm'></label>
               </div>
-            </div>
-            <p id="details-error" class="ff-error" role="alert" hidden></p>
+              <p id="size-hint" class="hint">Most challenge coins are 1.75" or 2".</p>
+            </section>
+            <div id="estimate" class="estimate" hidden></div>
+
+            <section class="group">
+              <h3 class="group-title"><span class="n">3. </span>Your details</h3>
+              <div class="ff-grid">
+                <label class="ff"><span class="ff-label">Full name <i>*</i></span><input type="text" name="name" autocomplete="name" autocapitalize="words" enterkeyhint="next"></label>
+                <label class="ff"><span class="ff-label">Email <i>*</i></span><input type="email" name="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="next" placeholder="you@example.com"></label>
+                <label class="ff"><span class="ff-label">Phone</span><input type="tel" name="phone" inputmode="tel" autocomplete="tel" enterkeyhint="next"></label>
+                <label class="ff"><span class="ff-label">Company / organization</span><input type="text" name="company" autocomplete="organization"></label>
+              </div>
+              <p class="ff-section">Billing address</p>
+              <div class="ff-grid">
+                <label class="ff wide"><span class="ff-label">Street address, suite / unit <i>*</i></span><input type="text" name="billStreet" autocomplete="billing street-address"></label>
+                <label class="ff"><span class="ff-label">City, state, ZIP <i>*</i></span><input type="text" name="billCityStateZip" autocomplete="billing address-level2" placeholder="Austin, TX 78701"></label>
+                <label class="ff"><span class="ff-label">Country <i>*</i></span><input type="text" name="billCountry" value="United States" autocomplete="billing country-name"></label>
+              </div>
+              <label class="ff-check"><input type="checkbox" name="same" checked> Ship to the same address</label>
+              <div id="ship-fields">
+                <p class="ff-section">Shipping address</p>
+                <div class="ff-grid">
+                  <label class="ff wide"><span class="ff-label">Street address, suite / unit <i>*</i></span><input type="text" name="street" autocomplete="shipping street-address"></label>
+                  <label class="ff"><span class="ff-label">City, state, ZIP <i>*</i></span><input type="text" name="cityStateZip" autocomplete="shipping address-level2" placeholder="Austin, TX 78701"></label>
+                  <label class="ff"><span class="ff-label">Country <i>*</i></span><input type="text" name="country" value="United States" autocomplete="shipping country-name"></label>
+                </div>
+              </div>
+              <label class="ff notes"><span class="ff-label">Notes for our team <em>(optional)</em></span><textarea id="notes" rows="2" maxlength="1000" placeholder="Add-ons like epoxy, key chains or numbering, a deadline, anything else…"></textarea></label>
+            </section>
+
+            <p id="quote-error" class="ff-error" role="alert" hidden></p>
             <div class="step-actions">
-              <button class="btn dark back" type="button" data-back="options">Back</button>
-              <button class="btn" type="submit">Continue to Review</button>
+              <button class="btn dark back" type="button" data-back="back">Back</button>
+              <button id="place-order" class="btn" type="submit">Submit for Quote</button>
             </div>
           </form>
-        </div>
-
-        <!-- Step 4: review -->
-        <div class="step" data-step="review" hidden>
-          <h2><span class="script">Review</span> your order <span id="review-test" class="test-tag" hidden>TEST</span></h2>
-          <table id="review-table" class="summary"></table>
-          <p id="review-error" class="ff-error" role="alert" hidden></p>
-          <div class="step-actions">
-            <button class="btn dark back" type="button" data-back="details">Back</button>
-            <button id="place-order" class="btn" type="button">Send to Coins for Anything</button>
-          </div>
           <p class="hint">Our artists draw up every design and send you a proof to approve before production. Shipping and any setup fees are confirmed by our team.</p>
         </div>
 
@@ -512,7 +539,8 @@
     </div>
   </div>
 
-  <!-- "Make Another Version": an optional note on what to change, then the render -->
+  <!-- "Make Another Version": an optional note on what to change, pictures to go on, then the render. The pictures
+       join the reference images of the face being redrawn, so they stay with the design. -->
   <div id="revise" class="checkout send" hidden role="dialog" aria-modal="true" aria-labelledby="revise-title">
     <div class="co-card send-card">
       <button id="revise-close" class="co-close" type="button" aria-label="Close">&times;</button>
@@ -521,8 +549,18 @@
         <h2 id="revise-title"><span class="script">Another</span> version</h2>
         <p class="send-lead">Anything you would like different this time? Leave it blank for a fresh take on the same design.</p>
         <label class="ff"><span class="ff-label">What should change? <em>(optional)</em></span><textarea id="revise-note" name="note" rows="3" maxlength="300" placeholder="e.g. Make the logo bigger, a darker blue background, more space around the lettering."></textarea></label>
+        <div class="field">
+          <span class="ff-label">Pictures to go on <em>(optional)</em></span>
+          <div id="revise-refs" class="refs">
+            <button id="revise-ref-add" class="ref-add" type="button">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              <span>Add images</span>
+            </button>
+          </div>
+          <input id="revise-ref-files" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+        </div>
         <button id="revise-submit" class="btn navy" type="submit">Generate New Version</button>
-        <p class="co-secure">Your description and logo stay the same; this note only steers the new version.</p>
+        <p class="co-secure">Your description and logo stay the same; the note and any pictures you add steer the new version.</p>
       </form>
     </div>
   </div>
