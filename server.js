@@ -242,7 +242,7 @@ app.post('/api/orders', async (req, res) => {
     // be entered by hand and nothing is lost.
     if (zoho.configured()) {
       zoho.createLead(record, png)
-        .then((r) => { updateOrder(record.id, { zoho: { leadId: r.leadId, attached: r.attached, at: new Date().toISOString() } }); console.log(`[coin-builder] order ${record.id} is Zoho lead ${r.leadId}`); })
+        .then((r) => { updateOrder(record.id, { zoho: { leadId: r.leadId, owner: r.owner, attached: r.attached, at: new Date().toISOString() } }); console.log(`[coin-builder] order ${record.id} is Zoho lead ${r.leadId}`); })
         .catch((e) => { updateOrder(record.id, { zoho: { error: e.message, at: new Date().toISOString() } }); console.error(`[coin-builder] Zoho lead failed for ${record.id}:`, e.message); });
     }
     res.json({ ok: true, orderId: record.id, estimate: record.estimate, checkoutUrl });
