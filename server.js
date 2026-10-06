@@ -10,7 +10,7 @@ const { getProvider } = require('./lib/providers');
 const { normalizeCoinShape, coinShapeLabel, freeText, quotedPhrases } = require('./lib/prompt');
 const { countReferences } = require('./lib/references');
 const { SIZES, hasPricing, estimate } = require('./lib/pricing');
-const { saveOrder, updateOrder, notifyWebhook, createCheckout } = require('./lib/orders');
+const { saveOrder, updateOrder, notifyWebhook, createCheckout, confirmPayment, awaitingPayment } = require('./lib/orders');
 const { watermark, saveOriginal, readOriginal } = require('./lib/watermark');
 const { mailConfigured, sendOrderEmail, sendAlertEmail, sendContactEmail, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
 const guard = require('./lib/guard');
@@ -268,15 +268,45 @@ app.post('/api/orders/:id/test-payment', (req, res) => {
   res.json({ ok: true, status: rec.status });
 });
 
-app.post('/api/orders/:id/paid', (req, res) => {
-  // Called by the page after returning from Stripe. Real confirmation should
-  // come from a Stripe webhook; this just marks the return so staff can verify.
+// An order found paid: the file says so already (confirmPayment); the team is told once
+function announcePaid(found) {
+  if (!found || !found.justPaid) return;
+  const o = found.record;
+  console.log(`[coin-builder] order ${o.id} is PAID (${o.amountPaid != null ? '$' + o.amountPaid : 'amount unknown'})`);
+  Promise.resolve(sendAlertEmail(`Paid: Coin Builder order ${o.id}`, `${o.name} (${o.email}) paid${o.amountPaid != null ? ` $${o.amountPaid}` : ''} for order ${o.id}: ${o.quantity} x ${o.sizeLabel || o.size} coins.\nStripe payment: ${o.stripePaymentIntent || 'see the Stripe dashboard'}`))
+    .catch((e) => console.error(`[coin-builder] paid notice failed for ${o.id}:`, e.message));
+}
+
+app.post('/api/orders/:id/paid', async (req, res) => {
+  // Called by the page after returning from Stripe. The page saying "paid" proves nothing, so Stripe is asked.
   const id = String(req.params.id || '');
   if (!/^CFA-\d{8}-[0-9A-F]{6}$/.test(id)) return res.status(400).json({ error: 'Bad order id' });
-  const rec = updateOrder(id, { status: req.body && req.body.paid ? 'paid_pending_verification' : 'payment_cancelled' });
-  if (!rec) return res.status(404).json({ error: 'Order not found' });
-  res.json({ ok: true });
+  if (!(req.body && req.body.paid)) {
+    const rec = updateOrder(id, { status: 'payment_cancelled' });
+    return rec ? res.json({ ok: true, paid: false }) : res.status(404).json({ error: 'Order not found' });
+  }
+  try {
+    const found = await confirmPayment(id);
+    if (!found) return res.status(404).json({ error: 'Order not found' });
+    if (!found.paid) updateOrder(id, { status: 'paid_pending_verification' }); // Stripe does not say so yet: staff check, and the sweep below keeps asking
+    announcePaid(found);
+    res.json({ ok: true, paid: found.paid });
+  } catch (e) {
+    console.error(`[coin-builder] could not confirm payment for ${id}:`, e.message);
+    updateOrder(id, { status: 'paid_pending_verification' });
+    res.json({ ok: true, paid: false });
+  }
 });
+
+// A customer can pay and close the tab before the page comes back, so every few minutes Stripe is asked about the
+// recent orders that went to checkout and have not been seen paid
+if (process.env.STRIPE_SECRET_KEY) {
+  setInterval(async () => {
+    for (const id of awaitingPayment()) {
+      try { announcePaid(await confirmPayment(id)); } catch (e) { console.warn(`[coin-builder] payment check failed for ${id}:`, e.message); }
+    }
+  }, 10 * 60 * 1000).unref();
+}
 
 // The coin as the customer describes it: their words for each face, style notes, shape, and an optional logo.
 // The order record keeps both faces; a render request carries one face at a time (see /api/generate).
