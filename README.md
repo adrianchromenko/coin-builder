@@ -34,6 +34,9 @@ Without an API key the server runs in **demo mode** and returns a local SVG mock
 | `STRIPE_SECRET_KEY` | | Enables Pay Now via Stripe Checkout (needs `PRICE_TABLE`) |
 | `PUBLIC_URL` | | Deployed URL, used for Stripe return links |
 | `ORDER_WEBHOOK_URL` | | Every order is POSTed here as JSON |
+| `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN` | | Every quote request becomes a Lead in Zoho CRM, render attached (`lib/zoho.js`; get the token with `scripts/zoho-token.js`) |
+| `ZOHO_LEAD_SOURCE` | `Coin Builder` | Lead Source stamped on those leads (must exist in the CRM picklist) |
+| `ZOHO_ASSIGNMENT` | | `1` runs the CRM's lead assignment rules on each new lead |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | | Enables email: order confirmations, design-fix requests and lead alerts; leads are saved in `leads/` |
 | `MAIL_REPLY_TO` | From address | Where customers' replies go |
 | `LEAD_WEBHOOK_URL` | | Every lead is POSTed here as JSON |

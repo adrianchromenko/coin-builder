@@ -19,6 +19,7 @@ const progress = require('./lib/progress');
 const { siteUrl } = require('./lib/site');
 const { screenUploads } = require('./lib/moderate');
 const { fetchImage, FetchError } = require('./lib/fetchimage');
+const zoho = require('./lib/zoho');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -233,9 +234,17 @@ app.post('/api/orders', async (req, res) => {
     notifyWebhook({ ...record, checkoutUrl });
     // Tell the team. The order is already saved on disk, so a mail problem never loses it (or fails the customer)
     const m = /^data:image\/png;base64,(.+)$/i.exec(imageDataUrl);
-    sendOrderEmail(record, m ? Buffer.from(m[1], 'base64') : null)
+    const png = m ? Buffer.from(m[1], 'base64') : null;
+    sendOrderEmail(record, png)
       .then((r) => { if (r) console.log(`[coin-builder] order ${record.id} emailed to the team`); })
       .catch((e) => console.error(`[coin-builder] order email failed for ${record.id}:`, e.message));
+    // And into Zoho CRM as a Lead (see lib/zoho.js). The order file records how that went, so a refused lead can
+    // be entered by hand and nothing is lost.
+    if (zoho.configured()) {
+      zoho.createLead(record, png)
+        .then((r) => { updateOrder(record.id, { zoho: { leadId: r.leadId, attached: r.attached, at: new Date().toISOString() } }); console.log(`[coin-builder] order ${record.id} is Zoho lead ${r.leadId}`); })
+        .catch((e) => { updateOrder(record.id, { zoho: { error: e.message, at: new Date().toISOString() } }); console.error(`[coin-builder] Zoho lead failed for ${record.id}:`, e.message); });
+    }
     res.json({ ok: true, orderId: record.id, estimate: record.estimate, checkoutUrl });
   } catch (e) {
     console.error('[coin-builder] order error:', e.message);
