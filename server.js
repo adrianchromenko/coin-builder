@@ -451,7 +451,8 @@ app.post('/api/fetch-image', async (req, res) => {
   if (tooMany(fetchesByIp, req.ip, Number(process.env.FETCH_LIMIT_PER_HOUR || 40))) return res.status(429).json({ error: 'That is a lot of links in a short time. Please upload the file instead.' });
   try {
     const got = await fetchImage(address);
-    console.log(`[coin-builder] logo fetched from ${got.fromPage ? 'the page at' : ''} ${address.slice(0, 120)}`);
+    // which picture was taken and why, for when a customer says it grabbed the wrong one
+    console.log(`[coin-builder] logo fetched from ${got.fromPage ? 'the page at' : ''} ${address.slice(0, 120)}${got.fromPage ? `: ${String(got.source).slice(0, 200)} (${got.why})` : ''}`);
     res.json({ ok: true, image: got.image, name: got.name, fromPage: got.fromPage });
   } catch (e) {
     const known = e instanceof FetchError;
