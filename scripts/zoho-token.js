@@ -6,15 +6,21 @@
  * generating the code at https://api-console.zoho.com (Self Client > Generate Code, scopes
  * ZohoCRM.modules.leads.CREATE,ZohoCRM.modules.attachments.CREATE):
  *
+ *   node scripts/zoho-token.js <grant code>                                 (client id and secret from .env)
  *   node scripts/zoho-token.js <client id> <client secret> <grant code> [accounts url]
  *
  * accounts url defaults to https://accounts.zoho.com (US). Use https://accounts.zoho.eu, .in, .com.au or .jp for
  * organizations on those data centers. Prints the lines to paste into .env.
  */
 
-const [clientId, clientSecret, code, accounts = 'https://accounts.zoho.com'] = process.argv.slice(2);
+require('dotenv').config();
+const args = process.argv.slice(2);
+const [clientId, clientSecret, code, accounts = process.env.ZOHO_ACCOUNTS_URL || 'https://accounts.zoho.com'] = args.length === 1
+  ? [process.env.ZOHO_CLIENT_ID, process.env.ZOHO_CLIENT_SECRET, args[0]]
+  : args;
 if (!clientId || !clientSecret || !code) {
-  console.error('usage: node scripts/zoho-token.js <client id> <client secret> <grant code> [accounts url]');
+  console.error('usage: node scripts/zoho-token.js <grant code>   (with ZOHO_CLIENT_ID and ZOHO_CLIENT_SECRET in .env)');
+  console.error('   or: node scripts/zoho-token.js <client id> <client secret> <grant code> [accounts url]');
   process.exit(1);
 }
 
