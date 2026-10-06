@@ -9,3 +9,4 @@ The header uses logo.webp. Replace that file to update the logo.
 
 The turning gold coins carry the logo on their back as logo-coin.webp, which is built from logo.webp:
 run `npm run coin-logo` after replacing the logo, and commit the result.
+Their front carries the Coin Nerd as coinnerd-coin.webp, a square cut of his head from the full-size mascot drawing.

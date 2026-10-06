@@ -583,43 +583,40 @@
     }
   });
 
-  // ---------- the waiting coin ----------
-  // Until there is a render, a gold coin waits on the empty face (see "the waiting coin" in style.css). It is the
-  // loading coin's twin, built from the same parts: two faces with a stack of discs between them for its thickness,
-  // and sparks around it. It carries the customer's logo once they have added one; until then, a star. Its back
-  // carries the company logo.
-  const idleCoins = [...document.querySelectorAll('.coin-mark')];
-  idleCoins.forEach((el, k) => {
-    const id = (name) => `idle${k}-${name}`;
-    const disc = `<circle cx="100" cy="100" r="100" fill="url(#${id('gold')})"/><circle class="mint-rim" cx="100" cy="100" r="93"/><circle class="mint-beads" cx="100" cy="100" r="89"/>`;
-    const field = '<circle class="mint-field" cx="100" cy="100" r="52"/>';
-    const arc = (where, text) => `<text><textPath href="#${id(where)}" startOffset="50%">${text}</textPath></text>`;
-    const edge = Array.from({ length: 13 }, (_, z) => `<i class="mint-edge" style="--z:${z - 6}"></i>`).join('');
-    const sparks = [[0, 10, 0], [96, 16, 1.3], [90, 88, .6], [4, 80, 2]].map(([x, y, d]) => `<i class="mint-spark" style="--x:${x}%;--y:${y}%;--d:${d}s"></i>`).join('');
-    el.innerHTML = `<span class="coin-float"><span class="coin-turn">
-      <span class="mint-face mint-front"><svg viewBox="0 0 200 200">
+  // ---------- the turning coins ----------
+  // Two gold coins are built from the same parts: the waiting coin on the empty preview and the loading coin that
+  // turns while a render is made. They are house coins and plainly not the customer's: the Coin Nerd on the front, the
+  // company logo on the back. (They used to carry the customer's own logo, which read as a promise of what their coin
+  // would look like.) Each is two faces with a stack of discs between them for its thickness.
+  // id: a prefix that keeps the gradients of one coin apart from the other's. motto: the line along the foot of the front.
+  function coinFaces(id, motto) {
+    const arc = (where, text) => `<text><textPath href="#${id}-${where}" startOffset="50%">${text}</textPath></text>`;
+    // the metal: a reeded edge, a raised rim lit from the top left, a field that dips toward the rim, and a ring of beads
+    const disc = `<circle cx="100" cy="100" r="100" fill="url(#${id}-gold)"/><circle class="mint-reeds" cx="100" cy="100" r="97.2"/>` +
+      `<circle cx="100" cy="100" r="92.6" fill="none" stroke="url(#${id}-rim)" stroke-width="3.2"/><circle cx="100" cy="100" r="91" fill="url(#${id}-well)"/>` +
+      '<circle class="mint-beads" cx="100" cy="100" r="87.4"/>';
+    return `<span class="mint-face mint-front"><svg viewBox="0 0 200 200">
         <defs>
-          <radialGradient id="${id('gold')}" cx="34%" cy="28%" r="85%"><stop offset="0" stop-color="#FFF3B0"/><stop offset=".32" stop-color="#EBC24A"/><stop offset=".72" stop-color="#BA871B"/><stop offset="1" stop-color="#7A5510"/></radialGradient>
-          <path id="${id('top')}" d="M 30 100 A 70 70 0 0 1 170 100"/><path id="${id('bottom')}" d="M 17 100 A 83 83 0 0 0 183 100"/>
+          <radialGradient id="${id}-gold" cx="34%" cy="28%" r="85%"><stop offset="0" stop-color="#FFF3B0"/><stop offset=".32" stop-color="#EBC24A"/><stop offset=".72" stop-color="#BA871B"/><stop offset="1" stop-color="#7A5510"/></radialGradient>
+          <linearGradient id="${id}-rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF8D2"/><stop offset=".45" stop-color="#D9A93A"/><stop offset="1" stop-color="#5E3F08"/></linearGradient>
+          <radialGradient id="${id}-well"><stop offset=".7" stop-color="#3C2604" stop-opacity="0"/><stop offset="1" stop-color="#3C2604" stop-opacity=".3"/></radialGradient>
+          <path id="${id}-top" d="M 30 100 A 70 70 0 0 1 170 100"/><path id="${id}-bottom" d="M 17 100 A 83 83 0 0 0 183 100"/>
+          <clipPath id="${id}-cameo"><circle cx="100" cy="101" r="43"/></clipPath>
         </defs>
-        ${disc}${field}${arc('top', 'COINS FOR ANYTHING')}${arc('bottom', '★ YOUR COIN HERE ★')}
-        <polygon class="mint-mark" points="100,70 107.35,89.89 128.53,90.73 111.89,103.86 117.63,124.27 100,112.5 82.37,124.27 88.11,103.86 71.47,90.73 92.65,89.89"/>
-        <image class="mint-logo" x="64" y="64" width="72" height="72" preserveAspectRatio="xMidYMid meet" style="display:none"/>
+        ${disc}${arc('top', 'COINS FOR ANYTHING')}${arc('bottom', motto)}
+        <circle class="mint-cameo-shade" cx="100" cy="102.5" r="47.5"/><circle class="mint-cameo" cx="100" cy="101" r="45" stroke="url(#${id}-rim)"/>
+        <image href="brand/coinnerd-coin.webp" x="55" y="56" width="90" height="90" clip-path="url(#${id}-cameo)"/>
+        <circle class="mint-cameo-ring" cx="100" cy="101" r="43"/>
       </svg></span>
-      <span class="mint-face mint-back"><svg viewBox="0 0 200 200">${disc}${arc('top', '★ EST. 2002 ★')}${arc('bottom', '★ VETERAN OWNED ★')}<image class="mint-brand" href="brand/logo-coin.webp" x="17" y="64.7" width="166" height="72.5"/></svg></span>
-      ${edge}</span></span>${sparks}`;
-  });
-  let idleLogoShown = null;
-  function idleLogo() {
-    if (idleLogoShown === design.logo) return;
-    idleLogoShown = design.logo;
-    for (const el of idleCoins) {
-      const img = el.querySelector('.mint-logo');
-      img.style.display = design.logo ? '' : 'none';
-      el.querySelector('.mint-mark').style.display = design.logo ? 'none' : '';
-      if (design.logo) img.setAttribute('href', design.logo); else img.removeAttribute('href');
-    }
+      <span class="mint-face mint-back"><svg viewBox="0 0 200 200">${disc}${arc('top', '★ EST. 2002 ★')}${arc('bottom', '★ VETERAN OWNED ★')}<image href="brand/logo-coin.webp" x="17" y="64.7" width="166" height="72.5"/></svg></span>` +
+      Array.from({ length: 13 }, (_, z) => `<i class="mint-edge" style="--z:${z - 6}"></i>`).join('');
   }
+  const sparks = (list) => list.map(([x, y, d]) => `<i class="mint-spark" style="--x:${x}%;--y:${y}%;--d:${d}s"></i>`).join('');
+
+  // The waiting coin: until there is a render it hangs on the empty face (see "the waiting coin" in style.css)
+  document.querySelectorAll('.coin-mark').forEach((el, k) => {
+    el.innerHTML = `<span class="coin-float"><span class="coin-turn">${coinFaces('idle' + k, '★ YOUR COIN HERE ★')}</span></span>${sparks([[0, 10, 0], [96, 16, 1.3], [90, 88, .6], [4, 80, 2]])}`;
+  });
 
   // ---------- the render on screen ----------
   // One coin on the front step. From the back step on, both faces side by side: the front on the left and, on the
@@ -632,7 +629,6 @@
     // Nothing to show and nothing on its way: small screens shrink the stage to a short banner
     $('stage').classList.toggle('empty', !two && !front && !ai.busy);
     document.querySelector('.preview').classList.toggle('two', two);
-    idleLogo();
     const setFace = (face, v, { same = false, hint = '' } = {}) => {
       const el = $('face-' + face);
       const img = el.querySelector('img');
@@ -757,20 +753,9 @@
     WAIT_TIPS.forEach((text, i) => facts.splice(3 + i * 5, 0, ['', text]));
     return [['', WAIT_FIRST], ...facts];
   }
-  // The loading coin (see "the mint" in style.css): its thickness is a stack of discs between the two faces, and
-  // sparks sit around the ring
-  (function buildMint() {
-    const coin = document.querySelector('.mint-coin');
-    for (let z = -6; z <= 6; z++) { const e = document.createElement('i'); e.className = 'mint-edge'; e.style.setProperty('--z', z); coin.appendChild(e); }
-    const sparks = [[6, 16, 0], [88, 8, .9], [98, 56, 1.7], [80, 90, .4], [12, 84, 1.3], [-2, 46, 2.1], [48, -5, 2.4]];
-    for (const [x, y, d] of sparks) { const e = document.createElement('i'); e.className = 'mint-spark'; e.style.cssText = `--x:${x}%;--y:${y}%;--d:${d}s`; $('mint').appendChild(e); }
-  })();
-  // The customer's own logo goes on the loading coin's face; without one it carries a star
-  function mintLogo(logo) {
-    $('mint-logo').style.display = logo ? '' : 'none';
-    $('mint-star').style.display = logo ? 'none' : '';
-    if (logo) $('mint-logo').setAttribute('href', logo); else $('mint-logo').removeAttribute('href');
-  }
+  // The loading coin (see "the mint" in style.css): the same house coin, turning inside the ring, with sparks around it
+  document.querySelector('.mint-coin').innerHTML = coinFaces('mint', '★ IN THE MAKING ★');
+  $('mint').insertAdjacentHTML('beforeend', sparks([[6, 16, 0], [88, 8, .9], [98, 56, 1.7], [80, 90, .4], [12, 84, 1.3], [-2, 46, 2.1], [48, -5, 2.4]]));
   function progressReset() {
     progress.sides.clear(); progress.overall = null;
     progress.started = Date.now(); progress.line = -1; progress.lines = waitLines();
@@ -851,7 +836,6 @@
     $('preview-busy').hidden = false;
     renderPreview();
     revealStage();
-    mintLogo(design.logo);
     progressReset();
     // refs: the pictures this render is shown (the back's own, or the front's when it has none)
     const snapshot = { ...designPayload(), logo: design.logo, refs: sideRefs(side).slice(), backRefs: design.backRefs.slice() };

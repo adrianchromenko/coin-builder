@@ -194,8 +194,8 @@ body {
 .progress-sub { font-size: 12px; opacity: .7; }
 
 /* ---------- the mint: what the customer watches while a coin renders ---------- */
-/* A gold coin turning in 3D inside a ring that fills as the render moves along. The coin carries the customer's logo
-   (or a star), and each stage of the render changes how it moves: it flips while the AI draws, rocks under a scanning
+/* A gold coin turning in 3D inside a ring that fills as the render moves along. It is a house coin (the Coin Nerd on
+   the front, the company logo on the back) so nobody takes it for their own, and each stage of the render changes how it moves: it flips while the AI draws, rocks under a scanning
    light while the wording is read back, spins up for the finishing touches and lands with a flash when it is done.
    Everything is sized from --c, the coin's diameter, which follows the size of the overlay. */
 .preview-busy {
@@ -237,11 +237,12 @@ body {
 /* A glint that crosses each face as it turns */
 .mint-face::after { content: ""; position: absolute; inset: 0; background: linear-gradient(112deg, rgba(255,255,255,0) 14%, rgba(255,255,255,.6) 50%, rgba(255,255,255,0) 86%); transform: translateX(-120%); animation: mint-glint 3s linear infinite; }
 .mint-face text { font-family: var(--font-head); font-weight: 600; font-size: 13px; letter-spacing: 2.2px; text-anchor: middle; fill: #6A480B; stroke: rgba(255,243,176,.45); stroke-width: .5; paint-order: stroke; }
-.mint-rim { fill: none; stroke: #6A480B; stroke-opacity: .55; stroke-width: 2; }
+.mint-reeds { fill: none; stroke: #5E3F08; stroke-opacity: .5; stroke-width: 5.6; stroke-dasharray: 1.05 1.5; } /* the grooved edge of a coin */
 .mint-beads { fill: none; stroke: #FFF3B0; stroke-opacity: .6; stroke-width: 1.6; stroke-dasharray: .1 4; stroke-linecap: round; }
-.mint-field { fill: rgba(60,38,4,.16); stroke: #6A480B; stroke-opacity: .5; stroke-width: 1.2; }
-.mint-mark { fill: #6A480B; stroke: rgba(255,243,176,.5); stroke-width: .8; }
-.mint-logo { filter: grayscale(1) contrast(1.15); mix-blend-mode: luminosity; }
+/* The Coin Nerd on the front, set into the metal like an enamel portrait */
+.mint-cameo-shade { fill: #3C2604; fill-opacity: .4; }
+.mint-cameo { fill: #FFF9EA; stroke-width: 3; }
+.mint-cameo-ring { fill: none; stroke: var(--orange); stroke-width: 1.8; }
 
 .mint-spark { position: absolute; left: var(--x); top: var(--y); width: calc(var(--c) * .1); height: calc(var(--c) * .1); background: #FFF3B0; clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%); opacity: 0; animation: mint-twinkle 2.6s var(--d) ease-in-out infinite; }
 /* The proofreader's light, only while the wording is being read back */
@@ -828,7 +829,7 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 /* ---------- the waiting coin ---------- */
 /* Until there is a render, a gold coin waits on the empty face. It is the loading coin's quieter twin, built by app.js
    from the same parts ("the mint" above): it hangs over its shadow in a pool of light, rocks to show one face, then
-   turns over to show the other, and carries the customer's logo once they have added one. Sized from --c, its diameter. */
+   turns over to show the other. Sized from --c, its diameter. */
 .coin-mark { --c: 156px; position: relative; flex: 0 0 auto; width: var(--c); height: var(--c); margin-bottom: calc(var(--c) * .16); }
 .coin-mark::before { content: ""; position: absolute; inset: -24%; border-radius: 50%; background: radial-gradient(circle, rgba(248,226,122,.3), rgba(248,226,122,0) 66%); animation: mint-glow 4s ease-in-out infinite; }
 .coin-mark::after { content: ""; position: absolute; left: 12%; right: 12%; top: 108%; height: 9%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0,0,0,.7), rgba(0,0,0,0)); animation: coin-shadow 4s ease-in-out infinite; }
