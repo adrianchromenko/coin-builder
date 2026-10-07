@@ -111,14 +111,14 @@
 
   // ---------- phone studio ----------
   // On a phone the builder is an app-like shell (see "phones: the coin studio" in style.css): the coin stays on screen
-  // and each design step is walked through one section at a time (describe, images, style, shape, then the result),
+  // and each design step is walked through one section at a time (images, describe, style, shape, then the result),
   // with Back and Next at the bottom. On wider screens every section shows at once and none of this is visible.
   const studio = window.matchMedia('(max-width: 559px), (max-width: 720px) and (orientation: portrait)');
   // id, the name in the row under the coin, the line above the section (first word in script), optional?
   const TABS = {
     front: [
-      ['describe', 'Describe', 'Describe', 'the front'],
       ['logo', 'Images', 'Add', 'your logo, seal or images'],
+      ['describe', 'Describe', 'Describe', 'the front'],
       ['style', 'Style', 'Pick', 'a style', true],
       ['shape', 'Shape', 'Choose', 'a shape'],
       ['result', 'Result', 'Here’s', 'your front'],
@@ -129,7 +129,8 @@
       ['result', 'Result', 'Here’s', 'your back'],
     ],
   };
-  const tabOpen = { front: 'describe', back: 'describe' };
+  const firstTab = (step) => TABS[step][0][0]; // where a step opens: its first section (images on the front)
+  const tabOpen = { front: firstTab('front'), back: firstTab('back') };
   // The sections of a design step. Result is one of them while the render it reports on is the one on screen; the
   // back's pictures only while the back has a design of its own.
   function tabsFor(step) {
@@ -139,7 +140,7 @@
   function renderTabs() {
     const step = $('builder').dataset.step;
     const { result, tabs } = tabsFor(step);
-    if (tabs.length && !tabs.some(([id]) => id === tabOpen[step])) tabOpen[step] = 'describe';
+    if (tabs.length && !tabs.some(([id]) => id === tabOpen[step])) tabOpen[step] = firstTab(step);
     const open = tabs.length ? tabOpen[step] : '';
     if ($('builder').dataset.tab !== open) document.querySelector('.panel').scrollTop = 0; // a new section starts at its top
     $('builder').dataset.tab = open;
@@ -1739,7 +1740,7 @@
     Object.assign(design, newDesign());
     Object.assign(order, { quantity: null, size: null, sizeOther: '', estimate: null, notes: '', name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
     ai.front = newSide(); ai.back = newSide(); ai.side = 'front';
-    tabOpen.front = tabOpen.back = 'describe';
+    tabOpen.front = firstTab('front'); tabOpen.back = firstTab('back');
     guideStop();
     $('result').innerHTML = '';
     form.reset(); syncShip(); // the whole quote form: quantity, size, notes and the details
