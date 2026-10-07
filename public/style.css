@@ -751,6 +751,25 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .co-check { width: 64px; height: 64px; border-radius: 50%; background: #2e7d32; color: var(--white); font-size: 36px; display: grid; place-items: center; }
 .co-done p { margin: 0; color: var(--text); overflow-wrap: anywhere; }
 
+/* ---------- the "?" beside a text field ---------- */
+/* A small ring in the field's label. It opens the popup below: what to put in the field, with an example. */
+.help-btn {
+  position: relative; display: inline-grid; place-items: center; width: 18px; height: 18px; margin-left: 6px; padding: 0; vertical-align: -4px;
+  border: 1.5px solid currentColor; border-radius: 50%; background: none; cursor: pointer;
+  font-family: var(--font-head); font-weight: 600; font-size: 11px; line-height: 1; letter-spacing: 0; text-transform: none; color: var(--orange-text);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.help-btn:hover, .help-btn:focus-visible { background: var(--orange); border-color: var(--orange); color: var(--white); }
+.help-body { gap: 14px; }
+.help-list { margin: 0; padding: 0 0 0 20px; display: flex; flex-direction: column; gap: 7px; font-size: 14px; line-height: 1.45; color: var(--text); }
+.help-list b { color: var(--text-dark); }
+.help-example { padding: 12px 14px; background: var(--offwhite); border-left: 3px solid var(--orange); }
+.help-example .label { margin-bottom: 4px; }
+.help-example p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--text-dark); }
+.help-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.help-actions .btn { flex: 1 1 auto; }
+.help-actions .btn[hidden] { display: none; }
+
 /* ---------- "email me this design" ---------- */
 .send-card { max-width: 440px; }
 .send-form, .send-done { padding: 28px 26px 24px; display: flex; flex-direction: column; gap: 12px; }
@@ -1247,6 +1266,12 @@ html { -webkit-text-size-adjust: 100%; }
   .send-card .co-close { position: sticky; align-self: flex-end; flex: 0 0 auto; margin-bottom: -44px; }
   .send-form, .send-done { flex: 0 0 auto; padding: 14px 18px max(20px, env(safe-area-inset-bottom)); }
   .send-coin { width: 84px; height: 84px; border-color: var(--s-line); }
+  .help-btn { width: 22px; height: 22px; font-size: 12px; vertical-align: -6px; color: var(--orange); }
+  .help-btn::before { content: ""; position: absolute; inset: -11px; } /* a finger-sized tap area around the small ring */
+  .help-list { color: var(--s-text); }
+  .help-list b { color: var(--s-strong); }
+  .help-example { background: var(--s-bg); }
+  .help-example p { color: var(--s-strong); }
   .send-form .btn, .send-done .btn { border-radius: 14px; }
 
   /* ----- a very short screen (a phone held sideways): everything above the tabs steps aside for the form ----- */

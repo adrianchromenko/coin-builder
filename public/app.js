@@ -1008,6 +1008,88 @@
   }
 
 
+  // ---------- the "?" beside a text field ----------
+  // Plenty of people have never described a coin before and freeze at an empty box. Each free-text field has a small
+  // "?" in its label that opens a popup: what to cover, in plain words, and an example that can go straight into the
+  // field as a starting point (only into an empty one; nothing of theirs is written over).
+  const HELP = {
+    front: {
+      field: 'desc-front', title: '<span class="script">Describing</span> the front',
+      lead: 'Picture the finished coin in your hand and say what you see, in plain words. There is no wrong way to put it. These are the things that help most:',
+      items: [
+        ['What is in the middle.', 'Your logo, a badge, an eagle, a building, a person, a vehicle. “Our logo in the middle” is plenty.'],
+        ['The wording, in "double quotes".', 'A name, a motto, a date, a unit. Say where it goes: curved around the top, along the bottom, on a banner.'],
+        ['What is behind it.', 'A flag, rays, a map, stars, or a plain enamel color.'],
+        ['Colors.', 'Which parts are which color. Anything you do not color comes out as metal.'],
+        ['Anything to leave out.', '“No stars”, “no text on the front”.'],
+      ],
+      example: 'Our logo in the middle, in full color. "CITY OF ASHLAND FIRE DEPT" curved around the top, "EST. 1990" along the bottom. Navy blue background behind the logo, with a white star on each side.',
+    },
+    back: {
+      field: 'desc-back', title: '<span class="script">Describing</span> the back',
+      lead: 'The back is the same coin turned over, so the shape, metal and border are already settled. Just say what goes on this side:',
+      items: [
+        ['The main picture.', 'An eagle, a crest, your state, a second logo, a flag, a vehicle.'],
+        ['The wording, in "double quotes".', 'A motto around the edge, a name and a year in the middle. Say where it goes.'],
+        ['Colors.', 'For any part that is not plain metal.'],
+        ['Popular backs.', 'A motto with the year. A second logo. A flag. A blank space to engrave names later.'],
+      ],
+      example: 'A bald eagle with its wings spread over a waving American flag. "SERVICE BEFORE SELF" curved around the top, "2024" at the bottom. Red, white and blue enamel on the flag.',
+    },
+    style: {
+      field: 'desc-style', title: '<span class="script">Style,</span> finish and theme',
+      lead: 'How the coin should look as an object. Leave it blank and you get shiny gold with a plain rim. If you have a preference, mention any of these:',
+      items: [
+        ['Metal.', 'Shiny gold, antique gold, shiny silver, antique silver, black nickel, copper.'],
+        ['Border.', 'Plain rim, rope border, beveled edge, stars around the edge, a reeded edge like a quarter.'],
+        ['Color.', 'Full color, two or three colors, or no color at all for a plain metal coin.'],
+        ['Mood.', 'Military, patriotic, corporate, vintage, playful, sports.'],
+        ['Extras.', 'A sandblasted background, cutouts, glitter, glow in the dark.'],
+      ],
+      example: 'Antique silver with a rope border. Red and blue enamel. A classic, patriotic military look.',
+    },
+    notes: {
+      field: 'notes', title: '<span class="script">Notes</span> for our team',
+      lead: 'Anything the form did not ask about. A real person reads every word before your quote goes out. Things worth mentioning:',
+      items: [
+        ['A deadline.', 'When you need the coins in hand, and what for.'],
+        ['Add-ons.', 'An epoxy dome, a key chain, a bottle opener, a velvet box, numbering, engraving.'],
+        ['More than one quantity.', 'Ask for a second price to compare, like 100 and 250.'],
+        ['Questions.', 'Anything you are unsure about. We answer with the quote.'],
+      ],
+      example: 'We need these by June 10 for a retirement ceremony. Please quote 100 and 250, and add velvet boxes.',
+    },
+  };
+  const help = { root: $('help'), opener: null, id: null };
+  function openHelp(id) {
+    const h = HELP[id];
+    if (!h) return;
+    help.id = id;
+    help.opener = document.activeElement;
+    $('help-title').innerHTML = h.title;
+    $('help-lead').textContent = h.lead;
+    $('help-list').innerHTML = h.items.map(([what, how]) => `<li><b>${what}</b> ${how}</li>`).join('');
+    $('help-example').textContent = h.example;
+    $('help-use').hidden = !!$(h.field).value.trim();
+    openDialog(help.root, $('help-ok'));
+  }
+  const closeHelp = () => closeDialog(help.root, help.opener);
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('.help-btn');
+    if (!b) return;
+    e.preventDefault(); // it sits inside the field's label; the tap is for the popup, not the field
+    openHelp(b.dataset.help);
+  });
+  $('help-close').addEventListener('click', closeHelp);
+  $('help-ok').addEventListener('click', closeHelp);
+  $('help-use').addEventListener('click', () => {
+    const field = $(HELP[help.id].field);
+    field.value = HELP[help.id].example;
+    field.dispatchEvent(new Event('input', { bubbles: true })); // the design follows the field, as if typed
+    closeDialog(help.root, field);
+  });
+  help.root.addEventListener('click', (e) => { if (e.target === help.root) closeHelp(); });
+
   // ---------- "contact us to fix my design" ----------
   const contact = { root: $('contact'), form: $('contact-form'), done: $('contact-done'), error: $('contact-error'), submit: $('contact-submit'), opener: null, busy: false };
   function openContact() {
@@ -1068,7 +1150,8 @@
   });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (!contact.root.hidden) closeContact();
+    if (!help.root.hidden) closeHelp();
+    else if (!contact.root.hidden) closeContact();
     else if (!revise.root.hidden) closeRevise();
     else if (nerd.open) closeNerd();
   });
