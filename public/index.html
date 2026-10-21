@@ -359,10 +359,33 @@
               </div>
               <p id="size-hint" class="hint">Most challenge coins are 1.75" or 2".</p>
             </section>
-            <div id="estimate" class="estimate" hidden></div>
+
+            <!-- The choices the price chart prices: metal finish, enamel color, add-ons, packaging and rush. The lists
+                 are filled in by app.js from /api/config (catalog), so the chart stays the only place prices live. -->
+            <section class="group" id="options-group" hidden>
+              <h3 class="group-title"><span class="n">3. </span>Finish and options</h3>
+              <div class="ff-grid">
+                <label class="ff wide"><span class="ff-label">Metal finish</span><select id="finish-select" class="size-select"></select></label>
+                <label class="ff"><span class="ff-label">Enamel color</span><select id="color-select" class="size-select"></select></label>
+              </div>
+              <p id="finish-hint" class="hint">We read these from your style notes; change them if we guessed wrong. Up to 50 coins, color is included in the price.</p>
+              <p class="ff-section">Add-ons <em>optional</em></p>
+              <div id="addon-tiles" class="addon-tiles" role="group" aria-label="Add-ons"></div>
+              <div class="ff-grid">
+                <label class="ff"><span class="ff-label">Packaging</span><select id="packaging-select" class="size-select"><option value="">None (poly bagged)</option></select></label>
+              </div>
+              <label class="ff-check rush-check"><input type="checkbox" id="rush-check"> <span>Rush it: I need these in under 10 business days</span></label>
+            </section>
+
+            <!-- The estimate: every line the chart prices, the total, and the small print. Filled in by app.js. -->
+            <div id="estimate" class="estimate" hidden>
+              <div class="quote-head"><span class="quote-title">Your estimate</span><span id="quote-total" class="big"></span></div>
+              <ul id="quote-lines" class="quote-lines"></ul>
+              <p id="quote-notes" class="quote-notes"></p>
+            </div>
 
             <section class="group">
-              <h3 class="group-title"><span class="n">3. </span>Your details</h3>
+              <h3 class="group-title"><span class="n">4. </span>Your details</h3>
               <div class="ff-grid">
                 <label class="ff"><span class="ff-label">Full name <i>*</i></span><input type="text" name="name" autocomplete="name" autocapitalize="words" enterkeyhint="next"></label>
                 <label class="ff"><span class="ff-label">Email <i>*</i></span><input type="email" name="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="next" placeholder="you@example.com"></label>
@@ -393,7 +416,7 @@
               <button id="place-order" class="btn" type="submit">Submit for Quote</button>
             </div>
           </form>
-          <p class="hint">Our artists draw up every design and send you a proof to approve before production. Shipping and any setup fees are confirmed by our team.</p>
+          <p class="hint">Our artists draw up every design and send you a proof to approve before production. The estimate above comes from our current price chart; our team confirms the final quote with your proof.</p>
         </div>
 
         <!-- Result -->
@@ -451,11 +474,7 @@
           <div class="co-brand"><img src="brand/logo.webp" alt="Coins for Anything"></div>
           <img id="co-coin" class="co-coin" alt="Your coin">
           <div id="co-item" class="co-item"></div>
-          <div class="co-lines">
-            <div><span>Subtotal</span><span id="co-subtotal"></span></div>
-            <div><span>Shipping</span><span id="co-shipping">Calculated by our team</span></div>
-            <div class="co-total"><span>Total due</span><span id="co-total"></span></div>
-          </div>
+          <div id="co-lines" class="co-lines"></div>
           <div id="co-note" class="co-note"></div>
         </aside>
         <form id="co-form" class="co-form" novalidate autocomplete="off">

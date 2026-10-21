@@ -14,7 +14,7 @@
   const escapeXml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
 
   // ---------- state ----------
-  const config = { pricing: false, payments: false, testMode: false, provider: '' };
+  const config = { pricing: false, payments: false, testMode: false, provider: '', catalog: null };
   // backMode: 'custom' (its own description, rendered to match the front: nearly every coin), 'same' (the back is the
   //   front again) or 'blank' (plain metal, no design)
   // shape: 'round' or 'odd' (a custom outline: shield, star, state, cut to the artwork; the words say which)
@@ -24,8 +24,12 @@
   const newDesign = () => ({ front: '', back: '', backMode: 'custom', shape: 'round', shapePicked: false, style: '', logo: null, logoName: '', refs: [], backRefs: [] });
   const design = newDesign();
   // size: one of the sizes in the <select>, or 'other' with the size written in sizeOther
+  // finish, color, addons, packaging, rush: the choices the price chart prices (config.catalog lists them); finish and
+  //   color start from the design (style notes, one or two sides) until the customer picks them (finishPicked, colorPicked)
+  // quote: the last estimate from the server, { priced, total, lines... } or { priced: false, reason }
   const order = {
-    quantity: null, size: null, sizeOther: '', estimate: null, notes: '',
+    quantity: null, size: null, sizeOther: '', quote: null, notes: '',
+    finish: '', finishPicked: false, color: 'two', colorPicked: false, addons: [], packaging: '', rush: false,
     name: '', email: '', phone: '', company: '',
     billStreet: '', billCityStateZip: '', billCountry: 'United States',
     street: '', cityStateZip: '', country: 'United States',
@@ -58,6 +62,7 @@
 
   const configReady = fetch('/api/config').then((r) => r.json()).then((c) => {
     Object.assign(config, c);
+    buildOptions();
     if (c.testMode) setTestMode(true, { persist: false });
     updateOrderButton();
   }).catch(() => {});
@@ -1197,7 +1202,7 @@
   });
   document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => showStep(b.dataset.back)));
   $('to-back').addEventListener('click', () => { if (currentFront()) showStep('back'); });
-  $('to-quote').addEventListener('click', () => { if (currentFront() && (!customBack() || currentBack())) showStep('quote'); });
+  $('to-quote').addEventListener('click', () => { if (currentFront() && (!customBack() || currentBack())) { optionsFromDesign(); updateEstimate(); showStep('quote'); } });
 
   // ---------- step 3: the quote ----------
   // How many, what size, who to send it to: one form. Quantity is typed in (no chips); the size comes from the list,
@@ -1212,29 +1217,114 @@
   $('notes').addEventListener('input', (e) => { order.notes = e.target.value; });
   const sizeOk = () => !!order.size && (order.size !== 'other' || !!order.sizeOther.trim());
 
+  // ---- finish and options: the lists come from the price chart (config.catalog) ----
+  const finishSelect = $('finish-select');
+  const colorSelect = $('color-select');
+  const packagingSelect = $('packaging-select');
+  const rushCheck = $('rush-check');
+  const perCoin = (n) => `$${Number(n).toFixed(2)} per coin`;
+  function buildOptions() {
+    const cat = config.catalog;
+    if (!config.pricing || !cat) { $('options-group').hidden = true; return; }
+    finishSelect.innerHTML = cat.finishes.map((f) => `<option value="${f.key}">${escapeHtml(f.label)}</option>`).join('');
+    colorSelect.innerHTML = cat.colors.map((c) => `<option value="${c.key}">${escapeHtml(c.label)}</option>`).join('');
+    packagingSelect.innerHTML = '<option value="">None (poly bagged)</option>' + cat.packaging.map((p) =>
+      `<option value="${p.key}">${escapeHtml(p.label)} · ${p.under75 === p.from75 ? perCoin(p.from75) : `$${p.from75.toFixed(2)} to $${p.under75.toFixed(2)} each`}</option>`).join('');
+    $('addon-tiles').innerHTML = cat.addons.map((a) =>
+      `<button type="button" class="addon-tile" data-addon="${a.key}" aria-pressed="false"><span class="tick"></span>` +
+      `<span class="addon-info"><strong>${escapeHtml(a.label)}</strong><span>${perCoin(a.perCoin)}${a.setup ? ` + $${a.setup.toFixed(0)} setup` : ''}</span></span></button>`).join('');
+    rushCheck.parentElement.querySelector('span').textContent = `Rush it: I need these in ${cat.rush.label.replace(/^<\s*/, 'under ').toLowerCase()}`;
+    $('options-group').hidden = false;
+    syncOptions();
+  }
+  // The metal finish the style notes name, as the chart groups them ("silver" alone reads as shiny silver / nickel)
+  function guessFinish(text) {
+    const t = String(text || '').toLowerCase();
+    if (/black|gunmetal|dye/.test(t)) return 'black';
+    if (/brass/.test(t)) return 'antique-brass';
+    if (/copper/.test(t)) return 'copper';
+    if (/(antique|satin)\s*silver|pewter/.test(t)) return 'antique-silver';
+    if (/nickel|silver|chrome|steel|platinum/.test(t)) return 'shiny-nickel';
+    return 'gold';
+  }
+  // The finish and the color sides start from the design; a choice the customer made themselves stays
+  function optionsFromDesign() {
+    if (!order.finishPicked) order.finish = guessFinish(design.style);
+    if (!order.colorPicked) order.color = blankBack() ? 'one' : 'two';
+    syncOptions();
+  }
+  function syncOptions() {
+    if (!config.catalog) return;
+    if (!order.finish) order.finish = guessFinish(design.style);
+    finishSelect.value = order.finish;
+    if (!finishSelect.value) { finishSelect.selectedIndex = 0; order.finish = finishSelect.value; }
+    colorSelect.value = order.color;
+    packagingSelect.value = order.packaging;
+    rushCheck.checked = order.rush;
+    for (const t of $('addon-tiles').querySelectorAll('.addon-tile')) {
+      const on = order.addons.includes(t.dataset.addon);
+      t.classList.toggle('on', on); t.setAttribute('aria-pressed', String(on));
+    }
+  }
+  finishSelect.addEventListener('change', () => { order.finish = finishSelect.value; order.finishPicked = true; updateEstimate(); });
+  colorSelect.addEventListener('change', () => { order.color = colorSelect.value; order.colorPicked = true; updateEstimate(); });
+  packagingSelect.addEventListener('change', () => { order.packaging = packagingSelect.value; updateEstimate(); });
+  rushCheck.addEventListener('change', () => { order.rush = rushCheck.checked; updateEstimate(); });
+  $('addon-tiles').addEventListener('click', (e) => {
+    const t = e.target.closest('.addon-tile');
+    if (!t) return;
+    const key = t.dataset.addon;
+    order.addons = order.addons.includes(key) ? order.addons.filter((k) => k !== key) : [...order.addons, key];
+    syncOptions();
+    updateEstimate();
+  });
+  const optionsPayload = () => ({ finish: order.finish, color: order.color, addons: order.addons, packaging: order.packaging, rush: order.rush });
+
+  // ---- the estimate ----
+  let quoteSeq = 0;
   async function updateEstimate() {
     const ok = !!order.quantity && sizeOk();
-    order.estimate = null;
+    order.quote = null;
     const box = $('estimate');
+    const seq = ++quoteSeq;
     if (!ok) { box.hidden = true; updateOrderButton(); return; }
     await configReady;
-    if (!config.pricing || order.size === 'other') {
-      box.innerHTML = '<small>Our team confirms exact pricing by email, usually within one business day.</small>';
-      box.hidden = false;
-      updateOrderButton();
+    if (!config.pricing) {
+      showUnpriced('Our team confirms exact pricing by email, usually within one business day.');
       return;
     }
     try {
-      const r = await fetch(`/api/quote?size=${encodeURIComponent(order.size)}&quantity=${order.quantity}`);
+      const p = new URLSearchParams({ size: order.size, quantity: String(order.quantity), ...optionsPayload(), addons: order.addons.join(',') });
+      const r = await fetch(`/api/quote?${p}`);
       const d = await r.json();
-      if (d.estimate) {
-        order.estimate = d.estimate;
-        box.innerHTML = `<div class="big">${money(d.estimate.total)}</div><small>${order.quantity.toLocaleString()} × ${order.size}" coins at ${money(d.estimate.unit)} each. Shipping and any setup fees are confirmed by our team.</small>`;
-        box.hidden = false;
-      }
-    } catch (_) { box.hidden = true; }
+      if (seq !== quoteSeq) return; // a newer answer is on its way
+      const q = d.quote;
+      if (q && q.priced) { order.quote = q; renderQuote(q); }
+      else if (q && q.reason === 'quantity_over') showUnpriced(`Orders over ${q.max.toLocaleString()} coins are priced by hand. Send your request and our team quotes it within one business day.`);
+      else if (q && q.reason === 'size') showUnpriced('A size off our list is priced by hand. Send your request and our team quotes it within one business day.');
+      else showUnpriced('Our team confirms exact pricing by email, usually within one business day.');
+    } catch (_) { box.hidden = true; updateOrderButton(); }
+  }
+  function showUnpriced(text) {
+    const box = $('estimate');
+    box.classList.add('unpriced');
+    $('quote-notes').textContent = text;
+    box.hidden = false;
     updateOrderButton();
   }
+  function renderQuote(q) {
+    const box = $('estimate');
+    box.classList.remove('unpriced');
+    $('quote-total').textContent = money(q.total);
+    $('quote-lines').innerHTML = quoteLinesHtml(q, 'li');
+    $('quote-notes').textContent = q.notes.join(' ');
+    box.hidden = false;
+    updateOrderButton();
+  }
+  // The quote's lines as markup: label, detail and amount per line (used by the estimate box and the test checkout)
+  const quoteLinesHtml = (q, tag) => q.lines.map((l) =>
+    `<${tag}><span class="ql-label">${escapeHtml(l.label)}${l.detail ? `<small>${escapeHtml(l.detail)}</small>` : ''}</span>` +
+    `<span class="ql-amount${l.amount === 0 ? ' ql-free' : ''}">${l.amount === 0 ? 'Free' : money(l.amount)}</span></${tag}>`).join('');
 
   const same = form.elements.same;
   const syncShip = () => { $('ship-fields').hidden = same.checked; };
@@ -1285,7 +1375,8 @@
   });
 
   function updateOrderButton() {
-    $('place-order').textContent = isTest() ? 'Place Test Order' : (config.payments && order.estimate ? 'Pay Now' : 'Submit for Quote');
+    const priced = !!(order.quote && order.quote.priced);
+    $('place-order').textContent = isTest() ? 'Place Test Order' : (config.payments && priced ? 'Pay Now' : 'Submit for Quote');
   }
 
   async function placeOrder() {
@@ -1311,6 +1402,7 @@
           billStreet: order.billStreet, billCityStateZip: order.billCityStateZip, billCountry: order.billCountry,
           street: order.street, cityStateZip: order.cityStateZip, country: order.country,
           notes: order.notes,
+          options: optionsPayload(),
           design: {
             ...designPayload(),
             aiRendered: !!v,
@@ -1339,7 +1431,8 @@
       showResult(
         `<p class="head"><span class="script">Thank you</span> so much for your business!</p>` +
         `<p>Your quote request <strong>${escapeHtml(data.orderId)}</strong> for ${order.quantity.toLocaleString()} ${escapeHtml(sizeText())} coins has been sent to the <strong>Coins for Anything team</strong>. ` +
-        `We'll be in touch at <strong>${escapeHtml(order.email)}</strong> ${order.estimate ? 'with your quote, a proof to approve, and next steps' : 'with your quote, a proof to approve, and next steps'} within one business day.</p>` +
+        (order.quote && order.quote.priced ? `<p>Your estimate came to <strong>${money(order.quote.total)}</strong> (${escapeHtml(order.quote.finishLabel)}, ${escapeHtml(order.quote.colorLabel.toLowerCase())}${order.rush ? ', rush' : ''}). ` : '<p>') +
+        `We'll be in touch at <strong>${escapeHtml(order.email)}</strong> with your ${order.quote && order.quote.priced ? 'confirmed quote' : 'quote'}, a proof to approve, and next steps within one business day.</p>` +
         '<p>The Quality is Always Here.</p>'
       );
     } catch (e) {
@@ -1400,14 +1493,15 @@
   function openTestCheckout(orderId, image) {
     return new Promise((resolve) => {
       const o = order;
-      const sample = !o.estimate;
-      const amount = o.estimate ? o.estimate.total : Math.round(o.quantity * 6.95 * 100) / 100;
+      const q = o.quote && o.quote.priced ? o.quote : null;
+      const sample = !q;
+      const amount = q ? q.total : Math.round(o.quantity * 6.95 * 100) / 100;
       $('co-coin').src = image || '';
-      $('co-item').innerHTML = `<strong>${o.quantity.toLocaleString()} × Custom ${escapeHtml(sizeText())} Coin</strong><br>` +
-        `<span style="color:#999">Order ${escapeHtml(orderId)}${o.estimate ? ` &middot; ${money(o.estimate.unit)} each` : ''}</span>`;
-      $('co-subtotal').textContent = money(amount);
-      $('co-total').textContent = money(amount);
-      $('co-note').textContent = sample ? 'Sample price shown because no PRICE_TABLE is configured. Test mode only.' : 'Shipping and any setup fees are confirmed by our team.';
+      $('co-item').innerHTML = `<strong>${o.quantity.toLocaleString()} × Custom ${escapeHtml(sizeText())} ${q ? escapeHtml(q.finishLabel.split(' / ')[0]) + ' ' : ''}Coin</strong><br>` +
+        `<span style="color:#999">Order ${escapeHtml(orderId)}${q ? ` &middot; ${money(q.unit)} each` : ''}</span>`;
+      $('co-lines').innerHTML = (q ? quoteLinesHtml(q, 'div') : `<div><span>Subtotal</span><span>${money(amount)}</span></div>`) +
+        `<div class="co-total"><span>Total due</span><span>${money(amount)}</span></div>`;
+      $('co-note').textContent = sample ? 'Sample price shown: the chart could not price this order. Test mode only.' : 'Sales tax, if any, is added at checkout. Our team confirms the final quote with your proof.';
       co.form.reset();
       $('co-email').value = o.email;
       co.form.elements.cardName.value = o.name;
@@ -1821,12 +1915,12 @@
   // ---------- restart ----------
   function restart() {
     Object.assign(design, newDesign());
-    Object.assign(order, { quantity: null, size: null, sizeOther: '', estimate: null, notes: '', name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
+    Object.assign(order, { quantity: null, size: null, sizeOther: '', quote: null, notes: '', finish: '', finishPicked: false, color: 'two', colorPicked: false, addons: [], packaging: '', rush: false, name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
     ai.front = newSide(); ai.back = newSide(); ai.side = 'front';
     tabOpen.front = firstTab('front'); tabOpen.back = firstTab('back');
     guideStop();
     $('result').innerHTML = '';
-    form.reset(); syncShip(); // the whole quote form: quantity, size, notes and the details
+    form.reset(); syncShip(); syncOptions(); // the whole quote form: quantity, size, options, notes and the details
     for (const el of form.querySelectorAll('.bad')) el.classList.remove('bad');
     logoUrl.value = ''; logoUrl.classList.remove('bad');
     syncControls();

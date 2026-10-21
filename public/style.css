@@ -633,6 +633,25 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .estimate .big { font-family: var(--font-head); font-size: 26px; letter-spacing: 1px; color: var(--text-dark); }
 .estimate small { color: #666; font-size: 13px; }
 
+/* The estimate, line by line: coins, mold, add-ons, packaging, rush, shipping, then the total up top */
+.quote-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.quote-title { font-family: var(--font-head); font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dark); }
+.quote-lines { list-style: none; margin: 10px 0 0; padding: 10px 0 0; border-top: 1px solid #DDD8CF; }
+.quote-lines li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 4px 0; font-size: 14px; color: var(--text-dark); }
+.quote-lines li small { display: block; font-size: 12px; color: #666; }
+.quote-lines .ql-amount { flex: 0 0 auto; font-weight: 600; }
+.quote-lines .ql-free { color: var(--orange-text); }
+.quote-notes { margin: 10px 0 0; font-size: 12.5px; color: #666; line-height: 1.45; }
+.estimate.unpriced .quote-head, .estimate.unpriced .quote-lines { display: none; }
+.estimate.unpriced .quote-notes { margin-top: 0; font-size: 13px; }
+/* Add-on tiles on the quote form: name, price per coin, setup fee */
+#options-group[hidden] { display: none; }
+#options-group .ff-section + .addon-tiles { margin-top: 10px; }
+#options-group .addon-tiles + .ff-grid { margin-top: 14px; }
+.addon-tile .addon-info strong { font-size: 12.5px; letter-spacing: 1px; }
+.addon-tile:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.rush-check span { line-height: 1.3; }
+
 /* details form */
 .details-form .ff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
 .details-form .ff.wide { grid-column: 1 / -1; }
@@ -736,6 +755,8 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .co-item { font-size: 15px; color: var(--white); line-height: 1.4; }
 .co-lines { margin-top: 18px; border-top: 1px solid #333; padding-top: 12px; font-size: 14px; }
 .co-lines > div { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; }
+.co-lines > div small { display: block; font-size: 11.5px; color: #888; }
+.co-lines > div > span:last-child { flex: 0 0 auto; }
 .co-lines .co-total { border-top: 1px solid #333; margin-top: 8px; padding-top: 12px; font-family: var(--font-head); font-size: 20px; color: var(--white); letter-spacing: 1px; }
 .co-note { margin-top: 12px; font-size: 12px; color: #999; }
 .co-form { padding: 24px; display: flex; flex-direction: column; gap: 12px; }
@@ -1113,6 +1134,7 @@ html { -webkit-text-size-adjust: 100%; }
   .builder[data-step="quote"] .preview { display: flex; flex-direction: row; gap: 12px; height: auto; padding-top: 8px; padding-bottom: 8px; }
   .builder[data-step="quote"] .preview .preview-stage.two { flex: 0 0 112px; width: 112px; height: 54px; gap: 4px; }
   .builder[data-step="quote"] .face-label { display: none; }
+  .builder[data-step="quote"] .preview-stage.two .face-empty { display: none; } /* the spec line beside it says "blank back" */
   .builder[data-step="quote"] .face img { border-radius: 8px; box-shadow: none; }
   .builder[data-step="quote"] .preview-spec { flex: 1 1 0; min-width: 0; margin: 0; text-align: left; font-size: 12px; color: var(--s-strong); }
 
@@ -1208,6 +1230,19 @@ html { -webkit-text-size-adjust: 100%; }
   .estimate { border-left-width: 3px; border-radius: 12px; background: var(--s-card); }
   .estimate .big { color: var(--s-strong); }
   .estimate small { color: var(--s-dim); }
+  .quote-title { color: var(--s-strong); }
+  .quote-lines { border-top-color: var(--s-line); }
+  .quote-lines li { color: var(--s-text); }
+  .quote-lines li small, .quote-notes { color: var(--s-dim); }
+  .quote-lines .ql-free { color: var(--orange); }
+  .addon-tiles { grid-template-columns: 1fr; }
+  .addon-tile { min-height: 48px; border-radius: 12px; background: var(--s-card); border: 1px solid var(--s-line); color: var(--s-text); }
+  .addon-tile:hover { border-color: var(--s-line); }
+  .addon-tile.on { background: rgba(245,130,32,.1); border-color: var(--orange); }
+  .addon-tile .tick { border-color: var(--s-line); background: transparent; }
+  .addon-tile .addon-info strong { color: var(--s-strong); }
+  .addon-tile .addon-info span { color: var(--s-dim); }
+  .rush-check { align-items: flex-start; }
 
 
   /* The Result tab: what the proofreader found, and the offer to have a designer fix it */

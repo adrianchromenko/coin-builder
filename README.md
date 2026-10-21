@@ -2,7 +2,7 @@
 
 A web app where a customer describes a custom coin in plain words, sees it AI-rendered, and orders it.
 
-Three stages. **Front:** the customer adds a logo, seal or reference image (a file, or a link to their website: the server pulls the logo off the page, see `lib/fetchimage.js`), describes the front in their own words, adds style notes, picks round or odd shaped, and generates it. **Back:** its own description by default (nearly every coin has one), rendered with the finished front as the AI's reference so shape, rim, border and finish match, with its own reference images; or the same design again, or blank (neither needs a render). The wording is proofread, and a standing note says AI can misspell things with a **Contact Us to Fix My Design** popup that emails the designers. **Submit for quote:** one form with the quantity (typed in), the size (a list from 1" to 4" by quarter inch, or "Other" written in), contact, billing and shipping details and notes; it saves the order under `orders/`, and hands off to Stripe Checkout when pricing and a Stripe key are configured.
+Three stages. **Front:** the customer adds a logo, seal or reference image (a file, or a link to their website: the server pulls the logo off the page, see `lib/fetchimage.js`), describes the front in their own words, adds style notes, picks round or odd shaped, and generates it. **Back:** its own description by default (nearly every coin has one), rendered with the finished front as the AI's reference so shape, rim, border and finish match, with its own reference images; or the same design again, or blank (neither needs a render). The wording is proofread, and a standing note says AI can misspell things with a **Contact Us to Fix My Design** popup that emails the designers. **Submit for quote:** one form with the quantity (typed in), the size (a list from 1" to 4" by quarter inch, or "Other" written in), the metal finish and enamel color (read from the style notes, changeable), add-ons, packaging and rush, then contact, billing and shipping details and notes. As they fill it in, an **estimate** is priced line by line from the company price chart (see "Pricing" below). It saves the order under `orders/` with the quote the customer saw, and hands off to Stripe Checkout when a Stripe key is configured.
 
 ## Run locally
 
@@ -30,8 +30,8 @@ Without an API key the server runs in **demo mode** and returns a local SVG mock
 | `AI_VERIFY` | on | `0` turns proofreading off |
 | `MODERATE_UPLOADS` | on | Every logo and reference image is screened for sexual content, gore and self-harm before it reaches the image model (see `lib/moderate.js`); `0` turns that off |
 | `OPENAI_VERIFY_MODEL` | `gpt-5.4-mini` | Vision model that proofreads each render |
-| `PRICE_TABLE` | | JSON price list by size; enables quotes (see `.env.example`) |
-| `STRIPE_SECRET_KEY` | | Enables Pay Now via Stripe Checkout (needs `PRICE_TABLE`) |
+| `PRICING` | on | `0` turns the estimate off: orders are saved as plain quote requests with no price shown |
+| `STRIPE_SECRET_KEY` | | Enables Pay Now via Stripe Checkout, charging the quoted total line by line |
 | `PUBLIC_URL` | | Deployed URL, used for Stripe return links |
 | `ORDER_WEBHOOK_URL` | | Every order is POSTed here as JSON |
 | `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN` | | Every quote request becomes a Lead in Zoho CRM, render attached (`lib/zoho.js`; get the token with `scripts/zoho-token.js`) |
@@ -73,6 +73,26 @@ Each render costs real money whether or not the visitor orders, so `lib/guard.js
 
 The proofreader reads the render without seeing the art proof on purpose. When it could see the intended wording it "corrected" typos in its head and passed misspelled coins.
 
+## Pricing
+
+Quotes are priced from `lib/price-chart.json`, which is the company's **Expanded Pricing Chart** spreadsheet turned into data. When the chart changes, re-import it (the sheet layout is described at the top of the script):
+
+```bash
+pip install openpyxl
+python scripts/import-pricing.py "C:/Users/User/Downloads/Expanded Pricing Chart to 4in 2026 Oct.xlsx"
+```
+
+`lib/pricing.js` prices an order the way the chart does:
+
+- **Coins.** Each size (1" to 4" by quarter inch) has a per-coin price per finish group (antique brass; shiny nickel / shiny silver; copper; antique or satin silver; gold; black) by quantity tier. Up to 50 coins there is one price with any enamel color included; from 51 coins the price depends on color on no side, one side or both. The chart stops at 1,200 coins: above that, and for a size written in words, no estimate is shown and the team quotes by hand.
+- **Mold and set-up.** One mold fee per order, by size ($140 for 1" up to $379 for 4").
+- **Add-ons.** Per coin, some with a one-time setup fee (stamped edge, reeded edge, keychain, picture insert, custom ribbons, screen print).
+- **Packaging.** Per coin, cheaper from 75 coins; each piece adds a little to shipping.
+- **Rush** (under 10 business days). $75 up to 50 coins, $80 for 51 to 99, 20% of the coin cost from 100.
+- **Shipping.** The chart's ground-shipping guide by size and quantity; 1" to 2.25" coins ship free from 300 coins, larger coins at so much per coin.
+
+The estimate updates as the customer changes anything, and the order record keeps the lines they saw (`quote`), so the team's email and the Zoho lead show the same numbers. Sales tax is not included. The finish and color sides are guessed from the design (style notes; a blank back means color on one side) until the customer picks them.
+
 ## Test mode
 
 Open `/test` or `/?test=1` to turn test mode on for that browser tab (the header switch then appears; `/test/off` turns it off). Switching it does not clear the form, so you can flip it on right before placing an order.
@@ -83,7 +103,7 @@ In test mode:
 - The design email and the "fix my design" message are saved as leads but not sent.
 - The quote form runs as normal: quantity, size, contact details, billing and shipping address, sent as one request.
 - Orders are saved to `orders/` with a `TEST-` id and `"status": "test"`. Stripe Checkout and `ORDER_WEBHOOK_URL` are never called.
-- After the order is saved a **test checkout popup** opens: order summary, card form, Pay button, success screen. Use `4242 4242 4242 4242`, any future expiry, any CVC. Nothing is charged and the card number never leaves the browser; only the last four digits are saved with the order, which moves to `"status": "test_paid"`. When no `PRICE_TABLE` is set a sample price is shown.
+- After the order is saved a **test checkout popup** opens: the quote line by line, card form, Pay button, success screen. Use `4242 4242 4242 4242`, any future expiry, any CVC. Nothing is charged and the card number never leaves the browser; only the last four digits are saved with the order, which moves to `"status": "test_paid"`. When the chart cannot price the order a sample price is shown.
 
 Set `TEST_MODE=1` in `.env` to force test mode for every visitor, for example on a staging server.
 
@@ -112,7 +132,8 @@ lib/watermark.js   Watermarks everything sent to the browser; stores clean origi
 lib/verify.js      Proofreads each render: lettering read back letter by letter, logo compared with the art proof
 public/            Chat UI (index.html, style.css, app.js)
 references/        Photos of real coins used as style references
-lib/pricing.js     Optional price tiers from PRICE_TABLE
+lib/pricing.js     Prices a quote from the price chart (coins, mold, add-ons, packaging, rush, shipping)
+lib/price-chart.json  The Expanded Pricing Chart spreadsheet as data (scripts/import-pricing.py rebuilds it)
 lib/orders.js      Saves orders to ./orders, webhook + Stripe Checkout
 orders/            Saved orders (JSON + coin image), git-ignored
 renders/           Clean AI renders, never served; git-ignored

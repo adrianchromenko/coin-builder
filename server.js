@@ -9,7 +9,7 @@ const multer = require('multer');
 const { getProvider } = require('./lib/providers');
 const { normalizeCoinShape, coinShapeLabel, freeText, quotedPhrases } = require('./lib/prompt');
 const { countReferences } = require('./lib/references');
-const { SIZES, hasPricing, estimate } = require('./lib/pricing');
+const { SIZES, hasPricing, quote, catalog, groupOf } = require('./lib/pricing');
 const { saveOrder, updateOrder, notifyWebhook, createCheckout, confirmPayment, awaitingPayment } = require('./lib/orders');
 const { watermark, saveOriginal, readOriginal } = require('./lib/watermark');
 const { mailConfigured, sendOrderEmail, sendAlertEmail, sendContactEmail, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
@@ -128,6 +128,8 @@ app.get('/api/config', (_req, res) => {
     references: countReferences(),
     sizes: SIZES,
     pricing: hasPricing(),
+    // The price chart's choices (finishes, color, add-ons, packaging, rush) for the quote form
+    catalog: hasPricing() ? catalog() : null,
     payments: !!(process.env.STRIPE_SECRET_KEY && hasPricing()),
     // TEST_MODE=1 turns test mode on for everyone; otherwise it is enabled per browser with ?test=1
     testMode: process.env.TEST_MODE === '1',
@@ -137,13 +139,25 @@ app.get('/api/config', (_req, res) => {
   });
 });
 
+// The options the quote form sends with an order: metal finish, enamel color, add-ons, packaging, rush
+function quoteOptions(src) {
+  const addons = Array.isArray(src.addons) ? src.addons : String(src.addons || '').split(',');
+  return {
+    finish: String(src.finish || '').trim().slice(0, 40),
+    color: String(src.color || '').trim().slice(0, 10),
+    addons: addons.map((a) => String(a).trim().slice(0, 40)).filter(Boolean).slice(0, 20),
+    packaging: String(src.packaging || '').trim().slice(0, 40),
+    rush: src.rush === true || src.rush === 'true' || src.rush === '1',
+  };
+}
+
+// A live quote while the customer fills in the form: size, quantity and the options above, as query parameters
 app.get('/api/quote', (req, res) => {
   const size = String(req.query.size || '');
   const quantity = parseInt(req.query.quantity, 10);
-  if (!SIZES.includes(size) || !quantity || quantity < 1) {
-    return res.status(400).json({ error: 'Invalid size or quantity.' });
-  }
-  res.json({ estimate: estimate(size, quantity) });
+  if (!quantity || quantity < 1 || quantity > 100000) return res.status(400).json({ error: 'Invalid quantity.' });
+  if (!SIZES.includes(size) && size !== 'other') return res.status(400).json({ error: 'Invalid size.' });
+  res.json({ quote: quote({ size, quantity, ...quoteOptions(req.query) }) });
 });
 
 app.post('/api/orders', async (req, res) => {
@@ -165,6 +179,9 @@ app.post('/api/orders', async (req, res) => {
   const billCountry = String(b.billCountry || '').trim().slice(0, 80);
   // Test orders: saved for inspection, but never sent to Stripe or the order webhook
   const isTest = b.test === true || process.env.TEST_MODE === '1';
+  // Metal finish, enamel color, add-ons, packaging and rush, as chosen on the quote form; priced by lib/pricing.js
+  const options = quoteOptions(b.options && typeof b.options === 'object' ? b.options : {});
+  const finishGroup = groupOf(options.finish);
   // What the customer described, plus whether and how the AI rendered it
   const d = b.design && typeof b.design === 'object' ? b.design : {};
   const design = {
@@ -199,8 +216,10 @@ app.post('/api/orders', async (req, res) => {
     // A blank back has no render and goes out as the front alone; "same" shows the front twice
     const back = front && design.backMode !== 'blank' ? (readOriginal(design.backRenderId) || front) : null;
     const imageDataUrl = front ? `data:image/png;base64,${(await sideBySide(front, back)).toString('base64')}` : (typeof b.image === 'string' ? b.image : '');
+    const priced = quote({ size, quantity, ...options });
     const record = saveOrder({
-      finishLabel: 'Challenge',
+      finish: finishGroup ? finishGroup.key : '',
+      finishLabel: finishGroup ? finishGroup.label : 'Challenge',
       size,
       sizeOther,
       sizeLabel: size === 'other' ? `Other: ${sizeOther}` : `${size}"`,
@@ -213,15 +232,18 @@ app.post('/api/orders', async (req, res) => {
       shipping: { street, cityStateZip, country },
       notes,
       design,
-      estimate: estimate(size, quantity),
+      options: { ...options, finishLabel: finishGroup ? finishGroup.label : '' },
+      // The price shown to the customer, line by line, or why none was (priced: false). Kept with the order so the
+      // team sees exactly what the customer saw.
+      quote: priced,
       image: imageDataUrl,
       ip: req.ip,
       test: isTest,
     });
-    console.log(`[coin-builder] ${isTest ? 'TEST order' : 'order'} ${record.id}: ${quantity} x ${record.sizeLabel} for ${email}`);
+    console.log(`[coin-builder] ${isTest ? 'TEST order' : 'order'} ${record.id}: ${quantity} x ${record.sizeLabel} for ${email}${priced.priced ? ` (quoted $${priced.total})` : ''}`);
 
     if (isTest) {
-      return res.json({ ok: true, orderId: record.id, estimate: record.estimate, checkoutUrl: null, test: true });
+      return res.json({ ok: true, orderId: record.id, quote: record.quote, checkoutUrl: null, test: true });
     }
 
     let checkoutUrl = null;
@@ -245,7 +267,7 @@ app.post('/api/orders', async (req, res) => {
         .then((r) => { updateOrder(record.id, { zoho: { leadId: r.leadId, owner: r.owner, attached: r.attached, at: new Date().toISOString() } }); console.log(`[coin-builder] order ${record.id} is Zoho lead ${r.leadId}`); })
         .catch((e) => { updateOrder(record.id, { zoho: { error: e.message, at: new Date().toISOString() } }); console.error(`[coin-builder] Zoho lead failed for ${record.id}:`, e.message); });
     }
-    res.json({ ok: true, orderId: record.id, estimate: record.estimate, checkoutUrl });
+    res.json({ ok: true, orderId: record.id, quote: record.quote, checkoutUrl });
   } catch (e) {
     console.error('[coin-builder] order error:', e.message);
     res.status(500).json({ error: 'Sorry, I could not save your order. Please try again.' });
