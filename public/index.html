@@ -369,15 +369,16 @@
                 <p class="dr-title"><span class="dr-spin" aria-hidden="true"></span><span id="dr-status">Reading your design…</span></p>
                 <p id="dr-summary" class="dr-summary"></p>
                 <ul id="dr-items" class="dr-items"></ul>
-                <p class="dr-note">Your estimate is based on this. Change anything we got wrong below.</p>
+                <p class="dr-note">Your estimate is priced from this. Want something different, or something extra like a keychain or numbering? Say so in the notes below and we will quote it.</p>
               </div>
-              <div class="ff-grid">
+              <!-- The finish, color and add-on controls: only shown when the design could not be read (class "manual") -->
+              <div class="ff-grid manual">
                 <label class="ff wide"><span class="ff-label">Metal finish</span><select id="finish-select" class="size-select"></select></label>
                 <label class="ff"><span class="ff-label">Enamel color</span><select id="color-select" class="size-select"></select></label>
               </div>
-              <p id="finish-hint" class="hint">We read these from your style notes; change them if we guessed wrong. Up to 50 coins, color is included in the price.</p>
-              <p class="ff-section">Add-ons <em>optional</em></p>
-              <div id="addon-tiles" class="addon-tiles" role="group" aria-label="Add-ons"></div>
+              <p id="finish-hint" class="hint manual">We read these from your style notes; change them if we guessed wrong. Up to 50 coins, color is included in the price.</p>
+              <p class="ff-section manual">Add-ons <em>optional</em></p>
+              <div id="addon-tiles" class="addon-tiles manual" role="group" aria-label="Add-ons"></div>
               <div class="ff-grid">
                 <label class="ff"><span class="ff-label">Packaging</span><select id="packaging-select" class="size-select"><option value="">None (poly bagged)</option></select></label>
               </div>

@@ -1291,8 +1291,9 @@
   // ---- the design, read by the AI ----
   // On the way to the quote the finished coin (front and back renders, plus the words) goes to the server, which has
   // a vision model say what it includes: the metal, which faces carry color, and the add-ons it actually shows (two
-  // tone plating, a reeded edge, a keychain loop...), each with its reason. The form starts from that, and the
-  // customer can change any of it. Until the answer comes the form shows the guess from the style notes.
+  // tone plating, a reeded edge, a keychain loop...), each with its reason. That reading IS the spec: the finish,
+  // color and add-on controls are put away and the quote is priced from what the coin shows; only packaging and rush
+  // stay to choose, and anything else goes in the notes. The controls only appear when the design could not be read.
   let readSeq = 0, readKey = '';
   const designReadKey = () => JSON.stringify([frontRenderId(), customBack() && currentBack() ? currentBack().renderId : null, designPayload()]);
   async function readDesign() {
@@ -1303,6 +1304,7 @@
     const seq = ++readSeq;
     readKey = key;
     order.analysis = null;
+    $('options-group').classList.add('read'); // the controls stay away while the answer comes
     box.classList.add('busy'); box.hidden = false;
     $('dr-status').textContent = 'Reading your design…';
     try {
@@ -1314,27 +1316,25 @@
       const d = await r.json();
       if (seq !== readSeq) return; // they went back and changed the design; a newer reading is on its way
       const a = d.analysis;
-      if (!a || !a.analyzed) { box.hidden = true; return; }
+      if (!a || !a.analyzed) { renderDesignRead(); return; }
       order.analysis = a;
       applyDesignRead(a);
       renderDesignRead();
-    } catch (_) { if (seq === readSeq) box.hidden = true; }
+    } catch (_) { if (seq === readSeq) renderDesignRead(); }
   }
-  // The reading becomes the form's starting point. Choices the customer already made themselves stay as they are.
+  // The reading is the spec: finish, color sides and add-ons come from the design, whatever was guessed or ticked before
   function applyDesignRead(a) {
-    if (!order.finishPicked && a.finish) order.finish = a.finish;
-    if (!order.colorPicked && a.color) order.color = a.color;
-    const seen = a.addons.map((x) => x.key);
-    // add-ons the last reading put on and this one does not: off again, unless the customer touched them
-    order.addons = order.addons.filter((k) => order.addonsTouched.includes(k) || !order.seenAddons.includes(k) || seen.includes(k));
-    for (const k of seen) if (!order.addons.includes(k) && !order.addonsTouched.includes(k)) order.addons.push(k);
-    order.seenAddons = seen;
+    if (a.finish) order.finish = a.finish;
+    if (a.color) order.color = a.color;
+    order.addons = a.addons.map((x) => x.key);
+    order.seenAddons = order.addons.slice();
     syncOptions();
     updateEstimate();
   }
   function renderDesignRead() {
     const a = order.analysis;
     const box = $('design-read');
+    $('options-group').classList.toggle('read', !!a);
     if (!a) { box.hidden = true; return; }
     box.classList.remove('busy');
     $('dr-status').textContent = 'What we see in your design';
@@ -1343,7 +1343,7 @@
     if (a.finishLabel) items.push(['Finish', `${a.finishLabel}${a.finishWhy ? ` · ${a.finishWhy}` : ''}`]);
     items.push(['Color', a.colorWhy]);
     for (const x of a.addons) items.push([x.label, x.why]);
-    if (!a.addons.length) items.push(['Add-ons', 'None seen in the design: no two-tone plating, special edge or keychain']);
+    if (!a.addons.length) items.push(['Add-ons', 'None needed: no two-tone plating, special edge or keychain in the design']);
     $('dr-items').innerHTML = items.map(([k, v]) => `<li><strong>${escapeHtml(k)}</strong><span>${escapeHtml(v)}</span></li>`).join('');
     box.hidden = false;
   }
@@ -1988,7 +1988,7 @@
   function restart() {
     Object.assign(design, newDesign());
     Object.assign(order, { quantity: null, size: null, sizeOther: '', quote: null, notes: '', finish: '', finishPicked: false, color: 'two', colorPicked: false, addons: [], packaging: '', rush: false, analysis: null, seenAddons: [], addonsTouched: [], name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
-    readKey = ''; readSeq++; $('design-read').hidden = true;
+    readKey = ''; readSeq++; $('design-read').hidden = true; $('options-group').classList.remove('read');
     ai.front = newSide(); ai.back = newSide(); ai.side = 'front';
     tabOpen.front = firstTab('front'); tabOpen.back = firstTab('back');
     guideStop();

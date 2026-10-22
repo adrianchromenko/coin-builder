@@ -646,6 +646,9 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .estimate.unpriced .quote-notes { margin-top: 0; font-size: 13px; }
 /* Add-on tiles on the quote form: name, price per coin, setup fee */
 #options-group[hidden] { display: none; }
+/* Once the AI has read the design, the reading is the spec: the finish, color and add-on controls are put away and only
+   packaging and rush stay to choose (anything else goes in the notes) */
+#options-group.read .manual { display: none; }
 /* What the AI read in the design, above the finish and options: a summary and one line per thing it is charging for */
 .design-read { border: 1px solid #e6dfd3; border-left: 3px solid var(--orange); background: #fffaf4; padding: 12px 14px; margin: 0 0 16px; }
 .design-read[hidden] { display: none; }
