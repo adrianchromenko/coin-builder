@@ -646,6 +646,21 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .estimate.unpriced .quote-notes { margin-top: 0; font-size: 13px; }
 /* Add-on tiles on the quote form: name, price per coin, setup fee */
 #options-group[hidden] { display: none; }
+/* What the AI read in the design, above the finish and options: a summary and one line per thing it is charging for */
+.design-read { border: 1px solid #e6dfd3; border-left: 3px solid var(--orange); background: #fffaf4; padding: 12px 14px; margin: 0 0 16px; }
+.design-read[hidden] { display: none; }
+.dr-title { display: flex; align-items: center; gap: 8px; margin: 0; font-family: var(--font-head); font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dark); }
+.dr-spin { display: none; width: 14px; height: 14px; border: 2px solid #e0d6c6; border-top-color: var(--orange); border-radius: 50%; animation: dr-spin .8s linear infinite; }
+.design-read.busy .dr-spin { display: inline-block; }
+.design-read.busy .dr-summary, .design-read.busy .dr-items, .design-read.busy .dr-note { display: none; }
+@keyframes dr-spin { to { transform: rotate(360deg); } }
+.dr-summary { margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: var(--text); }
+.dr-items { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.dr-items li { display: grid; grid-template-columns: 110px 1fr; gap: 10px; font-size: 13px; line-height: 1.45; color: var(--text); }
+.dr-items strong { color: var(--text-dark); font-weight: 600; }
+.dr-note { margin: 8px 0 0; font-size: 12.5px; color: #666; }
+.addon-tile[data-tag]:not([data-tag=""])::after { content: attr(data-tag); position: absolute; right: 10px; top: 8px; font-size: 11px; letter-spacing: .5px; color: var(--orange); }
+.addon-tile { position: relative; }
 #options-group .ff-section + .addon-tiles { margin-top: 10px; }
 #options-group .addon-tiles + .ff-grid { margin-top: 14px; }
 .addon-tile .addon-info strong { font-size: 12.5px; letter-spacing: 1px; }
@@ -1227,6 +1242,14 @@ html { -webkit-text-size-adjust: 100%; }
   .seg.wrap { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; }
   .seg.wrap button, .seg.wrap button:hover { min-height: 48px; padding: 6px 4px; line-height: 1.2; border: 1px solid var(--s-line); border-radius: 12px; background: var(--s-card); color: var(--s-strong); }
   .seg.wrap button.on, .seg.wrap button.on:hover { background: var(--orange); border-color: var(--orange); color: var(--white); }
+  .design-read { border-radius: 12px; background: var(--s-card); border-color: var(--s-line); border-left-color: var(--orange); }
+  .dr-title { color: var(--s-strong); }
+  .dr-summary, .dr-items li { color: var(--s-text); }
+  .dr-items strong { color: var(--s-strong); }
+  .dr-items li { grid-template-columns: 96px 1fr; }
+  .dr-note { color: var(--s-dim); }
+  .dr-spin { border-color: var(--s-line); border-top-color: var(--orange); }
+  .addon-tile[data-tag]:not([data-tag=""])::after { top: auto; bottom: 8px; }
   .estimate { border-left-width: 3px; border-radius: 12px; background: var(--s-card); }
   .estimate .big { color: var(--s-strong); }
   .estimate small { color: var(--s-dim); }

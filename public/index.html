@@ -364,6 +364,13 @@
                  are filled in by app.js from /api/config (catalog), so the chart stays the only place prices live. -->
             <section class="group" id="options-group" hidden>
               <h3 class="group-title"><span class="n">3. </span>Finish and options</h3>
+              <!-- What the AI read in the design: finish, color sides and add-ons, each with its reason (app.js fills it in) -->
+              <div id="design-read" class="design-read" hidden>
+                <p class="dr-title"><span class="dr-spin" aria-hidden="true"></span><span id="dr-status">Reading your design…</span></p>
+                <p id="dr-summary" class="dr-summary"></p>
+                <ul id="dr-items" class="dr-items"></ul>
+                <p class="dr-note">Your estimate is based on this. Change anything we got wrong below.</p>
+              </div>
               <div class="ff-grid">
                 <label class="ff wide"><span class="ff-label">Metal finish</span><select id="finish-select" class="size-select"></select></label>
                 <label class="ff"><span class="ff-label">Enamel color</span><select id="color-select" class="size-select"></select></label>

@@ -29,7 +29,8 @@ Without an API key the server runs in **demo mode** and returns a local SVG mock
 | `AI_MAX_ATTEMPTS` | `2` | Renders per request: a render that fails proofreading is redone with a note about what to fix |
 | `AI_VERIFY` | on | `0` turns proofreading off |
 | `MODERATE_UPLOADS` | on | Every logo and reference image is screened for sexual content, gore and self-harm before it reaches the image model (see `lib/moderate.js`); `0` turns that off |
-| `OPENAI_VERIFY_MODEL` | `gpt-5.4-mini` | Vision model that proofreads each render |
+| `OPENAI_VERIFY_MODEL` | `gpt-5.4-mini` | Vision model that proofreads each render and reads the design for the quote |
+| `AI_READ_DESIGN` | on | `0` stops the quote step reading the design (finish, color sides, add-ons) from the renders |
 | `PRICING` | on | `0` turns the estimate off: orders are saved as plain quote requests with no price shown |
 | `STRIPE_SECRET_KEY` | | Enables Pay Now via Stripe Checkout, charging the quoted total line by line |
 | `PUBLIC_URL` | | Deployed URL, used for Stripe return links |
@@ -91,7 +92,9 @@ python scripts/import-pricing.py "C:/Users/User/Downloads/Expanded Pricing Chart
 - **Rush** (under 10 business days). $75 up to 50 coins, $80 for 51 to 99, 20% of the coin cost from 100.
 - **Shipping.** The chart's ground-shipping guide by size and quantity; 1" to 2.25" coins ship free from 300 coins, larger coins at so much per coin.
 
-The estimate updates as the customer changes anything, and the order record keeps the lines they saw (`quote`), so the team's email and the Zoho lead show the same numbers. Sales tax is not included. The finish and color sides are guessed from the design (style notes; a blank back means color on one side) until the customer picks them.
+The estimate updates as the customer changes anything, and the order record keeps the lines they saw (`quote`), so the team's email and the Zoho lead show the same numbers. Sales tax is not included.
+
+**The design is read before it is priced** (`lib/analyze.js`). On the way to the quote, the finished front and back renders and the customer's words go to the vision model, which answers a fixed set of questions: the plating metal, which faces carry enamel color, whether a face shows two different platings, the edge treatment, a keychain loop, a printed photo, and whether the words ask for edge lettering, numbering or engraved names. The answers become the form's starting point (finish, color sides, add-ons), shown under "What we see in your design" with a one-line reason for each item, and nothing is charged that the picture or the words do not clearly call for. The customer can change any of it; the order record keeps the reading (`analysis`), and the team's email and the Zoho lead say for every add-on whether the AI saw it in the design or the customer added it on the form. Until the reading arrives (a few seconds), and whenever it is off (`AI_READ_DESIGN=0`), the finish is guessed from the style notes and a blank back means color on one side.
 
 ## Test mode
 
@@ -132,6 +135,7 @@ lib/watermark.js   Watermarks everything sent to the browser; stores clean origi
 lib/verify.js      Proofreads each render: lettering read back letter by letter, logo compared with the art proof
 public/            Chat UI (index.html, style.css, app.js)
 references/        Photos of real coins used as style references
+lib/analyze.js     Reads the finished design with the vision model: finish, color sides and add-ons, with reasons
 lib/pricing.js     Prices a quote from the price chart (coins, mold, add-ons, packaging, rush, shipping)
 lib/price-chart.json  The Expanded Pricing Chart spreadsheet as data (scripts/import-pricing.py rebuilds it)
 lib/orders.js      Saves orders to ./orders, webhook + Stripe Checkout

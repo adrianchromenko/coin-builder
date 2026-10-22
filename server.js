@@ -10,6 +10,8 @@ const { getProvider } = require('./lib/providers');
 const { normalizeCoinShape, coinShapeLabel, freeText, quotedPhrases } = require('./lib/prompt');
 const { countReferences } = require('./lib/references');
 const { SIZES, hasPricing, quote, catalog, groupOf } = require('./lib/pricing');
+const chart = require('./lib/price-chart.json');
+const { analyzeDesign, enabled: readDesignOn } = require('./lib/analyze');
 const { saveOrder, updateOrder, notifyWebhook, createCheckout, confirmPayment, awaitingPayment } = require('./lib/orders');
 const { watermark, saveOriginal, readOriginal } = require('./lib/watermark');
 const { mailConfigured, sendOrderEmail, sendAlertEmail, sendContactEmail, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
@@ -130,6 +132,8 @@ app.get('/api/config', (_req, res) => {
     pricing: hasPricing(),
     // The price chart's choices (finishes, color, add-ons, packaging, rush) for the quote form
     catalog: hasPricing() ? catalog() : null,
+    // true when the design is read by the AI on the quote step (finish, color sides and add-ons taken from the pictures)
+    readDesign: hasPricing() && readDesignOn(),
     payments: !!(process.env.STRIPE_SECRET_KEY && hasPricing()),
     // TEST_MODE=1 turns test mode on for everyone; otherwise it is enabled per browser with ?test=1
     testMode: process.env.TEST_MODE === '1',
@@ -160,6 +164,51 @@ app.get('/api/quote', (req, res) => {
   res.json({ quote: quote({ size, quantity, ...quoteOptions(req.query) }) });
 });
 
+// The design as an estimator reads it (lib/analyze.js): the finish, the color sides and the add-ons the coin actually
+// shows, each with its reason. The quote form starts from this instead of guessing. One vision call per design; the
+// same design asked again is answered from memory, and a visitor gets so many reads an hour.
+const readsByIp = new Map();
+const designReads = new Map();
+app.post('/api/analyze', async (req, res) => {
+  const b = req.body || {};
+  if (!hasPricing() || !readDesignOn()) return res.json({ analysis: { analyzed: false } });
+  const d = b.design && typeof b.design === 'object' ? b.design : {};
+  const design = { ...describedDesign(d), backMode: ['custom', 'same', 'blank'].includes(d.backMode) ? d.backMode : 'custom' };
+  if (!design.front) return res.status(400).json({ error: 'Please describe the front of your coin first.' });
+  const front = readOriginal(b.renderId);
+  const back = front && design.backMode === 'custom' ? readOriginal(b.backRenderId) : null;
+  const key = crypto.createHash('sha1').update(JSON.stringify([front ? b.renderId : '', back ? b.backRenderId : '', design])).digest('hex');
+  const known = designReads.get(key);
+  if (known) return res.json({ analysis: known });
+  if (tooMany(readsByIp, req.ip, Number(process.env.READ_LIMIT_PER_HOUR || 30))) return res.status(429).json({ error: 'Too many requests. Please try again shortly.' });
+  const started = Date.now();
+  const analysis = await analyzeDesign({ apiKey: process.env.OPENAI_API_KEY, front, back, design, chart });
+  if (analysis.analyzed) {
+    designReads.set(key, analysis);
+    while (designReads.size > 500) designReads.delete(designReads.keys().next().value);
+    console.log(`[coin-builder] design read in ${Date.now() - started}ms from ${analysis.pictures} picture(s): ${analysis.finishLabel || 'finish unclear'}, color ${analysis.color}, add-ons ${analysis.addons.map((a) => a.key).join(', ') || 'none'}`);
+  }
+  res.json({ analysis });
+});
+
+// What the AI read in the design when the quote was made, as the page sends it back with the order (text only, for
+// the team's email and the lead: it explains why each add-on is on the quote)
+function cleanAnalysis(a) {
+  if (!a || typeof a !== 'object' || a.analyzed !== true) return null;
+  const text = (v, max) => String(v || '').replace(/[\r\n<>]/g, ' ').trim().slice(0, max);
+  return {
+    analyzed: true,
+    finish: text(a.finish, 40),
+    finishLabel: text(a.finishLabel, 80),
+    finishWhy: text(a.finishWhy, 160),
+    color: text(a.color, 10),
+    colorWhy: text(a.colorWhy, 120),
+    addons: (Array.isArray(a.addons) ? a.addons : []).slice(0, 15)
+      .map((x) => ({ key: text(x && x.key, 40), label: text(x && x.label, 60), why: text(x && x.why, 160) })).filter((x) => x.key),
+    summary: text(a.summary, 600),
+  };
+}
+
 app.post('/api/orders', async (req, res) => {
   const b = req.body || {};
   const quantity = parseInt(b.quantity, 10);
@@ -182,6 +231,7 @@ app.post('/api/orders', async (req, res) => {
   // Metal finish, enamel color, add-ons, packaging and rush, as chosen on the quote form; priced by lib/pricing.js
   const options = quoteOptions(b.options && typeof b.options === 'object' ? b.options : {});
   const finishGroup = groupOf(options.finish);
+  const analysis = cleanAnalysis(b.analysis);
   // What the customer described, plus whether and how the AI rendered it
   const d = b.design && typeof b.design === 'object' ? b.design : {};
   const design = {
@@ -233,6 +283,8 @@ app.post('/api/orders', async (req, res) => {
       notes,
       design,
       options: { ...options, finishLabel: finishGroup ? finishGroup.label : '' },
+      // How the AI read the design on the quote step (null when it was not read): the team sees why each add-on is there
+      analysis,
       // The price shown to the customer, line by line, or why none was (priced: false). Kept with the order so the
       // team sees exactly what the customer saw.
       quote: priced,

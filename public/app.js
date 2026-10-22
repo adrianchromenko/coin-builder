@@ -27,9 +27,12 @@
   // finish, color, addons, packaging, rush: the choices the price chart prices (config.catalog lists them); finish and
   //   color start from the design (style notes, one or two sides) until the customer picks them (finishPicked, colorPicked)
   // quote: the last estimate from the server, { priced, total, lines... } or { priced: false, reason }
+  // analysis: how the AI read the design on the quote step (finish, color, add-ons with reasons), or null;
+  //   seenAddons: the add-ons it put on; addonsTouched: add-ons the customer switched themselves, which a reading never changes
   const order = {
     quantity: null, size: null, sizeOther: '', quote: null, notes: '',
     finish: '', finishPicked: false, color: 'two', colorPicked: false, addons: [], packaging: '', rush: false,
+    analysis: null, seenAddons: [], addonsTouched: [],
     name: '', email: '', phone: '', company: '',
     billStreet: '', billCityStateZip: '', billCountry: 'United States',
     street: '', cityStateZip: '', country: 'United States',
@@ -1202,7 +1205,7 @@
   });
   document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => showStep(b.dataset.back)));
   $('to-back').addEventListener('click', () => { if (currentFront()) showStep('back'); });
-  $('to-quote').addEventListener('click', () => { if (currentFront() && (!customBack() || currentBack())) { optionsFromDesign(); updateEstimate(); showStep('quote'); } });
+  $('to-quote').addEventListener('click', () => { if (currentFront() && (!customBack() || currentBack())) { optionsFromDesign(); updateEstimate(); showStep('quote'); readDesign(); } });
 
   // ---------- step 3: the quote ----------
   // How many, what size, who to send it to: one form. Quantity is typed in (no chips); the size comes from the list,
@@ -1264,7 +1267,11 @@
     for (const t of $('addon-tiles').querySelectorAll('.addon-tile')) {
       const on = order.addons.includes(t.dataset.addon);
       t.classList.toggle('on', on); t.setAttribute('aria-pressed', String(on));
+      t.dataset.tag = on ? addonTag(t.dataset.addon) : '';
     }
+    $('finish-hint').textContent = order.analysis
+      ? 'We read these from your design; change them if we got it wrong. Up to 50 coins, color is included in the price.'
+      : 'We read these from your style notes; change them if we guessed wrong. Up to 50 coins, color is included in the price.';
   }
   finishSelect.addEventListener('change', () => { order.finish = finishSelect.value; order.finishPicked = true; updateEstimate(); });
   colorSelect.addEventListener('change', () => { order.color = colorSelect.value; order.colorPicked = true; updateEstimate(); });
@@ -1275,10 +1282,73 @@
     if (!t) return;
     const key = t.dataset.addon;
     order.addons = order.addons.includes(key) ? order.addons.filter((k) => k !== key) : [...order.addons, key];
+    if (!order.addonsTouched.includes(key)) order.addonsTouched.push(key);
     syncOptions();
     updateEstimate();
   });
   const optionsPayload = () => ({ finish: order.finish, color: order.color, addons: order.addons, packaging: order.packaging, rush: order.rush });
+
+  // ---- the design, read by the AI ----
+  // On the way to the quote the finished coin (front and back renders, plus the words) goes to the server, which has
+  // a vision model say what it includes: the metal, which faces carry color, and the add-ons it actually shows (two
+  // tone plating, a reeded edge, a keychain loop...), each with its reason. The form starts from that, and the
+  // customer can change any of it. Until the answer comes the form shows the guess from the style notes.
+  let readSeq = 0, readKey = '';
+  const designReadKey = () => JSON.stringify([frontRenderId(), customBack() && currentBack() ? currentBack().renderId : null, designPayload()]);
+  async function readDesign() {
+    const box = $('design-read');
+    if (!config.readDesign || !config.catalog) { box.hidden = true; return; }
+    const key = designReadKey();
+    if (key === readKey && order.analysis) { renderDesignRead(); return; } // this very design was read already
+    const seq = ++readSeq;
+    readKey = key;
+    order.analysis = null;
+    box.classList.add('busy'); box.hidden = false;
+    $('dr-status').textContent = 'Reading your design…';
+    try {
+      const bk = customBack() ? currentBack() : null;
+      const r = await fetch('/api/analyze', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ renderId: frontRenderId(), backRenderId: bk ? bk.renderId : null, design: designPayload() }),
+      });
+      const d = await r.json();
+      if (seq !== readSeq) return; // they went back and changed the design; a newer reading is on its way
+      const a = d.analysis;
+      if (!a || !a.analyzed) { box.hidden = true; return; }
+      order.analysis = a;
+      applyDesignRead(a);
+      renderDesignRead();
+    } catch (_) { if (seq === readSeq) box.hidden = true; }
+  }
+  // The reading becomes the form's starting point. Choices the customer already made themselves stay as they are.
+  function applyDesignRead(a) {
+    if (!order.finishPicked && a.finish) order.finish = a.finish;
+    if (!order.colorPicked && a.color) order.color = a.color;
+    const seen = a.addons.map((x) => x.key);
+    // add-ons the last reading put on and this one does not: off again, unless the customer touched them
+    order.addons = order.addons.filter((k) => order.addonsTouched.includes(k) || !order.seenAddons.includes(k) || seen.includes(k));
+    for (const k of seen) if (!order.addons.includes(k) && !order.addonsTouched.includes(k)) order.addons.push(k);
+    order.seenAddons = seen;
+    syncOptions();
+    updateEstimate();
+  }
+  function renderDesignRead() {
+    const a = order.analysis;
+    const box = $('design-read');
+    if (!a) { box.hidden = true; return; }
+    box.classList.remove('busy');
+    $('dr-status').textContent = 'What we see in your design';
+    $('dr-summary').textContent = a.summary;
+    const items = [];
+    if (a.finishLabel) items.push(['Finish', `${a.finishLabel}${a.finishWhy ? ` · ${a.finishWhy}` : ''}`]);
+    items.push(['Color', a.colorWhy]);
+    for (const x of a.addons) items.push([x.label, x.why]);
+    if (!a.addons.length) items.push(['Add-ons', 'None seen in the design: no two-tone plating, special edge or keychain']);
+    $('dr-items').innerHTML = items.map(([k, v]) => `<li><strong>${escapeHtml(k)}</strong><span>${escapeHtml(v)}</span></li>`).join('');
+    box.hidden = false;
+  }
+  // "seen in your design" / "added by you" beside an add-on, on the tiles and on the estimate lines
+  const addonTag = (key) => (!order.analysis ? '' : order.seenAddons.includes(key) ? 'seen in your design' : 'added by you');
 
   // ---- the estimate ----
   let quoteSeq = 0;
@@ -1322,8 +1392,9 @@
     updateOrderButton();
   }
   // The quote's lines as markup: label, detail and amount per line (used by the estimate box and the test checkout)
+  const lineDetail = (l) => { const t = l.key.startsWith('addon:') ? addonTag(l.key.slice(6)) : ''; return [l.detail, t].filter(Boolean).join(' · '); };
   const quoteLinesHtml = (q, tag) => q.lines.map((l) =>
-    `<${tag}><span class="ql-label">${escapeHtml(l.label)}${l.detail ? `<small>${escapeHtml(l.detail)}</small>` : ''}</span>` +
+    `<${tag}><span class="ql-label">${escapeHtml(l.label)}${lineDetail(l) ? `<small>${escapeHtml(lineDetail(l))}</small>` : ''}</span>` +
     `<span class="ql-amount${l.amount === 0 ? ' ql-free' : ''}">${l.amount === 0 ? 'Free' : money(l.amount)}</span></${tag}>`).join('');
 
   const same = form.elements.same;
@@ -1403,6 +1474,7 @@
           street: order.street, cityStateZip: order.cityStateZip, country: order.country,
           notes: order.notes,
           options: optionsPayload(),
+          analysis: order.analysis,
           design: {
             ...designPayload(),
             aiRendered: !!v,
@@ -1915,7 +1987,8 @@
   // ---------- restart ----------
   function restart() {
     Object.assign(design, newDesign());
-    Object.assign(order, { quantity: null, size: null, sizeOther: '', quote: null, notes: '', finish: '', finishPicked: false, color: 'two', colorPicked: false, addons: [], packaging: '', rush: false, name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
+    Object.assign(order, { quantity: null, size: null, sizeOther: '', quote: null, notes: '', finish: '', finishPicked: false, color: 'two', colorPicked: false, addons: [], packaging: '', rush: false, analysis: null, seenAddons: [], addonsTouched: [], name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
+    readKey = ''; readSeq++; $('design-read').hidden = true;
     ai.front = newSide(); ai.back = newSide(); ai.side = 'front';
     tabOpen.front = firstTab('front'); tabOpen.back = firstTab('back');
     guideStop();
