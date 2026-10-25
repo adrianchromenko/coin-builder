@@ -223,9 +223,10 @@ app.post('/api/orders', async (req, res) => {
   const street = String(b.street || '').trim().slice(0, 200);
   const cityStateZip = String(b.cityStateZip || '').trim().slice(0, 120);
   const country = String(b.country || '').trim().slice(0, 80);
-  const billStreet = String(b.billStreet || '').trim().slice(0, 200);
-  const billCityStateZip = String(b.billCityStateZip || '').trim().slice(0, 120);
-  const billCountry = String(b.billCountry || '').trim().slice(0, 80);
+  // The quote form asks for one address (shipping); it stands as the billing address unless one is sent
+  const billStreet = String(b.billStreet || street).trim().slice(0, 200);
+  const billCityStateZip = String(b.billCityStateZip || cityStateZip).trim().slice(0, 120);
+  const billCountry = String(b.billCountry || country).trim().slice(0, 80);
   // Test orders: saved for inspection, but never sent to Stripe or the order webhook
   const isTest = b.test === true || process.env.TEST_MODE === '1';
   // Metal finish, enamel color, add-ons, packaging and rush, as chosen on the quote form; priced by lib/pricing.js

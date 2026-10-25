@@ -3,10 +3,11 @@
 
   const $ = (id) => document.getElementById(id);
 
-  // The customer tells us what the coin is for and describes each face in their own words. There are no option
-  // grids: the server turns the description into the AI prompt, and the artists finish the coin before production.
-  // Size and quantity are typed in with the quote; the sizes on offer are the <select> in index.html (keep in step
-  // with SIZES in lib/pricing.js), plus "other" with the size in their words.
+  // The customer describes both faces of the coin in their own words on one step, and one Generate renders the
+  // front and then the back (drawn to match the front). There are no option grids: the server turns the description
+  // into the AI prompt, and the artists finish the coin before production. Size and quantity are typed in with the
+  // quote; the sizes on offer are the <select> in index.html (keep in step with SIZES in lib/pricing.js), plus
+  // "other" with the size in their words.
 
   const money = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -24,17 +25,16 @@
   const newDesign = () => ({ front: '', back: '', backMode: 'custom', shape: 'round', shapePicked: false, style: '', logo: null, logoName: '', refs: [], backRefs: [] });
   const design = newDesign();
   // size: one of the sizes in the <select>, or 'other' with the size written in sizeOther
-  // finish, color, addons, packaging, rush: the choices the price chart prices (config.catalog lists them); finish and
-  //   color start from the design (style notes, one or two sides) until the customer picks them (finishPicked, colorPicked)
+  // finish, color, addons: what the price chart prices (config.catalog lists them). They come from the AI's reading of
+  //   the design (analysis); when the design could not be read, the finish is guessed from the style notes and the
+  //   finish and color controls appear for the customer to correct (finishPicked, colorPicked)
+  // reading: the design is being read right now (the estimate waits for it)
   // quote: the last estimate from the server, { priced, total, lines... } or { priced: false, reason }
-  // analysis: how the AI read the design on the quote step (finish, color, add-ons with reasons), or null;
-  //   seenAddons: the add-ons it put on; addonsTouched: add-ons the customer switched themselves, which a reading never changes
+  // The one address asked for is the shipping address; it is sent as the billing address too.
   const order = {
     quantity: null, size: null, sizeOther: '', quote: null, notes: '',
-    finish: '', finishPicked: false, color: 'two', colorPicked: false, addons: [], packaging: '', rush: false,
-    analysis: null, seenAddons: [], addonsTouched: [],
+    finish: '', finishPicked: false, color: 'two', colorPicked: false, addons: [], analysis: null, reading: false,
     name: '', email: '', phone: '', company: '',
-    billStreet: '', billCityStateZip: '', billCountry: 'United States',
     street: '', cityStateZip: '', country: 'United States',
   };
   // Every AI render is kept as a version, per face: the picture, the proofreading result, and the description it was
@@ -42,7 +42,7 @@
   // front is the one on screen.
   const MAX_VERSIONS = 8;
   const newSide = () => ({ versions: [], current: null, nextNumber: 1 });
-  const ai = { busy: false, side: 'front', front: newSide(), back: newSide() };
+  const ai = { busy: false, front: newSide(), back: newSide() };
   const sideCurrent = (side) => ai[side].versions.find((v) => v.id === ai[side].current) || null;
   const currentFront = () => sideCurrent('front');
   const currentBack = () => sideCurrent('back');
@@ -55,6 +55,8 @@
   const blankBack = () => design.backMode === 'blank';
   const oddShape = () => design.shape === 'odd';
   const twoSided = () => customBack() && !!design.back.trim();
+  // The coin as described has its render: the front, and the back when it has a design of its own
+  const rendered = () => !!currentFront() && (!twoSided() || !!currentBack());
   // The pictures a render of the back is shown: its own, or the front's when it has none
   const backRefs = () => (design.backRefs.length ? design.backRefs : design.refs);
   const sideRefs = (side) => (side === 'back' ? backRefs() : design.refs);
@@ -119,31 +121,26 @@
 
   // ---------- phone studio ----------
   // On a phone the builder is an app-like shell (see "phones: the coin studio" in style.css): the coin stays on screen
-  // and each design step is walked through one section at a time (images, describe, style, shape, then the result),
+  // and the design step is walked through one section at a time (files, front, back, style, shape, then the result),
   // with Back and Next at the bottom. On wider screens every section shows at once and none of this is visible.
   const studio = window.matchMedia('(max-width: 559px), (max-width: 720px) and (orientation: portrait)');
   // id, the name in the row under the coin, the line above the section (first word in script), optional?
   const TABS = {
-    front: [
-      ['logo', 'Images', 'Add', 'your logo, seal or images'],
-      ['describe', 'Describe', 'Describe', 'the front'],
+    design: [
+      ['files', 'Files', 'Add', 'your reference files'],
+      ['front', 'Front', 'Describe', 'the front'],
+      ['back', 'Back', 'Describe', 'the back'],
       ['style', 'Style', 'Pick', 'a style', true],
       ['shape', 'Shape', 'Choose', 'a shape'],
-      ['result', 'Result', 'Here’s', 'your front'],
-    ],
-    back: [
-      ['describe', 'Describe', 'Now', 'the back'],
-      ['images', 'Images', 'Add', 'pictures for the back', true],
-      ['result', 'Result', 'Here’s', 'your back'],
+      ['result', 'Result', 'Here’s', 'your coin'],
     ],
   };
-  const firstTab = (step) => TABS[step][0][0]; // where a step opens: its first section (images on the front)
-  const tabOpen = { front: firstTab('front'), back: firstTab('back') };
-  // The sections of a design step. Result is one of them while the render it reports on is the one on screen; the
-  // back's pictures only while the back has a design of its own.
+  const firstTab = (step) => TABS[step][0][0]; // where the step opens: the reference files
+  const tabOpen = { design: firstTab('design') };
+  // The sections of the design step. Result is one of them while the coin on screen is the one described.
   function tabsFor(step) {
-    const result = TABS[step] && ai.side === step && !(step === 'back' && !customBack()) ? sideCurrent(step) : null;
-    return { result, tabs: (TABS[step] || []).filter(([id]) => (id !== 'result' || result) && (id !== 'images' || customBack())) };
+    const result = TABS[step] && rendered() ? currentFront() : null;
+    return { result, tabs: (TABS[step] || []).filter(([id]) => id !== 'result' || result) };
   }
   function renderTabs() {
     const step = $('builder').dataset.step;
@@ -154,13 +151,11 @@
     $('builder').dataset.tab = open;
     const at = tabs.findIndex(([id]) => id === open);
     const inputs = tabs.filter(([id]) => id !== 'result');
-    const filled = step === 'front'
-      ? { describe: !!design.front.trim(), logo: !!design.logo || design.refs.length > 0, style: !!design.style.trim(), shape: true }
-      : { describe: !customBack() || !!design.back.trim(), images: design.backRefs.length > 0 };
+    const filled = { files: hasArt(), front: !!design.front.trim(), back: !customBack() || !!design.back.trim(), style: !!design.style.trim(), shape: true };
 
     // The row under the coin: the sections in order, lit up to the one on show. On Result a dot is the proofreader's verdict.
     const html = tabs.map(([id, label], i) => {
-      const verdict = id === 'result' ? checkState(result).replace('unchecked', '') : '';
+      const verdict = id === 'result' ? coinState().replace('unchecked', '') : '';
       return `<button type="button" class="${i === at ? 'on' : i < at ? 'past' : ''} ${verdict}" data-tab="${id}"${i === at ? ' aria-current="step"' : ''}>${label}${verdict ? '<i></i>' : ''}</button>`;
     }).join('');
     const bar = $('tabs');
@@ -177,25 +172,24 @@
       const phone = studio.matches;
       const tab = tabs[at];
       const onResult = open === 'result';
-      const editing = !result && ai[step].versions.length > 0;
+      const editing = !result && ai.front.versions.length > 0;
       const next = phone && !onResult && (result ? true : !editing && open !== inputs[inputs.length - 1][0]);
       const head = el.querySelector('.sub-head');
-      const eyebrow = onResult ? `AI version ${result.number}` : inputs.length > 1 ? `Step ${at + 1} of ${inputs.length}${tab[4] ? ' · optional' : ''}` : '';
+      const eyebrow = onResult ? versionsLabel() : inputs.length > 1 ? `Step ${at + 1} of ${inputs.length}${tab[4] ? ' · optional' : ''}` : '';
       const headHtml = phone ? `${eyebrow ? `<small>${eyebrow}</small>` : ''}<strong><span class="script">${tab[2]}</span>${tab[3]}</strong>` : '';
       if (head.dataset.html !== headHtml) { head.innerHTML = headHtml; head.dataset.html = headHtml; }
       const subBack = el.querySelector('.sub-back'), subNext = el.querySelector('.sub-next');
       subBack.hidden = !(phone && at > 0);
       subNext.hidden = !next;
       subNext.textContent = tab[4] && !filled[open] ? 'Skip' : 'Next';
-      subNext.disabled = !onResult && ['describe', 'logo'].includes(open) && !filled[open]; // nothing to render without a description and a picture to go on
+      subNext.disabled = !onResult && ['files', 'front', 'back'].includes(open) && !filled[open]; // nothing to render without the pictures and the descriptions
       const off = (node, on) => { if (node) node.classList.toggle('sub-off', on); };
-      off(el.querySelector('#to-back, #to-quote'), phone && !!result && !onResult);
-      off(el.querySelector('#generate-btn, #back-generate-btn'), next);
-      off(el.querySelector('[data-back]'), phone && at > 0);
-      off(el.querySelector('#design-hint, #back-hint'), next); // it talks about Generate and Continue, which are not on this screen
+      off(el.querySelector('#to-quote'), phone && !!result && !onResult);
+      off(el.querySelector('#generate-btn'), next);
+      off(el.querySelector('#design-hint'), next); // it talks about Generate and Continue, which are not on this screen
     }
     // The proofreading result and the offer to fix the design: in the Result tab on a phone, under the coin otherwise
-    const slot = studio.matches && TABS[ai.side] ? document.querySelector(`.panel .step[data-step="${ai.side}"] .result-slot`) : null;
+    const slot = studio.matches ? document.querySelector('.panel .step[data-step="design"] .result-slot') : null;
     const home = slot || document.querySelector('.preview');
     if ($('ai-check').parentElement !== home) home.append($('ai-check'), $('ai-disclaimer'));
     nerdPlace();
@@ -279,9 +273,10 @@
     updateEstimate();
   }
 
-  // A coin cannot be generated from words alone: it needs the logo or at least one reference image as well
+  // A coin cannot be generated from words alone: it needs the logo or at least one reference image as well, the front
+  // described, and the back described too when it has a design of its own
   const hasArt = () => !!design.logo || design.refs.length > 0;
-  const designReady = () => !!design.front.trim() && hasArt();
+  const designReady = () => !!design.front.trim() && hasArt() && (!customBack() || !!design.back.trim());
   function specLine() {
     const refs = design.refs.length + design.backRefs.length;
     const back = customBack() ? (design.back.trim() ? 'Front & back' : '') : blankBack() ? 'Blank back' : 'Same both sides';
@@ -295,7 +290,8 @@
   const sideSignature = (side) => (side === 'back' ? backSignature() : frontSignature());
 
   // A design change means the render on screen no longer matches; earlier versions stay in the strip.
-  // Each step's footer offers exactly one next move: generate this face, or go on.
+  // The step's footer offers exactly one next move: generate the coin (or just the back, when the front is done and
+  // the back is not), or go on to the quote.
   function syncDesign() {
     $('preview-spec').textContent = specLine();
     for (const side of ['front', 'back']) {
@@ -306,41 +302,34 @@
     }
     const front = currentFront();
     const back = currentBack();
-    const ready = designReady();
+    const backText = design.back.trim();
 
-    // Front step: describe, generate, then on to the back with the render on screen
-    $('generate-btn').disabled = !ready || ai.busy;
-    $('generate-btn').hidden = !!front;
-    $('to-back').hidden = !front;
-    $('to-back').disabled = !front;
+    // The back: its own description, or a word that it is the front again or plain metal
+    $('back-custom').hidden = !customBack();
+    for (const b of $('back-mode').children) b.classList.toggle('on', b.dataset.mode === design.backMode);
+    const modeHint = $('back-mode-hint');
+    modeHint.hidden = customBack();
+    modeHint.textContent = blankBack() ? 'The back will be plain metal with no design.' : 'The back will carry the same design as the front.';
+
+    const done = rendered();
+    const btn = $('generate-btn');
+    btn.hidden = done;
+    btn.disabled = !designReady() || ai.busy;
+    btn.textContent = front && twoSided() && !back ? 'Generate the Back' : 'Generate This Coin';
+    $('to-quote').hidden = !done;
     $('design-hint').textContent = !hasArt()
-      ? (design.front.trim() ? 'Add your logo or a reference image to go on. We need at least one before we can draw your coin.' : 'Start with your logo or a reference image, then describe the front of your coin.')
+      ? (design.front.trim() ? 'Add your logo or a reference image to go on. We need at least one before we can draw your coin.' : 'Start with your reference files, then describe the front and the back of your coin.')
       : !design.front.trim()
         ? 'Describe the front of your coin: what goes on it, and where.'
-        : !front
-          ? (ai.front.versions.length ? 'The description changed. Tap "Generate This Coin" to render it again.' : 'Looking good. Tap "Generate This Coin" to see it rendered.')
-          : 'Happy with the front? Continue to the back. Not quite? Change the description or make another version.';
-
-    // Back step: a design of its own has to be generated to match the front; "same as the front" and "blank" need nothing more
-    const backText = design.back.trim();
-    $('back-custom').hidden = !customBack();
-    $('back-images').hidden = !customBack();
-    for (const b of $('back-mode').children) b.classList.toggle('on', b.dataset.mode === design.backMode);
-    const backDone = !customBack() || !!back;
-    $('back-generate-btn').hidden = backDone;
-    $('back-generate-btn').disabled = !backText || !front || ai.busy;
-    $('to-quote').hidden = !backDone;
-    $('back-hint').textContent = !front
-      ? 'Generate the front first; the back is drawn to match it.'
-      : blankBack()
-        ? 'The back will be plain metal with no design. Continue to your quote, or choose "A different design".'
-        : !customBack()
-          ? 'The back will carry the same design as the front. Continue to your quote, or choose "A different design".'
-          : !backText
-            ? 'Describe the back: what goes on it, and where.'
-            : !back
-              ? (ai.back.versions.length ? 'The back or the front changed. Tap "Generate the Back" to render it again to match.' : 'Tap "Generate the Back" to see it rendered to match your front.')
-              : 'Happy with it? Continue to your quote. Not quite? Change the description or make another version.';
+        : customBack() && !backText
+          ? 'Describe the back: what goes on it, and where. Or choose "Same as the front" or "Blank".'
+          : done
+            ? 'Happy with it? Continue to your quote. Not quite? Change a description or make another version.'
+            : front && twoSided()
+              ? (ai.back.versions.length ? 'The back changed. Tap "Generate the Back" to render it again to match your front.' : 'Tap "Generate the Back" to see it rendered to match your front.')
+              : ai.front.versions.length
+                ? 'The design changed. Tap "Generate This Coin" to render it again.'
+                : `Looking good. Tap "Generate This Coin" to see ${twoSided() ? 'both sides' : 'it'} rendered.`;
     renderPreview();
     renderVersions();
     renderRefs();
@@ -517,7 +506,8 @@
   }
   // The three places pictures are shown and added: the front's, the back's, and the "Make Another Version" popup,
   // which shows the pictures of the face being redrawn
-  const REF_BOXES = [['refs', 'ref-add', 'ref-files', () => 'front'], ['back-refs', 'back-ref-add', 'back-ref-files', () => 'back'], ['revise-refs', 'revise-ref-add', 'revise-ref-files', () => ai.side]];
+  let reviseSide = 'both'; // which side "Make Another Version" redraws: 'front', 'back' or 'both' (see openRevise)
+  const REF_BOXES = [['refs', 'ref-add', 'ref-files', () => 'front'], ['back-refs', 'back-ref-add', 'back-ref-files', () => 'back'], ['revise-refs', 'revise-ref-add', 'revise-ref-files', () => (reviseSide === 'back' ? 'back' : 'front')]];
   function renderRefs() {
     for (const [boxId, addId, , sideOf] of REF_BOXES) {
       const box = $(boxId), side = sideOf(), list = ownRefs(side);
@@ -567,14 +557,14 @@
     if (under.some((el) => el.id === 'back-ref-field')) { addRefs('back', files); return; }
     if (under.some((el) => el.id === 'ref-field')) addRefs('front', files);
     else { setLogo(files[0]); if (files.length > 1) addRefs('front', files.slice(1)); }
-    tabOpen.front = 'logo';
-    showStep('front');
+    tabOpen.design = 'files';
+    showStep('design');
   });
   window.addEventListener('paste', (e) => {
     const items = e.clipboardData && e.clipboardData.items;
     if (!items) return;
     for (const it of items) {
-      if (it.kind === 'file' && it.type.startsWith('image/')) { setLogo(it.getAsFile()); tabOpen.front = 'logo'; showStep('front'); break; }
+      if (it.kind === 'file' && it.type.startsWith('image/')) { setLogo(it.getAsFile()); tabOpen.design = 'files'; showStep('design'); break; }
     }
   });
 
@@ -614,15 +604,15 @@
   });
 
   // ---------- the render on screen ----------
-  // One coin on the front step. From the back step on, both faces side by side: the front on the left and, on the
-  // right, the back render, or the front again (dimmed) when the back is "same as the front".
+  // The waiting coin until the first render starts. From then on both faces side by side: the front on the left and,
+  // on the right, the back render, or the front again (dimmed) when the back is "same as the front".
   function renderPreview() {
     const front = currentFront();
     const back = currentBack();
-    const two = $('builder').dataset.step !== 'front';
+    const two = ai.front.versions.length > 0 || ai.busy;
     $('stage').classList.toggle('two', two);
     // Nothing to show and nothing on its way: small screens shrink the stage to a short banner
-    $('stage').classList.toggle('empty', !two && !front && !ai.busy);
+    $('stage').classList.toggle('empty', !two);
     document.querySelector('.preview').classList.toggle('two', two);
     const setFace = (face, v, { same = false, hint = '' } = {}) => {
       const el = $('face-' + face);
@@ -637,19 +627,23 @@
       el.querySelector('.face-label').textContent = face === 'front' ? 'Front' : same ? 'Back · same as front' : blankBack() ? 'Back · blank' : 'Back';
       el.querySelector('.face-label').hidden = !two;
     };
-    setFace('front', front, { hint: 'Add your logo or a reference image, describe your coin, then tap <b>Generate This Coin</b>. Your render shows up here in a minute or two.' });
+    setFace('front', front, { hint: !two ? 'Add a reference file, describe the front and the back, then tap <b>Generate This Coin</b>. Both sides show up here in a few minutes.' : 'The design changed. Tap <b>Generate This Coin</b> to render it again.' });
     $('face-back').hidden = !two;
     if (two) {
       if (blankBack()) setFace('back', null, { hint: 'The back is plain metal, with no design.' });
       else if (!customBack()) setFace('back', front, { same: true, hint: 'The back matches the front.' });
-      else setFace('back', back, { hint: 'Describe the back, then tap <b>Generate the Back</b>. It is drawn to match your front.' });
+      else setFace('back', back, { hint: ai.busy ? 'The back comes next, drawn to match the front.' : front ? 'Tap <b>Generate the Back</b> to draw it to match your front.' : 'The back is drawn to match the front.' });
     }
-    const shown = sideCurrent(ai.side);
-    $('preview-caption').textContent = shown
-      ? (shown.demo
+    $('preview-caption').textContent = front
+      ? (front.demo
         ? (isTest() ? 'Test mode: a stand-in for the AI render.' : 'Demo render (add an API key on the server for real AI renders).')
-        : `${ai.side === 'back' ? 'Back' : 'Front'}, AI version ${shown.number}, shown with a light preview watermark. The artwork made for your order is clean and full quality.`)
-      : ai.side === 'back' && blankBack() ? 'A blank back: plain metal.' : ai.side === 'back' && !customBack() ? 'Same design on both sides.' : 'Your AI render appears here.';
+        : `${versionsLabel()}, shown with a light preview watermark. The artwork made for your order is clean and full quality.`)
+      : 'Your AI render appears here.';
+  }
+  // "Front version 2, back version 1": the renders on screen
+  function versionsLabel() {
+    const f = currentFront(), b = twoSided() ? currentBack() : null;
+    return f ? `Front version ${f.number}${b ? `, back version ${b.number}` : ''}` : '';
   }
 
   // ---------- AI render ----------
@@ -717,12 +711,15 @@
     finishing: { from: 90, to: 97, seconds: 6, text: 'Giving it a quick polish…' },
     done: { from: 100, to: 100, seconds: 1, text: 'Ta-da! Here it is!' },
   };
-  const progress = { sides: new Map(), overall: null, timer: null, source: null, started: 0, line: -1, lines: [] };
+  // base and scale: this face's share of the ring, when one Generate draws the front and then the back (the front fills
+  // the first half, the back the second); face: the side being drawn, for the Coin Nerd's lines
+  const progress = { sides: new Map(), overall: null, timer: null, source: null, started: 0, line: -1, lines: [], base: 0, scale: 1, face: 'front' };
   // Something to read under the turning coin; the line changes every few seconds. First how long it takes, then fun
   // facts about Coins For Anything with a tip between them now and then. The facts come in a new order for each
   // render, since most customers sit through several. Each fits on two lines of a phone, so keep new ones under about
   // 80 characters. (The figures match the line at the foot of the page.)
   const WAIT_FIRST = 'Usually takes one to two minutes.';
+  const WAIT_FIRST_TWO = 'Usually takes three to four minutes for both sides.';
   const WAIT_FACTS = [
     'We have minted over 20 million coins across more than 60,000 designs.',
     'More than 50,000 companies, units and organizations trust us with their coins.',
@@ -742,29 +739,35 @@
     'Not quite right? You can make another version afterwards.',
     'Wording in "double quotes" is read back letter by letter.',
   ];
-  function waitLines() {
+  function waitLines(faces) {
     const facts = WAIT_FACTS.map((text) => ['Fun fact:', text]);
     for (let i = facts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [facts[i], facts[j]] = [facts[j], facts[i]]; }
     WAIT_TIPS.forEach((text, i) => facts.splice(3 + i * 5, 0, ['', text]));
-    return [['', WAIT_FIRST], ...facts];
+    return [['', faces > 1 ? WAIT_FIRST_TWO : WAIT_FIRST], ...facts];
   }
   // The loading coin (see "the mint" in style.css): the same house coin, turning inside the ring, with sparks around it
   document.querySelector('.mint-coin').innerHTML = coinFaces('mint', '★ IN THE MAKING ★');
   $('mint').insertAdjacentHTML('beforeend', sparks([[6, 16, 0], [88, 8, .9], [98, 56, 1.7], [80, 90, .4], [12, 84, 1.3], [-2, 46, 2.1], [48, -5, 2.4]]));
-  function progressReset() {
-    progress.sides.clear(); progress.overall = null;
-    progress.started = Date.now(); progress.line = -1; progress.lines = waitLines();
-    progressSet('starting');
-    progressTick();
+  // faces: how many renders this Generate makes (one, or the front and then the back)
+  function progressStart(faces) {
+    progress.started = Date.now(); progress.line = -1; progress.lines = waitLines(faces);
+    progress.base = 0; progress.scale = 1 / faces;
     clearInterval(progress.timer);
     progress.timer = setInterval(progressTick, 250);
+  }
+  // On to one face's render: its share of the ring starts where the one before left off
+  function progressFace(face, i, faces) {
+    progress.sides.clear(); progress.overall = null;
+    progress.face = face; progress.base = (100 * i) / faces; progress.scale = 1 / faces;
+    progressSet('starting');
+    progressTick();
   }
   function progressSet(stage, side) {
     const s = STAGES[stage] || STAGES.starting;
     const entry = { stage, from: s.from, to: s.to, seconds: s.seconds, started: Date.now() };
     if (side) progress.sides.set(side, entry); else progress.overall = entry;
-    const says = stage === 'checking' && progress.sides.size > 1 ? 'Hang on, I’m proofreading both sides…'
-      : stage === 'rendering' && progress.sides.size > 1 ? 'Striking the front and the back…' : s.text;
+    const says = progress.face === 'back' && stage === 'starting' ? 'Front done! Now for the back…'
+      : progress.face === 'back' && stage === 'rendering' ? 'Striking the back to match your front…' : s.text;
     const bubble = $('progress-text');
     if (bubble.textContent !== says) {
       bubble.textContent = says;
@@ -776,7 +779,7 @@
   function progressTick() {
     // Once the sides report in, they carry the bar; before that (and at the end) the overall stage does
     const entries = progress.overall && ['finishing', 'done'].includes(progress.overall.stage) ? [progress.overall] : progress.sides.size ? [...progress.sides.values()] : [progress.overall];
-    const pct = Math.round(entries.reduce((n, e) => n + stagePct(e), 0) / entries.length);
+    const pct = Math.round(progress.base + (entries.reduce((n, e) => n + stagePct(e), 0) / entries.length) * progress.scale);
     $('mint-ring-bar').style.strokeDashoffset = 100 - pct;
     $('mint').setAttribute('aria-valuenow', pct);
     const line = Math.floor((Date.now() - progress.started) / 6500) % progress.lines.length;
@@ -812,26 +815,51 @@
     if (r.top < 0 || r.bottom > window.innerHeight) $('stage').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  // note: what the customer wants different in this version (optional, from the "Make Another Version" popup)
-  async function aiRender(side, note = '') {
+  // One Generate draws the whole coin: the front, then the back to match it (when the back has a design of its own).
+  // sides: the faces to draw, in order; notes: what the customer wants different on each, from the "Make Another
+  // Version" popup (optional). A face that is already drawn for this design is drawn again only when asked for.
+  async function generateCoin(sides, notes = {}) {
     if (ai.busy) return;
-    note = String(note || '').replace(/\s+/g, ' ').trim().slice(0, 300);
-    if (side === 'front' && !designReady()) { toast(hasArt() ? 'Describe the front of your coin first.' : 'Add your logo or a reference image first.'); return; }
-    if (side === 'back' && !currentFront()) { toast('Generate the front first; the back is drawn to match it.'); return; }
-    if (side === 'back' && !design.back.trim()) { toast('Describe the back first.'); return; }
+    if (!designReady()) {
+      toast(!hasArt() ? 'Add your logo or a reference image first.' : !design.front.trim() ? 'Describe the front of your coin first.' : 'Describe the back first, or choose "Same as the front" or "Blank".');
+      return;
+    }
+    const faces = sides.filter((s) => s === 'front' || twoSided());
+    if (!faces.length) return;
     ai.busy = true;
-    ai.side = side;
     guideStop(); // the Coin Nerd's walk-through ends where the render begins
-    const genBtn = $(side === 'back' ? 'back-generate-btn' : 'generate-btn');
+    const genBtn = $('generate-btn');
     const genLabel = genBtn.textContent;
     $('ai-btn').disabled = true;
     genBtn.disabled = true;
     genBtn.textContent = 'Generating…';
-    $('preview-busy').dataset.face = side;
     $('preview-busy').hidden = false;
-    renderPreview();
+    progressStart(faces.length);
     revealStage();
-    progressReset();
+    try {
+      for (const [i, side] of faces.entries()) {
+        $('preview-busy').dataset.face = side; // the wait sits over the face being drawn; the other shows what there is
+        progressFace(side, i, faces.length);
+        renderPreview();
+        if (!(await renderSide(side, notes[side]))) break; // the toast has said why
+      }
+      if (rendered()) tabOpen.design = 'result'; // on a phone: straight to what the proofreader found
+    } finally {
+      progressEnd();
+      ai.busy = false;
+      $('ai-btn').disabled = false;
+      genBtn.textContent = genLabel;
+      $('preview-busy').hidden = true;
+      syncDesign(); // the step's footer now offers the next move
+    }
+  }
+  // Generate: the whole coin, or just the back when the front on screen is the one described
+  $('generate-btn').addEventListener('click', () => generateCoin(currentFront() ? ['back'] : ['front', 'back']));
+
+  // One face. The back is drawn with the front on screen as its reference. Returns the new version, or null when the
+  // render failed (a toast says why). note: what the customer wants different in this version (optional).
+  async function renderSide(side, note = '') {
+    note = String(note || '').replace(/\s+/g, ' ').trim().slice(0, 300);
     // refs: the pictures this render is shown (the back's own, or the front's when it has none)
     const snapshot = { ...designPayload(), logo: design.logo, refs: sideRefs(side).slice(), backRefs: design.backRefs.slice() };
     const text = side === 'back' ? snapshot.back : snapshot.front;
@@ -854,6 +882,7 @@
       } else {
         const token = await turnstileToken();
         const progressId = (Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^a-z0-9]/g, '');
+        if (progress.source) progress.source.close(); // the front's stream, when this is the back
         progress.source = progressListen(progressId);
         const form = new FormData();
         if (snapshot.logo) form.append('logo', await (await fetch(snapshot.logo)).blob(), 'logo.png');
@@ -883,21 +912,15 @@
       // Keep the strip (and the browser's memory) bounded: drop the oldest version that is not on screen
       while (s.versions.length > MAX_VERSIONS) s.versions.splice(s.versions.findIndex((v) => v.id !== s.current), 1);
       // If the description was edited while this was rendering, keep the version but do not show it as current
-      if (signature === sideSignature(side)) { tabOpen[side] = 'result'; showVersion(side, version.id); } // on a phone: straight to what the proofreader found
-      else { syncDesign(); toast(`${side === 'back' ? 'Back' : 'Front'} version ${version.number} is ready. Tap it under the coin to see it.`, 5000); }
+      if (signature === sideSignature(side)) s.current = version.id;
+      else toast(`${side === 'back' ? 'Back' : 'Front'} version ${version.number} is ready. Tap it under the coin to see it.`, 5000);
+      syncDesign(); // the face lands on the stage before the next one starts
+      return version;
     } catch (e) {
       toast(escapeHtml(e.message || 'Sorry, the AI render failed. Please try again.'), 5000);
-    } finally {
-      progressEnd();
-      ai.busy = false;
-      $('ai-btn').disabled = false;
-      genBtn.textContent = genLabel;
-      $('preview-busy').hidden = true;
-      syncDesign(); // the step's footer now offers the next move
+      return null;
     }
   }
-  $('generate-btn').addEventListener('click', () => aiRender('front'));
-  $('back-generate-btn').addEventListener('click', () => aiRender('back'));
 
   // Show a version. If it was made from a different description, that description comes back with it,
   // so the picture, the form, and the order always describe the same coin.
@@ -916,8 +939,7 @@
       syncControls();
     }
     s.current = id;
-    ai.side = side;
-    syncDesign();
+    syncDesign(); // a front picked again brings back the back that was drawn for it (found by its signature)
   }
 
   function removeVersion(side, id) {
@@ -928,24 +950,30 @@
   }
 
   const checkState = (v) => (!v.check || !v.check.checked ? 'unchecked' : v.check.ok ? 'ok' : 'warn');
+  // The faces on screen that have a render of their own: [side, version]
+  const shownFaces = () => [['front', currentFront()], ['back', customBack() ? currentBack() : null]].filter(([, v]) => v);
+  // The proofreader's verdict on the coin as a whole: a warning on either face is a warning
+  function coinState() {
+    const states = shownFaces().map(([, v]) => checkState(v));
+    return states.includes('warn') ? 'warn' : states.includes('ok') ? 'ok' : 'unchecked';
+  }
 
-  // The strip and "Make Another Version" follow the face being worked on (the front step's face, or the back step's)
+  // The strip under the coin: the front's versions, then the back's. The first render starts from the step's button;
+  // "Make Another Version" takes over from there.
   let versionsHtml = '';
   function renderVersions() {
-    const side = ai.side;
-    const s = ai[side];
-    const wrap = $('versions-wrap');
-    const active = side === 'front' || customBack();
-    wrap.hidden = !s.versions.length || !active;
-    $('versions-label').textContent = side === 'back' ? 'Back versions' : 'Front versions';
-    $('ai-btn').hidden = !s.versions.length || !active; // the first render of a face starts from its step
-    const html = s.versions.map((v) => {
+    const any = ai.front.versions.length > 0;
+    $('versions-wrap').hidden = !any;
+    $('ai-btn').hidden = !any;
+    const strip = (side) => ai[side].versions.map((v) => {
       const state = checkState(v);
       const stale = side === 'back' && backStale(v);
       const label = `${side === 'back' ? 'Back' : 'Front'} version ${v.number}` + (stale ? ', drawn for a different front' : state === 'ok' ? ', wording checked' : state === 'warn' ? ', needs a look' : '') + (v.note ? `. Asked for: ${v.note}` : '');
-      return `<button type="button" class="version${v.id === s.current ? ' on' : ''} ${state}${stale ? ' stale' : ''}" data-version="${v.id}" data-side="${side}" aria-pressed="${v.id === s.current}" aria-label="${label}" title="${label}">` +
-        `<img src="${v.image}" alt=""><span class="num">${v.number}</span>${state === 'unchecked' || stale ? '' : `<span class="flag" aria-hidden="true">${state === 'ok' ? '✓' : '!'}</span>`}</button>`;
+      return `<button type="button" class="version${v.id === ai[side].current ? ' on' : ''} ${state}${stale ? ' stale' : ''}" data-version="${v.id}" data-side="${side}" aria-pressed="${v.id === ai[side].current}" aria-label="${label}" title="${label}">` +
+        `<img src="${v.image}" alt=""><span class="num">${side === 'back' ? 'B' : 'F'}${v.number}</span>${state === 'unchecked' || stale ? '' : `<span class="flag" aria-hidden="true">${state === 'ok' ? '✓' : '!'}</span>`}</button>`;
     }).join('');
+    const backs = customBack() ? strip('back') : '';
+    const html = strip('front') + (backs ? `<i class="versions-split" aria-hidden="true"></i>${backs}` : '');
     if (html !== versionsHtml) { $('versions').innerHTML = html; versionsHtml = html; } // rebuilt only when it changes, not on every keystroke
     renderCheck();
   }
@@ -954,53 +982,75 @@
     if (b) showVersion(b.dataset.side, b.dataset.version);
   });
 
-  // The proofreading result for the version on screen, in plain words, plus the standing offer to fix it by hand
+  // The proofreading result for each face on screen, in plain words, plus the standing offer to fix it by hand
   function renderCheck() {
     const box = $('ai-check');
-    const side = ai.side;
-    const v = side === 'back' && !customBack() ? null : sideCurrent(side);
-    $('ai-disclaimer').hidden = !v;
-    if (!v) { box.hidden = true; return; }
-    const state = checkState(v);
-    const c = v.check || {};
-    let html = '';
-    if (state === 'ok') {
-      html = '<strong>✓ Wording checked.</strong><span class="more"> We read this render back letter by letter and every quoted word matches' + (c.logoMatch != null ? ', and your logo held up well' : '') + (c.shapeMatch != null ? ', and the outline matches your front' : '') + '.</span>';
-    } else if (state === 'warn') {
-      const issues = [];
-      for (const l of c.lines || []) if (!l.ok) issues.push(`${/^(front|back) /.test(l.where) ? `on the ${l.where.split(' ')[0]} ` : ''}it wrote “${escapeHtml(l.read || 'nothing')}” where you asked for “${escapeHtml(l.expected)}”`);
-      if ((c.extraText || []).length) issues.push(`it added “${escapeHtml(c.extraText.join('”, “'))}”`);
-      if (c.logoOk === false) issues.push('it changed your logo' + (c.logoIssues ? ` (${escapeHtml(c.logoIssues)})` : ''));
-      if (c.shapeOk === false) issues.push('the outline does not match your front' + (c.shapeIssues ? ` (${escapeHtml(c.shapeIssues)})` : ''));
-      html = `<strong>! This version is not quite right:</strong> ${issues.join('; ') || 'something is off'}.` +
-        '<span class="more"> Make another version for a fresh one, or ask us to fix it below. Your real coin is made from your exact words and logo file, never from this picture.</span>';
-    }
+    const faces = shownFaces();
+    $('ai-disclaimer').hidden = !faces.length;
+    if (!faces.length) { box.hidden = true; return; }
+    const parts = faces.map(([side, v]) => {
+      const name = side === 'back' ? 'Back' : 'Front';
+      const state = checkState(v);
+      const c = v.check || {};
+      let html = `<strong>${name} version ${v.number}.</strong>`;
+      if (state === 'ok') {
+        html = `<strong>✓ ${name}: wording checked.</strong><span class="more"> We read it back letter by letter and every quoted word matches` + (c.logoMatch != null ? ', and your logo held up well' : '') + (c.shapeMatch != null ? ', and the outline matches the front' : '') + '.</span>';
+      } else if (state === 'warn') {
+        const issues = [];
+        for (const l of c.lines || []) if (!l.ok) issues.push(`it wrote “${escapeHtml(l.read || 'nothing')}” where you asked for “${escapeHtml(l.expected)}”`);
+        if ((c.extraText || []).length) issues.push(`it added “${escapeHtml(c.extraText.join('”, “'))}”`);
+        if (c.logoOk === false) issues.push('it changed your logo' + (c.logoIssues ? ` (${escapeHtml(c.logoIssues)})` : ''));
+        if (c.shapeOk === false) issues.push('the outline does not match the front' + (c.shapeIssues ? ` (${escapeHtml(c.shapeIssues)})` : ''));
+        html = `<strong>! ${name}: not quite right.</strong> On this version ${issues.join('; ') || 'something is off'}.`;
+      }
+      return `<p>${html} <button type="button" class="link" data-remove="${side}">Remove</button></p>`;
+    });
+    const state = coinState();
     box.className = 'ai-check ' + state;
-    box.innerHTML = html + (html ? ' ' : '') + `<button type="button" class="link" id="remove-version">Remove ${side} version ${v.number}</button>`;
+    box.innerHTML = parts.join('') + (state === 'warn' ? '<p class="more">Make another version for a fresh one, or ask us to fix it below. Your real coin is made from your exact words and logo file, never from this picture.</p>' : '');
     box.hidden = false;
-    $('remove-version').addEventListener('click', () => removeVersion(side, v.id));
   }
+  $('ai-check').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-remove]');
+    const v = b && sideCurrent(b.dataset.remove);
+    if (v) removeVersion(b.dataset.remove, v.id);
+  });
 
-  // ---------- "make another version": an optional note on what to change ----------
-  const revise = { root: $('revise'), form: $('revise-form'), note: $('revise-note'), opener: null };
+  // ---------- "make another version": which side, and an optional note on what to change ----------
+  // With a back of its own on screen the popup asks which side to redraw: both (the usual), the front (the back is
+  // then drawn again to match it) or the back alone. The note goes to the side(s) chosen.
+  const revise = { root: $('revise'), form: $('revise-form'), note: $('revise-note'), side: $('revise-side'), opener: null };
+  function reviseSync() {
+    const two = twoSided() && !!currentBack();
+    revise.side.hidden = !two;
+    for (const b of revise.side.children) b.classList.toggle('on', b.dataset.side === reviseSide);
+    const v = reviseSide === 'back' ? currentBack() : currentFront();
+    $('revise-coin').src = v ? v.image : '';
+    $('revise-coin').hidden = !v;
+    $('revise-foot').textContent = two && reviseSide === 'front'
+      ? 'Your description and logo stay the same. The back is drawn again afterwards to match the new front.'
+      : 'Your description and logo stay the same; the note and any pictures you add steer the new version.';
+    renderRefs(); // the pictures box shows the side being redrawn
+  }
   function openRevise() {
     if (ai.busy) return;
     revise.opener = document.activeElement;
     revise.note.value = '';
-    const v = sideCurrent(ai.side);
-    $('revise-coin').src = v ? v.image : '';
-    $('revise-coin').hidden = !v;
+    reviseSide = twoSided() && currentBack() ? 'both' : 'front';
+    reviseSync();
     openDialog(revise.root, revise.note);
   }
   const closeRevise = () => closeDialog(revise.root, revise.opener);
   $('ai-btn').addEventListener('click', openRevise);
   $('revise-close').addEventListener('click', closeRevise);
+  revise.side.addEventListener('click', (e) => { const b = e.target.closest('[data-side]'); if (b) { reviseSide = b.dataset.side; reviseSync(); } });
   revise.root.addEventListener('click', (e) => { if (e.target === revise.root) closeRevise(); });
   revise.form.addEventListener('submit', (e) => {
     e.preventDefault();
     const note = revise.note.value;
     closeRevise();
-    aiRender(ai.side, note);
+    const sides = reviseSide === 'back' ? ['back'] : ['front', 'back'];
+    generateCoin(sides, reviseSide === 'both' ? { front: note, back: note } : { [reviseSide]: note });
   });
 
   // ---------- popups shared plumbing ----------
@@ -1171,7 +1221,7 @@
   document.addEventListener('dragstart', (e) => { if (e.target.tagName === 'IMG' || isCoinImage(e.target)) e.preventDefault(); });
 
   // ---------- steps ----------
-  const STEPS = ['front', 'back', 'quote'];
+  const STEPS = ['design', 'quote'];
   let stepShown = false; // skip the focus move on first load
   function showStep(name) {
     for (const s of document.querySelectorAll('.panel .step')) s.hidden = s.dataset.step !== name;
@@ -1186,7 +1236,6 @@
       if (li.dataset.step === name) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
     }
     $('builder').dataset.step = name;
-    if (name === 'front' || name === 'back') ai.side = name; // the strip and "Make Another Version" follow the face being worked on
     if (name === 'quote') updateOrderButton();
     syncDesign();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1204,10 +1253,9 @@
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('li.done')) { e.preventDefault(); e.target.click(); }
   });
   document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => showStep(b.dataset.back)));
-  $('to-back').addEventListener('click', () => { if (currentFront()) showStep('back'); });
-  $('to-quote').addEventListener('click', () => { if (currentFront() && (!customBack() || currentBack())) { optionsFromDesign(); updateEstimate(); showStep('quote'); readDesign(); } });
+  $('to-quote').addEventListener('click', () => { if (rendered()) { optionsFromDesign(); showStep('quote'); readDesign(); } });
 
-  // ---------- step 3: the quote ----------
+  // ---------- step 2: the quote ----------
   // How many, what size, who to send it to: one form. Quantity is typed in (no chips); the size comes from the list,
   // or "Other" with the size written in. The pricing estimate shows when the server has a price table.
   const form = $('quote-form');
@@ -1220,24 +1268,17 @@
   $('notes').addEventListener('input', (e) => { order.notes = e.target.value; });
   const sizeOk = () => !!order.size && (order.size !== 'other' || !!order.sizeOther.trim());
 
-  // ---- finish and options: the lists come from the price chart (config.catalog) ----
+  // ---- finish and color: the lists come from the price chart (config.catalog) ----
+  // Only shown when the design could not be read (see "the design, read by the AI" below); the reading is the spec
+  // otherwise. Packaging, rush and extra add-ons are not asked for: the customer puts them in the notes and the team
+  // quotes them.
   const finishSelect = $('finish-select');
   const colorSelect = $('color-select');
-  const packagingSelect = $('packaging-select');
-  const rushCheck = $('rush-check');
-  const perCoin = (n) => `$${Number(n).toFixed(2)} per coin`;
   function buildOptions() {
     const cat = config.catalog;
-    if (!config.pricing || !cat) { $('options-group').hidden = true; return; }
+    if (!config.pricing || !cat) return;
     finishSelect.innerHTML = cat.finishes.map((f) => `<option value="${f.key}">${escapeHtml(f.label)}</option>`).join('');
     colorSelect.innerHTML = cat.colors.map((c) => `<option value="${c.key}">${escapeHtml(c.label)}</option>`).join('');
-    packagingSelect.innerHTML = '<option value="">None (poly bagged)</option>' + cat.packaging.map((p) =>
-      `<option value="${p.key}">${escapeHtml(p.label)} · ${p.under75 === p.from75 ? perCoin(p.from75) : `$${p.from75.toFixed(2)} to $${p.under75.toFixed(2)} each`}</option>`).join('');
-    $('addon-tiles').innerHTML = cat.addons.map((a) =>
-      `<button type="button" class="addon-tile" data-addon="${a.key}" aria-pressed="false"><span class="tick"></span>` +
-      `<span class="addon-info"><strong>${escapeHtml(a.label)}</strong><span>${perCoin(a.perCoin)}${a.setup ? ` + $${a.setup.toFixed(0)} setup` : ''}</span></span></button>`).join('');
-    rushCheck.parentElement.querySelector('span').textContent = `Rush it: I need these in ${cat.rush.label.replace(/^<\s*/, 'under ').toLowerCase()}`;
-    $('options-group').hidden = false;
     syncOptions();
   }
   // The metal finish the style notes name, as the chart groups them ("silver" alone reads as shiny silver / nickel)
@@ -1262,51 +1303,32 @@
     finishSelect.value = order.finish;
     if (!finishSelect.value) { finishSelect.selectedIndex = 0; order.finish = finishSelect.value; }
     colorSelect.value = order.color;
-    packagingSelect.value = order.packaging;
-    rushCheck.checked = order.rush;
-    for (const t of $('addon-tiles').querySelectorAll('.addon-tile')) {
-      const on = order.addons.includes(t.dataset.addon);
-      t.classList.toggle('on', on); t.setAttribute('aria-pressed', String(on));
-      t.dataset.tag = on ? addonTag(t.dataset.addon) : '';
-    }
-    $('finish-hint').textContent = order.analysis
-      ? 'We read these from your design; change them if we got it wrong. Up to 50 coins, color is included in the price.'
-      : 'We read these from your style notes; change them if we guessed wrong. Up to 50 coins, color is included in the price.';
+    // The controls only appear when there is no reading of the design to price from
+    $('options-group').hidden = !config.pricing || order.reading || !!order.analysis;
   }
   finishSelect.addEventListener('change', () => { order.finish = finishSelect.value; order.finishPicked = true; updateEstimate(); });
   colorSelect.addEventListener('change', () => { order.color = colorSelect.value; order.colorPicked = true; updateEstimate(); });
-  packagingSelect.addEventListener('change', () => { order.packaging = packagingSelect.value; updateEstimate(); });
-  rushCheck.addEventListener('change', () => { order.rush = rushCheck.checked; updateEstimate(); });
-  $('addon-tiles').addEventListener('click', (e) => {
-    const t = e.target.closest('.addon-tile');
-    if (!t) return;
-    const key = t.dataset.addon;
-    order.addons = order.addons.includes(key) ? order.addons.filter((k) => k !== key) : [...order.addons, key];
-    if (!order.addonsTouched.includes(key)) order.addonsTouched.push(key);
-    syncOptions();
-    updateEstimate();
-  });
-  const optionsPayload = () => ({ finish: order.finish, color: order.color, addons: order.addons, packaging: order.packaging, rush: order.rush });
+  const optionsPayload = () => ({ finish: order.finish, color: order.color, addons: order.addons, packaging: '', rush: false });
 
   // ---- the design, read by the AI ----
   // On the way to the quote the finished coin (front and back renders, plus the words) goes to the server, which has
   // a vision model say what it includes: the metal, which faces carry color, and the add-ons it actually shows (two
-  // tone plating, a reeded edge, a keychain loop...), each with its reason. That reading IS the spec: the finish,
-  // color and add-on controls are put away and the quote is priced from what the coin shows; only packaging and rush
-  // stay to choose, and anything else goes in the notes. The controls only appear when the design could not be read.
+  // tone plating, a reeded edge, a keychain loop...). That reading IS the spec: the quote is priced from what the
+  // coin shows, and the estimate says in a line what it was priced as. The estimate waits while the design is read.
+  // Only when the design could not be read do the finish and color controls appear, guessed from the style notes.
   let readSeq = 0, readKey = '';
   const designReadKey = () => JSON.stringify([frontRenderId(), customBack() && currentBack() ? currentBack().renderId : null, designPayload()]);
   async function readDesign() {
-    const box = $('design-read');
-    if (!config.readDesign || !config.catalog) { box.hidden = true; return; }
+    await configReady;
+    if (!config.readDesign || !config.catalog) { order.reading = false; syncOptions(); updateEstimate(); return; }
     const key = designReadKey();
-    if (key === readKey && order.analysis) { renderDesignRead(); return; } // this very design was read already
+    if (key === readKey && order.analysis) { syncOptions(); updateEstimate(); return; } // this very design was read already
     const seq = ++readSeq;
     readKey = key;
     order.analysis = null;
-    $('options-group').classList.add('read'); // the controls stay away while the answer comes
-    box.classList.add('busy'); box.hidden = false;
-    $('dr-status').textContent = 'Reading your design…';
+    order.reading = true;
+    syncOptions();
+    updateEstimate(); // "reading your design" while the answer comes
     try {
       const bk = customBack() ? currentBack() : null;
       const r = await fetch('/api/analyze', {
@@ -1316,39 +1338,19 @@
       const d = await r.json();
       if (seq !== readSeq) return; // they went back and changed the design; a newer reading is on its way
       const a = d.analysis;
-      if (!a || !a.analyzed) { renderDesignRead(); return; }
-      order.analysis = a;
-      applyDesignRead(a);
-      renderDesignRead();
-    } catch (_) { if (seq === readSeq) renderDesignRead(); }
-  }
-  // The reading is the spec: finish, color sides and add-ons come from the design, whatever was guessed or ticked before
-  function applyDesignRead(a) {
-    if (a.finish) order.finish = a.finish;
-    if (a.color) order.color = a.color;
-    order.addons = a.addons.map((x) => x.key);
-    order.seenAddons = order.addons.slice();
+      if (a && a.analyzed) {
+        // The reading is the spec: finish, color sides and add-ons come from the design, whatever was guessed before
+        order.analysis = a;
+        if (a.finish) order.finish = a.finish;
+        if (a.color) order.color = a.color;
+        order.addons = a.addons.map((x) => x.key);
+      } else order.addons = [];
+    } catch (_) { if (seq === readSeq) order.addons = []; }
+    if (seq !== readSeq) return;
+    order.reading = false;
     syncOptions();
     updateEstimate();
   }
-  function renderDesignRead() {
-    const a = order.analysis;
-    const box = $('design-read');
-    $('options-group').classList.toggle('read', !!a);
-    if (!a) { box.hidden = true; return; }
-    box.classList.remove('busy');
-    $('dr-status').textContent = 'What we see in your design';
-    $('dr-summary').textContent = a.summary;
-    const items = [];
-    if (a.finishLabel) items.push(['Finish', `${a.finishLabel}${a.finishWhy ? ` · ${a.finishWhy}` : ''}`]);
-    items.push(['Color', a.colorWhy]);
-    for (const x of a.addons) items.push([x.label, x.why]);
-    if (!a.addons.length) items.push(['Add-ons', 'None needed: no two-tone plating, special edge or keychain in the design']);
-    $('dr-items').innerHTML = items.map(([k, v]) => `<li><strong>${escapeHtml(k)}</strong><span>${escapeHtml(v)}</span></li>`).join('');
-    box.hidden = false;
-  }
-  // "seen in your design" / "added by you" beside an add-on, on the tiles and on the estimate lines
-  const addonTag = (key) => (!order.analysis ? '' : order.seenAddons.includes(key) ? 'seen in your design' : 'added by you');
 
   // ---- the estimate ----
   let quoteSeq = 0;
@@ -1359,8 +1361,17 @@
     const seq = ++quoteSeq;
     if (!ok) { box.hidden = true; updateOrderButton(); return; }
     await configReady;
+    if (seq !== quoteSeq) return;
     if (!config.pricing) {
       showUnpriced('Our team confirms exact pricing by email, usually within one business day.');
+      return;
+    }
+    if (order.reading) {
+      // The design is being read for the finish, color and add-ons: no price until it is
+      box.className = 'estimate reading';
+      $('quote-notes').textContent = 'Reading your design to price it…';
+      box.hidden = false;
+      updateOrderButton();
       return;
     }
     try {
@@ -1377,30 +1388,29 @@
   }
   function showUnpriced(text) {
     const box = $('estimate');
-    box.classList.add('unpriced');
+    box.className = 'estimate unpriced';
     $('quote-notes').textContent = text;
     box.hidden = false;
     updateOrderButton();
   }
+  // The total, a line on what it is priced as, the lines behind it folded away, and the small print
   function renderQuote(q) {
     const box = $('estimate');
-    box.classList.remove('unpriced');
+    box.className = 'estimate';
     $('quote-total').textContent = money(q.total);
+    const addons = q.lines.filter((l) => l.key.startsWith('addon:')).map((l) => l.label.toLowerCase());
+    const as = [q.finishLabel.split(' / ')[0], q.colorIncluded ? 'color included' : q.colorLabel.toLowerCase(), ...addons];
+    $('quote-summary').textContent = `${money(q.unit)} per coin · ${as.join(', ')}. Includes the mold${q.shipping != null ? ' and ground shipping' : ''}.`;
     $('quote-lines').innerHTML = quoteLinesHtml(q, 'li');
-    $('quote-notes').textContent = q.notes.join(' ');
+    $('quote-notes').textContent = (order.analysis ? 'Priced from what your design shows; anything else you need goes in the notes. ' : '') + 'Sales tax not included. Our team confirms the final quote with your proof.';
     box.hidden = false;
     updateOrderButton();
   }
   // The quote's lines as markup: label, detail and amount per line (used by the estimate box and the test checkout)
-  const lineDetail = (l) => { const t = l.key.startsWith('addon:') ? addonTag(l.key.slice(6)) : ''; return [l.detail, t].filter(Boolean).join(' · '); };
   const quoteLinesHtml = (q, tag) => q.lines.map((l) =>
-    `<${tag}><span class="ql-label">${escapeHtml(l.label)}${lineDetail(l) ? `<small>${escapeHtml(lineDetail(l))}</small>` : ''}</span>` +
+    `<${tag}><span class="ql-label">${escapeHtml(l.label)}${l.detail ? `<small>${escapeHtml(l.detail)}</small>` : ''}</span>` +
     `<span class="ql-amount${l.amount === 0 ? ' ql-free' : ''}">${l.amount === 0 ? 'Free' : money(l.amount)}</span></${tag}>`).join('');
 
-  const same = form.elements.same;
-  const syncShip = () => { $('ship-fields').hidden = same.checked; };
-  same.addEventListener('change', syncShip);
-  syncShip();
   form.addEventListener('input', (e) => {
     if (e.target && e.target.classList) e.target.classList.remove('bad');
     if (!form.querySelector('.bad')) $('quote-error').hidden = true;
@@ -1412,25 +1422,16 @@
     const v = (n) => form.elements[n].value.trim();
     const next = {
       name: v('name'), email: v('email'), phone: v('phone'), company: v('company'),
-      billStreet: v('billStreet'), billCityStateZip: v('billCityStateZip'), billCountry: v('billCountry'),
+      street: v('street'), cityStateZip: v('cityStateZip'), country: v('country'),
     };
-    if (same.checked) { next.street = next.billStreet; next.cityStateZip = next.billCityStateZip; next.country = next.billCountry; }
-    else { next.street = v('street'); next.cityStateZip = v('cityStateZip'); next.country = v('country'); }
 
     const missing = [];
     const mark = (el, bad, label) => { el.classList.toggle('bad', bad); if (bad) missing.push(label); };
     mark(qtyInput, !order.quantity, 'how many coins');
     mark(sizeSelect, !order.size, 'the coin size');
     mark(sizeOtherInput, order.size === 'other' && !order.sizeOther.trim(), 'the size you have in mind');
-    const required = [
-      ['name', 'your name'], ['email', 'your email'],
-      ['billStreet', 'billing street address'], ['billCityStateZip', 'billing city, state, ZIP'], ['billCountry', 'billing country'],
-      ['street', 'shipping street address'], ['cityStateZip', 'shipping city, state, ZIP'], ['country', 'shipping country'],
-    ];
-    for (const [id, label] of required) {
-      const skip = same.checked && ['street', 'cityStateZip', 'country'].includes(id);
-      mark(form.elements[id], !skip && !next[id], label);
-    }
+    const required = [['name', 'your name'], ['email', 'your email'], ['street', 'your street address'], ['cityStateZip', 'city, state, ZIP'], ['country', 'country']];
+    for (const [id, label] of required) mark(form.elements[id], !next[id], label);
     if (next.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next.email)) { form.elements.email.classList.add('bad'); missing.push('a valid email'); }
     const err = $('quote-error');
     if (missing.length) {
@@ -1470,7 +1471,8 @@
           sizeOther: order.sizeOther.trim(),
           quantity: order.quantity,
           name: order.name, email: order.email, phone: order.phone, company: order.company,
-          billStreet: order.billStreet, billCityStateZip: order.billCityStateZip, billCountry: order.billCountry,
+          // one address is asked for; it is the billing address too
+          billStreet: order.street, billCityStateZip: order.cityStateZip, billCountry: order.country,
           street: order.street, cityStateZip: order.cityStateZip, country: order.country,
           notes: order.notes,
           options: optionsPayload(),
@@ -1503,7 +1505,7 @@
       showResult(
         `<p class="head"><span class="script">Thank you</span> so much for your business!</p>` +
         `<p>Your quote request <strong>${escapeHtml(data.orderId)}</strong> for ${order.quantity.toLocaleString()} ${escapeHtml(sizeText())} coins has been sent to the <strong>Coins for Anything team</strong>. ` +
-        (order.quote && order.quote.priced ? `<p>Your estimate came to <strong>${money(order.quote.total)}</strong> (${escapeHtml(order.quote.finishLabel)}, ${escapeHtml(order.quote.colorLabel.toLowerCase())}${order.rush ? ', rush' : ''}). ` : '<p>') +
+        (order.quote && order.quote.priced ? `<p>Your estimate came to <strong>${money(order.quote.total)}</strong> (${escapeHtml(order.quote.finishLabel)}, ${escapeHtml(order.quote.colorLabel.toLowerCase())}). ` : '<p>') +
         `We'll be in touch at <strong>${escapeHtml(order.email)}</strong> with your ${order.quote && order.quote.priced ? 'confirmed quote' : 'quote'}, a proof to approve, and next steps within one business day.</p>` +
         '<p>The Quality is Always Here.</p>'
       );
@@ -1684,7 +1686,6 @@
     $('desc-front').value = design.front; $('desc-back').value = design.back; $('desc-style').value = design.style;
     for (const b of $('back-mode').children) b.classList.toggle('on', b.dataset.mode === design.backMode);
     $('back-custom').hidden = !customBack();
-    $('back-images').hidden = !customBack();
     syncShape();
     logoDrop.classList.remove('bad');
     logoDrop.querySelector('.logo-empty').hidden = !!design.logo;
@@ -1708,25 +1709,25 @@
   const nerdSeen = () => { try { return sessionStorage.getItem('cfaNerd') === '1'; } catch (_) { return false; } };
   const nerdMarkSeen = () => { try { sessionStorage.setItem('cfaNerd', '1'); } catch (_) {} };
 
-  // The steps of the front as he knows them. Each one matches a group of the form (data-guide in index.html).
-  // tab: the section it is in on a phone. done: is it filled in? have: what they put there, for the list.
+  // The sections of the design step as he knows them. Each one matches a group of the form (data-guide in
+  // index.html). tab: the section it is in on a phone. done: is it filled in? have: what they put there, for the list.
   // missing: what the list says while it is empty. why: what he says when it is the next thing to do.
   // tip: what he says beside the step while it is lit up.
   const clip = (s, n = 34) => { s = s.trim().replace(/\s+/g, ' '); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
   const GUIDE = {
-    logo: {
-      name: 'Logo and reference photos', tab: 'logo',
+    files: {
+      name: 'Reference files', tab: 'files',
       done: hasArt,
       have: () => [design.logo ? 'Logo added' : '', design.refs.length ? `${design.refs.length} reference photo${design.refs.length > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · '),
       missing: 'Needed: add at least one',
       why: 'There is no logo or reference photo yet, and I need at least one to go on before I can draw your coin.',
       tip: () => (design.logo && design.refs.length ? 'A logo and photos, perfect. Say how to use the photos in your description, like “an eagle like the one in my photo”.'
-        : design.logo ? 'Got your logo! It goes on the coin exactly as you uploaded it. Have a photo or a sketch of what you are picturing? Add it under <b>Reference images</b>.'
+        : design.logo ? 'Got your logo! It goes on the coin exactly as you uploaded it. Have a photo or a sketch of what you are picturing? Add it under <b>Photos, sketches or examples</b>.'
           : design.refs.length ? 'Nice, I’ll work from those. Say how to use them in your description, like “an eagle like the one in my photo”.'
-            : 'Got a logo? Add it in the box and it goes on your coin exactly as it is. No logo? Add a photo or a sketch of what you have in mind under <b>Reference images</b>. I need at least one of them to go on.'),
+            : 'Got a logo? Add it in the box and it goes on your coin exactly as it is. No logo? Add a photo or a sketch of what you have in mind under <b>Photos, sketches or examples</b>. I need at least one of them to go on.'),
     },
-    describe: {
-      name: 'Describe the front', tab: 'describe',
+    front: {
+      name: 'Describe the front', tab: 'front',
       done: () => !!design.front.trim(),
       have: () => `“${clip(design.front)}”`,
       missing: 'Not written yet',
@@ -1734,6 +1735,16 @@
       tip: () => (!design.front.trim() ? 'This is the big one. Tell me what goes on the front and where, in plain words. Put exact wording in "double quotes", like "FIRE DEPT" around the top.'
         : !/["“”]/.test(design.front) ? 'Good start! Any wording that has to be spelled exactly goes in "double quotes", so I can check it letter by letter.'
           : 'That’s what I need. The more you tell me about what goes where, the closer the coin comes out.'),
+    },
+    back: {
+      name: 'Describe the back', tab: 'back',
+      done: () => !customBack() || !!design.back.trim(),
+      have: () => (customBack() ? `“${clip(design.back)}”` : blankBack() ? 'Blank' : 'Same as the front'),
+      missing: 'Not written yet',
+      why: 'The back still needs a description, or a word that it is the same as the front or blank.',
+      tip: () => (!customBack() ? (blankBack() ? 'A blank back: plain metal, nothing to draw. Easy.' : 'Same design on both sides. Nothing more to add here.')
+        : !design.back.trim() ? 'Nearly every coin has its own back. Tell me what goes on it, with exact wording in "double quotes". Or pick <b>Same as the front</b> or <b>Blank</b>.'
+          : 'Good. I draw the back right after the front, so the shape, metal and border match.'),
     },
     style: {
       name: 'Style and finish', tab: 'style', optional: true,
@@ -1757,7 +1768,7 @@
   };
   const GUIDE_IDS = Object.keys(GUIDE);
   // Down the form on a wide screen; on a phone, in the order of the row under the coin
-  const guideOrder = () => (studio.matches ? TABS.front.map(([tab]) => GUIDE_IDS.find((id) => GUIDE[id].tab === tab)).filter(Boolean) : GUIDE_IDS);
+  const guideOrder = () => (studio.matches ? TABS.design.map(([tab]) => GUIDE_IDS.find((id) => GUIDE[id].tab === tab)).filter(Boolean) : GUIDE_IDS);
   const guideFirst = () => guideOrder().find((id) => !GUIDE[id].done()) || null;
 
   function nerdBubble(html, who) {
@@ -1859,13 +1870,13 @@
   // He is around while the coin is being designed; once they are on to their quote he would only be in the way
   function nerdPlace() {
     const step = $('builder').dataset.step;
-    const show = ['front', 'back'].includes(step);
+    const show = step === 'design';
     if (!show && nerd.open) closeNerd();
     nerd.root.hidden = !show;
     if (nerd.guide) {
-      if (step !== 'front' || ai.busy || $('result').innerHTML) nerd.guide = null;
+      if (!show || ai.busy || $('result').innerHTML) nerd.guide = null;
       // on a phone the step's own Back and Next move through the sections, and he follows
-      else if (studio.matches) nerd.guide = GUIDE_IDS.find((id) => GUIDE[id].tab === tabOpen.front) || null;
+      else if (studio.matches) nerd.guide = GUIDE_IDS.find((id) => GUIDE[id].tab === tabOpen.design) || null;
     }
     guideShow();
     nerdStepsSync();
@@ -1892,14 +1903,14 @@
   }, 1500);
 
   // ---------- the walk-through ----------
-  // The Coin Nerd takes them through the front one step at a time. The step he is on is lit up in the form (see "the
-  // walk-through" in style.css) with his face beside it saying what to do there, and a button to the next step that
-  // still needs doing. After the last one he points at Generate (nerd.guide is then 'go'). On a phone the sections
-  // already come one at a time with their own Back and Next, so there he only talks; nerdPlace keeps him on the
-  // section on show.
+  // The Coin Nerd takes them through the design step one section at a time. The section he is on is lit up in the
+  // form (see "the walk-through" in style.css) with his face beside it saying what to do there, and a button to the
+  // next one that still needs doing. After the last one he points at Generate (nerd.guide is then 'go'). On a phone
+  // the sections already come one at a time with their own Back and Next, so there he only talks; nerdPlace keeps
+  // him on the section on show.
   const coach = document.createElement('div');
   coach.className = 'coach';
-  const frontStep = document.querySelector('.panel .step[data-step="front"]');
+  const designStep = document.querySelector('.panel .step[data-step="design"]');
   function guideStart(id) {
     if ($('result').innerHTML) return;
     if (id === undefined) nerd.passed.clear(); // from the chat: a fresh walk, starting at the first step not done
@@ -1907,12 +1918,12 @@
     const order = guideOrder();
     if (id === 'go' && studio.matches) id = order[order.length - 1]; // on a phone Generate is on the last section
     nerd.guide = id;
-    if ($('builder').dataset.step !== 'front') showStep('front');
+    if ($('builder').dataset.step !== 'design') showStep('design');
     if (studio.matches) openTab(GUIDE[id].tab);
     else {
       guideShow();
-      (id === 'go' ? coach : frontStep.querySelector(`[data-guide="${id}"]`)).scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const field = id !== 'go' && frontStep.querySelector(`[data-guide="${id}"] textarea`);
+      (id === 'go' ? coach : designStep.querySelector(`[data-guide="${id}"]`)).scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const field = id !== 'go' && designStep.querySelector(`[data-guide="${id}"] textarea`);
       if (field) field.focus({ preventScroll: true });
     }
   }
@@ -1928,14 +1939,14 @@
     nerd.passed.add(nerd.guide);
     if (nerd.guide === 'shape') design.shapePicked = true; // they looked at it and kept what was there
     const to = order.slice(order.indexOf(nerd.guide) + 1).find((id) => !GUIDE[id].done() && !nerd.passed.has(id));
-    guideStart(to || (!hasArt() ? 'logo' : designReady() ? 'go' : 'describe'));
+    guideStart(to || (!hasArt() ? 'files' : !design.front.trim() ? 'front' : designReady() ? 'go' : 'back'));
     nerdStepsSync();
   }
   function guideShow() {
     const id = nerd.guide;
-    const group = GUIDE[id] ? frontStep.querySelector(`[data-guide="${id}"]`) : null;
-    for (const el of frontStep.querySelectorAll('.guide-on')) if (el !== group) el.classList.remove('guide-on');
-    frontStep.classList.toggle('guiding', !!group);
+    const group = GUIDE[id] ? designStep.querySelector(`[data-guide="${id}"]`) : null;
+    for (const el of designStep.querySelectorAll('.guide-on')) if (el !== group) el.classList.remove('guide-on');
+    designStep.classList.toggle('guiding', !!group);
     // What he points at once the steps are done: Generate, or "Make Another Version" while this design has its render
     const order = guideOrder(), at = order.indexOf(id), last = at === order.length - 1;
     const ready = id === 'go' || (studio.matches && last);
@@ -1952,7 +1963,7 @@
       const typing = group.contains(document.activeElement) && document.activeElement.matches('textarea');
       if (!(typing && coach.dataset.step === id)) { coach.dataset.step = id; coach.dataset.tip = g.tip(); }
       says = coach.dataset.tip;
-      if (studio.matches && last) says += currentFront() ? '' : designReady() ? ' Then tap <b>Generate This Coin</b>.' : ` Then go back to <b>${hasArt() ? 'Describe' : 'Images'}</b>: I cannot draw a coin without it.`;
+      if (studio.matches && last) says += currentFront() ? '' : designReady() ? ' Then tap <b>Generate This Coin</b>.' : ` Then go back to <b>${!hasArt() ? 'Files' : !design.front.trim() ? 'Front' : 'Back'}</b>: I cannot draw a coin without it.`;
       const label = g.optional && !g.done() ? 'Skip this step' : 'Next step';
       button = `<button type="button" class="btn small coach-next"${!g.optional && id !== 'shape' && !g.done() ? ' disabled' : ''}>${label}</button>`;
     } else {
@@ -1982,24 +1993,24 @@
     if (e.target.closest('.coach-close')) guideStop();
     else if (e.target.closest('.coach-next')) guideNext();
   });
-  frontStep.addEventListener('focusout', (e) => { if (nerd.guide && e.target.matches('textarea')) setTimeout(guideShow, 0); }); // now he can say something new
+  designStep.addEventListener('focusout', (e) => { if (nerd.guide && e.target.matches('textarea')) setTimeout(guideShow, 0); }); // now he can say something new
 
   // ---------- restart ----------
   function restart() {
     Object.assign(design, newDesign());
-    Object.assign(order, { quantity: null, size: null, sizeOther: '', quote: null, notes: '', finish: '', finishPicked: false, color: 'two', colorPicked: false, addons: [], packaging: '', rush: false, analysis: null, seenAddons: [], addonsTouched: [], name: '', email: '', phone: '', company: '', billStreet: '', billCityStateZip: '', billCountry: 'United States', street: '', cityStateZip: '', country: 'United States' });
-    readKey = ''; readSeq++; $('design-read').hidden = true; $('options-group').classList.remove('read');
-    ai.front = newSide(); ai.back = newSide(); ai.side = 'front';
-    tabOpen.front = firstTab('front'); tabOpen.back = firstTab('back');
+    Object.assign(order, { quantity: null, size: null, sizeOther: '', quote: null, notes: '', finish: '', finishPicked: false, color: 'two', colorPicked: false, addons: [], analysis: null, reading: false, name: '', email: '', phone: '', company: '', street: '', cityStateZip: '', country: 'United States' });
+    readKey = ''; readSeq++;
+    ai.front = newSide(); ai.back = newSide();
+    tabOpen.design = firstTab('design');
     guideStop();
     $('result').innerHTML = '';
-    form.reset(); syncShip(); syncOptions(); // the whole quote form: quantity, size, options, notes and the details
+    form.reset(); syncOptions(); // the whole quote form: quantity, size, finish and color, notes and the details
     for (const el of form.querySelectorAll('.bad')) el.classList.remove('bad');
     logoUrl.value = ''; logoUrl.classList.remove('bad');
     syncControls();
     $('estimate').hidden = true;
     $('quote-error').hidden = true;
-    showStep('front');
+    showStep('design');
   }
   $('restart').addEventListener('click', () => {
     // On a phone the button sits in the header, a stray thumb away: check before wiping a coin they have started
@@ -2017,6 +2028,6 @@
   document.querySelectorAll(CHOICES).forEach(markPressed);
 
   // ---------- boot ----------
-  if (!handleReturnFromCheckout()) showStep('front');
+  if (!handleReturnFromCheckout()) showStep('design');
   else syncDesign();
 })();

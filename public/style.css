@@ -280,7 +280,7 @@ body {
 .preview-spec { margin: 2px 0 0; font-family: var(--font-head); font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; color: #e8e8e8; text-align: center; }
 .preview-spec:empty { display: none; }
 .builder[data-step="result"] #ai-btn { display: none; }
-/* On the quote step the coin is a reminder: versions, another version and the proofreader's notes stay on the design steps */
+/* On the quote step the coin is a reminder: versions, another version and the proofreader's notes stay on the design step */
 .builder[data-step="quote"] :is(.preview-actions, .versions-wrap, .ai-check, .ai-disclaimer) { display: none; }
 .preview-caption { margin: 0; font-size: 12px; color: #999; text-align: center; min-height: 18px; }
 /* When the column is taller than the screen it scrolls. Without this its lines of text are squeezed instead, and the
@@ -291,7 +291,8 @@ body {
 .versions-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; max-width: 400px; }
 .versions-wrap[hidden] { display: none; }
 .versions-label { font-family: var(--font-head); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #999; }
-.versions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.versions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; }
+.versions-split { flex: 0 0 auto; width: 1px; height: 44px; margin: 0 2px; background: #555; }
 .version { position: relative; width: 60px; height: 60px; padding: 0; border: 2px solid #444; border-radius: 0; background: #141414; cursor: pointer; transition: border-color .15s, transform .1s; }
 .version:hover { border-color: #888; transform: translateY(-1px); }
 .version.on { border-color: var(--orange); }
@@ -301,6 +302,8 @@ body {
 .version.warn .flag { background: #FFB300; color: var(--black); }
 .ai-check { width: 100%; max-width: 400px; font-size: 13px; line-height: 1.5; padding: 10px 12px; color: #ddd; background: #2a2a2a; border-left: 3px solid #666; }
 .ai-check[hidden] { display: none; }
+.ai-check p { margin: 0; }
+.ai-check p + p { margin-top: 6px; }
 .ai-check strong { color: var(--white); }
 .ai-check.ok { border-left-color: #43a047; }
 .ai-check.ok strong { color: #81c784; }
@@ -458,7 +461,7 @@ input:read-only { background: #f4f1eb; color: #777; }
   .nerd-chat svg { transform: translateX(3px); } /* centred in the part of the button his face leaves showing */
   .nerd-teaser { right: calc(100% + 8px); bottom: 4px; max-width: min(190px, calc(100vw - 130px)); border-radius: 14px 14px 4px 14px; transform-origin: right bottom; }
   .nerd-log { max-height: min(400px, calc(100dvh - 330px)); }
-  #design-hint, #back-hint { padding-right: 94px; } /* the line above the buttons ends short of the pair */
+  #design-hint { padding-right: 94px; } /* the line above the buttons ends short of the pair */
 }
 
 /* ---------- the walk-through ---------- */
@@ -590,30 +593,12 @@ input:read-only { background: #f4f1eb; color: #777; }
 .seg button small { font-family: var(--font-body, inherit); font-size: 11px; letter-spacing: 0; text-transform: none; opacity: .65; margin-left: 4px; }
 input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; height: 42px; }
 
-/* add-ons */
-.addons { display: flex; flex-direction: column; gap: 10px; }
-.addon-row { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; background: var(--offwhite); padding: 10px 12px; }
-.addon-info { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
-.addon-info strong { font-family: var(--font-head); font-weight: 600; font-size: 13px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dark); }
-.addon-info span { font-size: 12.5px; color: #5f5f5f; }
-.addon-info small { font-size: 12px; font-weight: 600; color: var(--orange-text); margin-top: 2px; }
-.addon-row .seg button { padding: 8px 12px; font-size: 12px; }
-.addon-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
-.addon-tile {
-  display: flex; align-items: flex-start; gap: 10px; text-align: left; cursor: pointer;
-  background: var(--offwhite); border: 2px solid transparent; border-radius: 0; padding: 10px 12px; font: inherit; color: inherit;
-  transition: border-color .15s, background .15s;
-}
-.addon-tile:hover { border-color: #ccc; }
-.addon-tile.on { border-color: var(--orange); background: #fff7ef; }
-.addon-tile .tick { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; border: 2px solid #b9b3a9; background: var(--white); display: grid; place-items: center; transition: background .15s, border-color .15s; }
-.addon-tile.on .tick { background: var(--orange); border-color: var(--orange); }
-.addon-tile.on .tick::after { content: ""; width: 9px; height: 5px; border: solid var(--white); border-width: 0 0 2px 2px; transform: translateY(-1px) rotate(-45deg); }
-.qty-input { max-width: 220px; }
+.qty-input { max-width: none; }
 .details-form > .group:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
 .details-form .notes { margin-top: 14px; }
-/* The size list, drawn like the text fields, with its own arrow; "Other" opens a field for the size in words beside it */
-.size-row { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 10px 12px; align-items: end; }
+/* Quantity and the size list side by side (the list drawn like the text fields, with its own arrow); "Other" opens a
+   field for the size in words under them */
+.size-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; align-items: end; }
 .size-row .ff[hidden] { display: none; }
 .size-select {
   width: 100%; appearance: none; -webkit-appearance: none; cursor: pointer;
@@ -633,50 +618,35 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .estimate .big { font-family: var(--font-head); font-size: 26px; letter-spacing: 1px; color: var(--text-dark); }
 .estimate small { color: #666; font-size: 13px; }
 
-/* The estimate, line by line: coins, mold, add-ons, packaging, rush, shipping, then the total up top */
+/* The estimate: the total up top, a line on what it is priced as, and the lines behind it (coins, mold, add-ons,
+   shipping) folded away under "See the breakdown" */
 .quote-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .quote-title { font-family: var(--font-head); font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dark); }
-.quote-lines { list-style: none; margin: 10px 0 0; padding: 10px 0 0; border-top: 1px solid #DDD8CF; }
+.quote-summary { margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: var(--text); }
+.quote-more { margin: 8px 0 0; }
+.quote-more summary { display: inline-block; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--orange-text); list-style: none; }
+.quote-more summary::-webkit-details-marker { display: none; }
+.quote-more summary::before { content: "+ "; }
+.quote-more[open] summary::before { content: "\2212  "; }
+.quote-lines { list-style: none; margin: 8px 0 0; padding: 10px 0 0; border-top: 1px solid #DDD8CF; }
 .quote-lines li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 4px 0; font-size: 14px; color: var(--text-dark); }
 .quote-lines li small { display: block; font-size: 12px; color: #666; }
 .quote-lines .ql-amount { flex: 0 0 auto; font-weight: 600; }
 .quote-lines .ql-free { color: var(--orange-text); }
 .quote-notes { margin: 10px 0 0; font-size: 12.5px; color: #666; line-height: 1.45; }
-.estimate.unpriced .quote-head, .estimate.unpriced .quote-lines { display: none; }
+.estimate.unpriced :is(.quote-head, .quote-summary, .quote-more), .estimate.reading :is(.quote-head, .quote-summary, .quote-more) { display: none; }
 .estimate.unpriced .quote-notes { margin-top: 0; font-size: 13px; }
-/* Add-on tiles on the quote form: name, price per coin, setup fee */
-#options-group[hidden] { display: none; }
-/* Once the AI has read the design, the reading is the spec: the finish, color and add-on controls are put away and only
-   packaging and rush stay to choose (anything else goes in the notes) */
-#options-group.read .manual { display: none; }
-/* What the AI read in the design, above the finish and options: a summary and one line per thing it is charging for */
-.design-read { border: 1px solid #e6dfd3; border-left: 3px solid var(--orange); background: #fffaf4; padding: 12px 14px; margin: 0 0 16px; }
-.design-read[hidden] { display: none; }
-.dr-title { display: flex; align-items: center; gap: 8px; margin: 0; font-family: var(--font-head); font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dark); }
-.dr-spin { display: none; width: 14px; height: 14px; border: 2px solid #e0d6c6; border-top-color: var(--orange); border-radius: 50%; animation: dr-spin .8s linear infinite; }
-.design-read.busy .dr-spin { display: inline-block; }
-.design-read.busy .dr-summary, .design-read.busy .dr-items, .design-read.busy .dr-note { display: none; }
+/* While the AI reads the design for the finish, color and add-ons, the estimate waits with a spinner */
+.estimate.reading .quote-notes { display: flex; align-items: center; gap: 8px; margin-top: 0; font-size: 13px; }
+.estimate.reading .quote-notes::before { content: ""; flex: 0 0 auto; width: 14px; height: 14px; border: 2px solid #e0d6c6; border-top-color: var(--orange); border-radius: 50%; animation: dr-spin .8s linear infinite; }
 @keyframes dr-spin { to { transform: rotate(360deg); } }
-.dr-summary { margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: var(--text); }
-.dr-items { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
-.dr-items li { display: grid; grid-template-columns: 110px 1fr; gap: 10px; font-size: 13px; line-height: 1.45; color: var(--text); }
-.dr-items strong { color: var(--text-dark); font-weight: 600; }
-.dr-note { margin: 8px 0 0; font-size: 12.5px; color: #666; }
-.addon-tile[data-tag]:not([data-tag=""])::after { content: attr(data-tag); position: absolute; right: 10px; top: 8px; font-size: 11px; letter-spacing: .5px; color: var(--orange); }
-.addon-tile { position: relative; }
-#options-group .ff-section + .addon-tiles { margin-top: 10px; }
-#options-group .addon-tiles + .ff-grid { margin-top: 14px; }
-.addon-tile .addon-info strong { font-size: 12.5px; letter-spacing: 1px; }
-.addon-tile:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
-.rush-check span { line-height: 1.3; }
+/* The finish and color controls: only when the design could not be read */
+#options-group[hidden] { display: none; }
 
 /* details form */
 .details-form .ff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
 .details-form .ff.wide { grid-column: 1 / -1; }
 .details-form .ff-section { font-family: var(--font-head); font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dark); margin: 16px 0 0; }
-.details-form .ff-check { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 14px; cursor: pointer; }
-.details-form .ff-check input { width: 16px; height: 16px; accent-color: var(--orange); }
-#ship-fields[hidden] { display: none; }
 .ff-error { color: #c62828; font-size: 13px; margin: 10px 0 0; }
 .ff-error[hidden] { display: none; }
 
@@ -953,9 +923,9 @@ html { -webkit-text-size-adjust: 100%; }
   .preview-stage.empty .coin-mark { --c: 60px; margin: 4px 0 10px 4px; }
   .preview-stage.empty ~ .preview-spec, .preview-stage.empty ~ .preview-caption { display: none; }
 
-  /* Once the coin is designed, the order steps only need a reminder of it; versions and fixes live on the design steps */
-  .builder:not([data-step="front"]):not([data-step="back"]) :is(.preview-actions, .versions-wrap, .ai-check, .ai-disclaimer, .preview-caption) { display: none; }
-  .builder:not([data-step="front"]):not([data-step="back"]) .preview-stage.two { max-width: 300px; max-width: min(300px, calc(2 * (100dvh - 150px))); }
+  /* Once the coin is designed, the order steps only need a reminder of it; versions and fixes live on the design step */
+  .builder:not([data-step="design"]) :is(.preview-actions, .versions-wrap, .ai-check, .ai-disclaimer, .preview-caption) { display: none; }
+  .builder:not([data-step="design"]) .preview-stage.two { max-width: 300px; max-width: min(300px, calc(2 * (100dvh - 150px))); }
   /* A thank-you page without a render has nothing to show */
   .builder[data-step="result"] .preview-col:not(:has(.face img:not([hidden]))) { display: none; }
 
@@ -976,7 +946,7 @@ html { -webkit-text-size-adjust: 100%; }
 
   /* The footer ends above the bar */
   .foot { padding: 10px var(--pad-r) calc(65px + max(10px, env(safe-area-inset-bottom))) var(--pad-l); }
-  .hint, .addon-info span { font-size: 14px; }
+  .hint { font-size: 14px; }
   .label, .ff-label { font-size: 12px; }
 }
 
@@ -1019,7 +989,7 @@ html { -webkit-text-size-adjust: 100%; }
   .builder { grid-template-columns: minmax(200px, 34%) 1fr; }
   .builder[data-step="result"]:not(:has(.face img:not([hidden]))) { grid-template-columns: 1fr; }
   .preview { position: sticky; top: 0; max-height: 100dvh; overflow-y: auto; padding: 12px 12px 12px var(--pad-l); }
-  .preview-stage, .preview-stage.two, .builder:not([data-step="front"]):not([data-step="back"]) .preview-stage.two { max-width: none; }
+  .preview-stage, .preview-stage.two, .builder:not([data-step="design"]) .preview-stage.two { max-width: none; }
   .preview-stage:not(.two):not(.empty) { max-width: calc(100dvh - 96px); }
   .preview-stage.two .face-label { font-size: 9px; padding: 2px 5px; left: 4px; top: 4px; }
   .preview-stage.two .coin-mark { display: none; }
@@ -1106,7 +1076,7 @@ html { -webkit-text-size-adjust: 100%; }
     padding: 12px var(--pad-r) 10px var(--pad-l); color: var(--s-dim);
   }
   .preview-stage, .preview-stage.two, .preview-stage.empty,
-  .builder:not([data-step="front"]):not([data-step="back"]) .preview-stage.two {
+  .builder:not([data-step="design"]) .preview-stage.two {
     grid-column: 1 / -1; width: 100%; height: 100%; max-width: none; aspect-ratio: auto;
     background: transparent; border: 0; box-shadow: none;
   }
@@ -1138,6 +1108,7 @@ html { -webkit-text-size-adjust: 100%; }
   .versions-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .versions { flex-wrap: nowrap; justify-content: flex-start; gap: 8px; min-width: 0; padding: 6px 8px 2px 0; overflow-x: auto; scrollbar-width: none; }
   .versions::-webkit-scrollbar { display: none; }
+  .versions-split { height: 32px; background: var(--s-line); }
   .version { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 10px; border-color: var(--s-line); background: var(--s-card); }
   .version img { border-radius: 8px; }
   .version .num { border-radius: 0 6px 0 8px; }
@@ -1180,7 +1151,7 @@ html { -webkit-text-size-adjust: 100%; }
   .sub-head:not(:empty) { display: flex; flex-direction: column; gap: 2px; margin: 0 0 14px; }
   .sub-head small { font-family: var(--font-head); font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--orange); }
   .sub-head strong { font-family: var(--font-head); font-weight: 600; font-size: 21px; letter-spacing: 1.6px; text-transform: uppercase; line-height: 1.25; color: var(--s-strong); }
-  .group[data-tab="logo"] .group-title, .group[data-tab="images"] .group-title { display: none; } /* the line above says it */
+  .group[data-tab="files"] .group-title { display: none; } /* the line above says it */
 
   /* ----- the form ----- */
   .panel {
@@ -1189,8 +1160,8 @@ html { -webkit-text-size-adjust: 100%; }
   }
   .step, .details-form { flex: 1 0 auto; display: flex; flex-direction: column; }
   .step h2 { flex-wrap: wrap; margin-bottom: 14px; font-size: 21px; color: var(--s-strong); }
-  /* The design steps are named by the step bar and the tabs; their heading stays for screen readers */
-  .step[data-step="front"] > h2, .step[data-step="back"] > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  /* The design step is named by the step bar and the tabs; its heading stays for screen readers */
+  .step[data-step="design"] > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .lead { display: none; }
   .group { border-top: 0; margin-top: 0; padding-top: 0; }
   .group:not(.tab-off) ~ .group:not(.tab-off) { margin-top: 20px; }
@@ -1201,7 +1172,7 @@ html { -webkit-text-size-adjust: 100%; }
   .group:has(.label) .group-title { display: none; } /* the field's own label says the same */
   .label, .ff-label, .sublabel { font-size: 13px; color: var(--s-dim); }
   .hint { font-size: 13px; line-height: 1.5; color: var(--s-dim); }
-  #design-hint, #back-hint { margin-top: 16px; color: var(--s-text); }
+  #design-hint { margin-top: 16px; color: var(--s-text); }
   .field.two, .details-form .ff-grid { grid-template-columns: 1fr; }
   .details-form .ff-section { color: var(--s-strong); }
   .link, .co-secure a { color: var(--s-link); }
@@ -1245,30 +1216,17 @@ html { -webkit-text-size-adjust: 100%; }
   .seg.wrap { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; }
   .seg.wrap button, .seg.wrap button:hover { min-height: 48px; padding: 6px 4px; line-height: 1.2; border: 1px solid var(--s-line); border-radius: 12px; background: var(--s-card); color: var(--s-strong); }
   .seg.wrap button.on, .seg.wrap button.on:hover { background: var(--orange); border-color: var(--orange); color: var(--white); }
-  .design-read { border-radius: 12px; background: var(--s-card); border-color: var(--s-line); border-left-color: var(--orange); }
-  .dr-title { color: var(--s-strong); }
-  .dr-summary, .dr-items li { color: var(--s-text); }
-  .dr-items strong { color: var(--s-strong); }
-  .dr-items li { grid-template-columns: 96px 1fr; }
-  .dr-note { color: var(--s-dim); }
-  .dr-spin { border-color: var(--s-line); border-top-color: var(--orange); }
-  .addon-tile[data-tag]:not([data-tag=""])::after { top: auto; bottom: 8px; }
   .estimate { border-left-width: 3px; border-radius: 12px; background: var(--s-card); }
   .estimate .big { color: var(--s-strong); }
   .estimate small { color: var(--s-dim); }
   .quote-title { color: var(--s-strong); }
+  .quote-summary { color: var(--s-text); }
+  .quote-more summary { color: var(--s-link); }
   .quote-lines { border-top-color: var(--s-line); }
   .quote-lines li { color: var(--s-text); }
   .quote-lines li small, .quote-notes { color: var(--s-dim); }
   .quote-lines .ql-free { color: var(--orange); }
-  .addon-tiles { grid-template-columns: 1fr; }
-  .addon-tile { min-height: 48px; border-radius: 12px; background: var(--s-card); border: 1px solid var(--s-line); color: var(--s-text); }
-  .addon-tile:hover { border-color: var(--s-line); }
-  .addon-tile.on { background: rgba(245,130,32,.1); border-color: var(--orange); }
-  .addon-tile .tick { border-color: var(--s-line); background: transparent; }
-  .addon-tile .addon-info strong { color: var(--s-strong); }
-  .addon-tile .addon-info span { color: var(--s-dim); }
-  .rush-check { align-items: flex-start; }
+  .estimate.reading .quote-notes::before { border-color: var(--s-line); border-top-color: var(--orange); }
 
 
   /* The Result tab: what the proofreader found, and the offer to have a designer fix it */
