@@ -80,7 +80,7 @@ Quotes are priced from `lib/price-chart.json`, which is the company's **Expanded
 
 ```bash
 pip install openpyxl
-python scripts/import-pricing.py "C:/Users/User/Downloads/Expanded Pricing Chart to 4in 2026 Oct.xlsx"
+python scripts/import-pricing.py "C:/Users/User/Downloads/Expanded Pricing Chart 2026 Oct 29.xlsx"
 ```
 
 `lib/pricing.js` prices an order the way the chart does:
@@ -90,7 +90,7 @@ python scripts/import-pricing.py "C:/Users/User/Downloads/Expanded Pricing Chart
 - **Add-ons.** Per coin, some with a one-time setup fee (stamped edge, reeded edge, keychain, picture insert, custom ribbons, screen print).
 - **Packaging.** Per coin, cheaper from 75 coins; each piece adds a little to shipping.
 - **Rush** (under 10 business days). $75 up to 50 coins, $80 for 51 to 99, 20% of the coin cost from 100.
-- **Shipping.** The chart's ground-shipping guide by size and quantity; 1" to 2.25" coins ship free from 300 coins, larger coins at so much per coin.
+- **Shipping.** The chart's ground-shipping guide by size and quantity, from a few dollars for a handful of coins up; 1" to 2.25" coins ship free from 300 coins, larger coins at so much per coin.
 
 The estimate updates as the customer changes the quantity or size, and the order record keeps the lines they saw (`quote`), so the team's email and the Zoho lead show the same numbers. Sales tax is not included. Packaging and rush are not asked for on the form (they go in the notes for the team to quote), so `quote()` is called without them from the builder; the pricing still supports them for the team's own use.
 

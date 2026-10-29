@@ -3,7 +3,7 @@
 Turns the "Expanded Pricing Chart" spreadsheet into lib/price-chart.json, which lib/pricing.js prices quotes from.
 
     pip install openpyxl
-    python scripts/import-pricing.py "C:/Users/User/Downloads/Expanded Pricing Chart to 4in 2026 Oct.xlsx"
+    python scripts/import-pricing.py "C:/Users/User/Downloads/Expanded Pricing Chart 2026 Oct 29.xlsx"
 
 The sheet is laid out as one block per coin size ('1" Molds $140', '2.25" Pricing - MOLDS at $229', ...), and inside
 each block one table per finish group ('1" Antique Brass', '1" Shiny Nickel / Shiny Silver', ...):
@@ -16,7 +16,8 @@ each block one table per finish group ('1" Antique Brass', '1" Shiny Nickel / Sh
 Up to 50 coins there is one price with any color included; from 51 the price depends on whether the coins get enamel
 color on no side, one side or both. To the right of the first block sit the rush fees, the shipping guide, the per-coin
 add-ons and the packaging upgrades; those are copied across by cell address, so if the sheet is ever rearranged, check
-the ADDRESSES below.
+the ADDRESSES below. The shipping guide's quantity columns are either a range ("1-5", "41-50") or a plain number (75,
+100 ... 300), each meaning "up to that many coins"; the last column ("300+") is free or so much per coin over 300.
 """
 import json
 import re
@@ -25,6 +26,7 @@ from pathlib import Path
 
 try:
     import openpyxl
+    from openpyxl.utils import get_column_letter
 except ImportError:
     sys.exit("openpyxl is needed: pip install openpyxl")
 
@@ -130,8 +132,24 @@ rush = {
     "note": "Rush does not include shipping upgrades.",
 }
 
-# Shipping guide: rows by size range, columns by quantity (100, 150, 200, 250, 300, over 300)
-ship_cols = [num(cell(f"{c}4")) for c in "UVWXY"]
+# Shipping guide: rows by size range, columns by quantity. Each column heading is the most coins it covers: a range
+# like "1-5" or "41-50" (its upper end), or a plain 75, 100 ... 300. The column after the last number ("300+") is what
+# shipping costs past it. Headings are read from row 4 until the "+" column, so the sheet can add or drop columns.
+ship_cols, ship_letters = [], []
+for c in range(21, 40):  # U onwards
+    head = cell(f"{get_column_letter(c)}4")
+    if head is None or "+" in str(head):
+        over_col = get_column_letter(c)
+        break
+    m = re.match(r"^\s*(?:\d+\s*-\s*)?(\d+)\s*$", str(head))
+    if not m:
+        raise SystemExit(f"Shipping guide heading {head!r} at {get_column_letter(c)}4 is not a quantity")
+    ship_cols.append(int(m.group(1)))
+    ship_letters.append(get_column_letter(c))
+else:
+    raise SystemExit("Shipping guide: no '300+' column found after the quantity columns")
+if ship_cols != sorted(ship_cols) or not ship_cols:
+    raise SystemExit(f"Shipping guide columns are not in rising order: {ship_cols}")
 shipping = []
 for r in range(5, 14):
     label = str(cell(f"T{r}") or "").strip()
@@ -140,10 +158,10 @@ for r in range(5, 14):
         break
     lo, hi = m.group(1), m.group(2) or m.group(1)
     flat = []
-    for c, upto in zip("UVWXY", ship_cols):
+    for c in ship_letters:
         v = cell(f"{c}{r}")
         flat.append(0 if str(v).strip().upper() == "FREE" else num(v))
-    over = cell(f"Z{r}")
+    over = cell(f"{over_col}{r}")
     over_s = str(over).strip()
     shipping.append({
         "sizes": [lo, hi], "upTo": ship_cols, "flat": flat,
