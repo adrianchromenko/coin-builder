@@ -12,7 +12,7 @@ const { countReferences } = require('./lib/references');
 const { SIZES, hasPricing, quote, catalog, groupOf } = require('./lib/pricing');
 const chart = require('./lib/price-chart.json');
 const { analyzeDesign, enabled: readDesignOn } = require('./lib/analyze');
-const { saveOrder, updateOrder, notifyWebhook, createCheckout, confirmPayment, awaitingPayment, depositPercent } = require('./lib/orders');
+const { saveOrder, updateOrder, notifyWebhook, createCheckout, confirmPayment, awaitingPayment, depositRule } = require('./lib/orders');
 const { watermark, saveOriginal, readOriginal } = require('./lib/watermark');
 const { mailConfigured, sendOrderEmail, sendAlertEmail, sendContactEmail, saveLead, readSignupsCsv, notifyLead } = require('./lib/mailer');
 const guard = require('./lib/guard');
@@ -135,8 +135,9 @@ app.get('/api/config', (_req, res) => {
     // true when the design is read by the AI on the quote step (finish, color sides and add-ons taken from the pictures)
     readDesign: hasPricing() && readDesignOn(),
     payments: !!(process.env.STRIPE_SECRET_KEY && hasPricing()),
-    // The share of the quote Checkout asks for up front, in percent (DEPOSIT_PERCENT); 0 when it charges the whole quote
-    deposit: depositPercent(),
+    // The deposit Checkout asks for up front: { amount, threshold, percent } (a flat amount under the threshold, a share
+    // of the quote from it up; see depositRule), or null when it charges the whole quote
+    deposit: depositRule(),
     // TEST_MODE=1 turns test mode on for everyone; otherwise it is enabled per browser with ?test=1
     testMode: process.env.TEST_MODE === '1',
     // true when SMTP is set up: designs are emailed instead of downloaded
@@ -350,7 +351,7 @@ function announcePaid(found) {
   if (!found || !found.justPaid) return;
   const o = found.record;
   console.log(`[coin-builder] order ${o.id} is PAID (${o.amountPaid != null ? '$' + o.amountPaid : 'amount unknown'})`);
-  Promise.resolve(sendAlertEmail(`Paid: Coin Builder order ${o.id}`, `${o.name} (${o.email}) paid${o.amountPaid != null ? ` $${o.amountPaid}` : ''}${o.deposit ? ` as a ${o.deposit.percent}% deposit (balance $${o.deposit.balance.toFixed(2)}, due with the proof)` : ''} for order ${o.id}: ${o.quantity} x ${o.sizeLabel || o.size} coins.\nStripe payment: ${o.stripePaymentIntent || 'see the Stripe dashboard'}`))
+  Promise.resolve(sendAlertEmail(`Paid: Coin Builder order ${o.id}`, `${o.name} (${o.email}) paid${o.amountPaid != null ? ` $${o.amountPaid}` : ''}${o.deposit ? ` as the ${o.deposit.label} (balance $${o.deposit.balance.toFixed(2)}, due with the proof)` : ''} for order ${o.id}: ${o.quantity} x ${o.sizeLabel || o.size} coins.\nStripe payment: ${o.stripePaymentIntent || 'see the Stripe dashboard'}`))
     .catch((e) => console.error(`[coin-builder] paid notice failed for ${o.id}:`, e.message));
 }
 

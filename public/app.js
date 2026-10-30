@@ -59,8 +59,17 @@
   // The pictures a render of the back is shown: its own, or the front's when it has none
   const backRefs = () => (design.backRefs.length ? design.backRefs : design.refs);
   const sideRefs = (side) => (side === 'back' ? backRefs() : design.refs);
-  // The deposit Stripe asks for on a quote total (config.deposit is the percent; 0 when the whole quote is charged)
-  const depositOf = (total) => Math.round(total * config.deposit) / 100;
+  // The deposit Stripe asks for on a quote total, by the server's rule (config.deposit: a flat amount under the
+  // threshold, a share of the quote from it up; null when the whole quote is charged). Answers { amount, percent
+  // (null when flat) }, or null when there is no deposit or it would cover the quote.
+  function depositOf(total) {
+    const r = config.deposit;
+    if (!r || !(total > 0)) return null;
+    const flat = total < r.threshold;
+    const amount = Math.min(total, flat ? r.amount : Math.round(total * r.percent) / 100);
+    return amount >= total ? null : { amount, percent: flat ? null : r.percent };
+  }
+  const depositText = (d) => (d.percent ? `${d.percent}% deposit (${money(d.amount)})` : `${money(d.amount)} deposit`);
   // The size in words, for the spec line, the test checkout and the thank-you
   const sizeText = () => (order.size === 'other' ? order.sizeOther.trim() || 'custom size' : order.size ? `${order.size}"` : '');
   // The design as the server records it on renders, orders and leads
@@ -1405,8 +1414,9 @@
     const as = [q.finishLabel.split(' / ')[0], q.colorIncluded ? 'color included' : q.colorLabel.toLowerCase(), ...addons];
     $('quote-summary').textContent = `${money(q.unit)} per coin · ${as.join(', ')}. Includes the mold${q.shipping != null ? ' and ground shipping' : ''}.`;
     $('quote-lines').innerHTML = quoteLinesHtml(q, 'li');
+    const dep = config.payments ? depositOf(q.total) : null;
     $('quote-notes').textContent = (order.analysis ? 'Priced from what your design shows; anything else you need goes in the notes. ' : '') + 'Sales tax not included. Our team confirms the final quote with your proof.'
-      + (config.payments && config.deposit ? ` A ${config.deposit}% deposit (${money(depositOf(q.total))}) gets your order started; the balance is due when you approve your proof.` : '');
+      + (dep ? ` A ${depositText(dep)} gets your order started; the balance is due when you approve your proof.` : '');
     box.hidden = false;
     updateOrderButton();
   }
@@ -1577,12 +1587,13 @@
       $('co-coin').src = image || '';
       $('co-item').innerHTML = `<strong>${o.quantity.toLocaleString()} × Custom ${escapeHtml(sizeText())} ${q ? escapeHtml(q.finishLabel.split(' / ')[0]) + ' ' : ''}Coin</strong><br>` +
         `<span style="color:#999">Order ${escapeHtml(orderId)}${q ? ` &middot; ${money(q.unit)} each` : ''}</span>`;
-      // What Stripe would ask for: the deposit when one is configured, else the whole quote
-      const due = config.deposit ? depositOf(amount) : amount;
+      // What Stripe would ask for: the deposit when the rule gives one, else the whole quote
+      const dep = depositOf(amount);
+      const due = dep ? dep.amount : amount;
       $('co-lines').innerHTML = (q ? quoteLinesHtml(q, 'div') : `<div><span>Subtotal</span><span>${money(amount)}</span></div>`) +
         `<div class="co-total"><span>Total</span><span>${money(amount)}</span></div>` +
-        (config.deposit ? `<div class="co-total"><span>Deposit due today (${config.deposit}%)</span><span>${money(due)}</span></div>` : '');
-      $('co-note').textContent = sample ? 'Sample price shown: the chart could not price this order. Test mode only.' : (config.deposit ? 'The balance is due when you approve your proof. ' : '') + 'Sales tax, if any, is added at checkout. Our team confirms the final quote with your proof.';
+        (dep ? `<div class="co-total"><span>Deposit due today${dep.percent ? ` (${dep.percent}%)` : ''}</span><span>${money(due)}</span></div>` : '');
+      $('co-note').textContent = sample ? 'Sample price shown: the chart could not price this order. Test mode only.' : (dep ? 'The balance is due when you approve your proof. ' : '') + 'Sales tax, if any, is added at checkout. Our team confirms the final quote with your proof.';
       co.form.reset();
       $('co-email').value = o.email;
       co.form.elements.cardName.value = o.name;

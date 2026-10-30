@@ -33,7 +33,9 @@ Without an API key the server runs in **demo mode** and returns a local SVG mock
 | `AI_READ_DESIGN` | on | `0` stops the quote step reading the design (finish, color sides, add-ons) from the renders |
 | `PRICING` | on | `0` turns the estimate off: orders are saved as plain quote requests with no price shown |
 | `STRIPE_SECRET_KEY` | | Sends Get Started to Stripe Checkout for the deposit on the quote (without it, Get Started sends the quote request) |
-| `DEPOSIT_PERCENT` | `50` | The share of the quote Checkout asks for; `100` charges the whole quote line by line |
+| `DEPOSIT_AMOUNT` | `175` | The flat deposit Checkout asks for on quotes under the threshold (the company CRM's rule) |
+| `DEPOSIT_THRESHOLD` | `5000` | Quotes at or above this pay a share of the total as the deposit instead |
+| `DEPOSIT_PERCENT` | `50` | That share; `100` charges the whole quote line by line |
 | `PUBLIC_URL` | | Deployed URL, used for Stripe return links |
 | `ORDER_WEBHOOK_URL` | | Every order is POSTed here as JSON |
 | `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN` | | Every quote request becomes a Lead in Zoho CRM, render attached (`lib/zoho.js`; get the token with `scripts/zoho-token.js`) |
