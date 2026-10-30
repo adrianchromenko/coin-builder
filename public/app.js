@@ -38,8 +38,8 @@
     street: '', cityStateZip: '', country: 'United States',
   };
   // Every AI render is kept as a version, per face: the picture, the proofreading result, and the description it was
-  // made from. A back version also remembers which front render it was drawn to match; it only counts while that
-  // front is the one on screen.
+  // made from. A back version also remembers which front it was drawn to match, for the record only: any front can be
+  // paired with any back, so a customer who likes an earlier front can keep it with a later back.
   const MAX_VERSIONS = 8;
   const newSide = () => ({ versions: [], current: null, nextNumber: 1 });
   const ai = { busy: false, front: newSide(), back: newSide() };
@@ -48,7 +48,6 @@
   const currentBack = () => sideCurrent('back');
   const frontRenderId = () => { const f = currentFront(); return f ? f.renderId : null; };
   const frontKey = () => { const f = currentFront(); return f ? f.id : null; }; // which front version a back was drawn for
-  const backStale = (v) => v.frontKey !== frontKey();
   const currentVersion = currentFront; // the order, the contact form and checkout are anchored on the front
   let busy = false;
   const customBack = () => design.backMode === 'custom';
@@ -60,6 +59,8 @@
   // The pictures a render of the back is shown: its own, or the front's when it has none
   const backRefs = () => (design.backRefs.length ? design.backRefs : design.refs);
   const sideRefs = (side) => (side === 'back' ? backRefs() : design.refs);
+  // The deposit Stripe asks for on a quote total (config.deposit is the percent; 0 when the whole quote is charged)
+  const depositOf = (total) => Math.round(total * config.deposit) / 100;
   // The size in words, for the spec line, the test checkout and the thank-you
   const sizeText = () => (order.size === 'other' ? order.sizeOther.trim() || 'custom size' : order.size ? `${order.size}"` : '');
   // The design as the server records it on renders, orders and leads
@@ -286,7 +287,7 @@
   const logoKey = () => (design.logo ? design.logo.length : 0);
   const refsKey = (list) => list.map((r) => r.id).join();
   const frontSignature = () => JSON.stringify({ shape: design.shape, front: design.front.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey(), refs: refsKey(design.refs) });
-  const backSignature = () => JSON.stringify({ shape: design.shape, back: design.back.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey(), refs: refsKey(backRefs()), front: frontKey() });
+  const backSignature = () => JSON.stringify({ shape: design.shape, back: design.back.trim(), style: design.style.trim(), logoName: design.logoName, logo: logoKey(), refs: refsKey(backRefs()) });
   const sideSignature = (side) => (side === 'back' ? backSignature() : frontSignature());
 
   // A design change means the render on screen no longer matches; earlier versions stay in the strip.
@@ -297,8 +298,8 @@
     for (const side of ['front', 'back']) {
       const v = sideCurrent(side);
       if (v && v.signature !== sideSignature(side)) ai[side].current = null;
-      // Back to a description (or, for the back, a front) that was rendered before: that version comes back on its own
-      if (!sideCurrent(side)) { const again = [...ai[side].versions].reverse().find((x) => x.signature === sideSignature(side)); if (again) ai[side].current = again.id; }
+      // Back to a description that was rendered before: that version comes back on its own
+      if (!sideCurrent(side)) { const again = [...ai[side].versions].reverse().find((x) => x.signature === sideSignature(side) && !x.expired); if (again) ai[side].current = again.id; }
     }
     const front = currentFront();
     const back = currentBack();
@@ -867,10 +868,9 @@
     const anchor = frontRenderId(); // the front this back is drawn to match
     const anchorKey = frontKey();
     // A change they asked for is made to the version on screen, so that picture goes along. Without it the AI was only
-    // ever shown the front, and a change asked of the back came out as the front again. (Not a back that was drawn
-    // for a different front: that one is no longer this coin.)
+    // ever shown the front, and a change asked of the back came out as the front again.
     const shown = sideCurrent(side);
-    const base = note && shown && shown.renderId && !(side === 'back' && backStale(shown)) ? shown.renderId : '';
+    const base = note && shown && shown.renderId ? shown.renderId : '';
     // Another version of a face already rendered: tell the server not to hand back the cached one
     const fresh = ai[side].versions.some((v) => v.signature === signature);
     try {
@@ -901,6 +901,9 @@
         data = await res.json().catch(() => ({}));
         if (!res.ok) {
           if (data.rejected) markRejected(snapshot, data.rejected);
+          // The version the change was asked of is gone from the server (clean renders are kept a few days): it comes
+          // off the stage, and the step offers to draw that face again
+          if (data.expired && shown) { shown.expired = true; ai[side].current = null; }
           throw new Error(data.error || 'Render failed');
         }
       }
@@ -928,8 +931,8 @@
     const s = ai[side];
     const v = s.versions.find((x) => x.id === id);
     if (!v) return;
-    if (side === 'back' && backStale(v)) {
-      toast('That back was drawn to match a different front. Pick that front again under the coin, or generate the back again for this one.', 6000);
+    if (v.expired) {
+      toast(`That ${side} has expired on our side (renders are kept for a few days). Generate the ${side} again to go on from it.`, 6000);
       return;
     }
     if (v.signature !== sideSignature(side)) {
@@ -939,7 +942,7 @@
       syncControls();
     }
     s.current = id;
-    syncDesign(); // a front picked again brings back the back that was drawn for it (found by its signature)
+    syncDesign();
   }
 
   function removeVersion(side, id) {
@@ -967,8 +970,8 @@
     $('ai-btn').hidden = !any;
     const strip = (side) => ai[side].versions.map((v) => {
       const state = checkState(v);
-      const stale = side === 'back' && backStale(v);
-      const label = `${side === 'back' ? 'Back' : 'Front'} version ${v.number}` + (stale ? ', drawn for a different front' : state === 'ok' ? ', wording checked' : state === 'warn' ? ', needs a look' : '') + (v.note ? `. Asked for: ${v.note}` : '');
+      const stale = !!v.expired;
+      const label = `${side === 'back' ? 'Back' : 'Front'} version ${v.number}` + (stale ? ', expired' : state === 'ok' ? ', wording checked' : state === 'warn' ? ', needs a look' : '') + (v.note ? `. Asked for: ${v.note}` : '');
       return `<button type="button" class="version${v.id === ai[side].current ? ' on' : ''} ${state}${stale ? ' stale' : ''}" data-version="${v.id}" data-side="${side}" aria-pressed="${v.id === ai[side].current}" aria-label="${label}" title="${label}">` +
         `<img src="${v.image}" alt=""><span class="num">${side === 'back' ? 'B' : 'F'}${v.number}</span>${state === 'unchecked' || stale ? '' : `<span class="flag" aria-hidden="true">${state === 'ok' ? '✓' : '!'}</span>`}</button>`;
     }).join('');
@@ -1402,7 +1405,8 @@
     const as = [q.finishLabel.split(' / ')[0], q.colorIncluded ? 'color included' : q.colorLabel.toLowerCase(), ...addons];
     $('quote-summary').textContent = `${money(q.unit)} per coin · ${as.join(', ')}. Includes the mold${q.shipping != null ? ' and ground shipping' : ''}.`;
     $('quote-lines').innerHTML = quoteLinesHtml(q, 'li');
-    $('quote-notes').textContent = (order.analysis ? 'Priced from what your design shows; anything else you need goes in the notes. ' : '') + 'Sales tax not included. Our team confirms the final quote with your proof.';
+    $('quote-notes').textContent = (order.analysis ? 'Priced from what your design shows; anything else you need goes in the notes. ' : '') + 'Sales tax not included. Our team confirms the final quote with your proof.'
+      + (config.payments && config.deposit ? ` A ${config.deposit}% deposit (${money(depositOf(q.total))}) gets your order started; the balance is due when you approve your proof.` : '');
     box.hidden = false;
     updateOrderButton();
   }
@@ -1446,9 +1450,9 @@
     placeOrder();
   });
 
+  // "Get Started": with Stripe configured it opens checkout for the deposit; without, it sends the quote request
   function updateOrderButton() {
-    const priced = !!(order.quote && order.quote.priced);
-    $('place-order').textContent = isTest() ? 'Place Test Order' : (config.payments && priced ? 'Pay Now' : 'Submit for Quote');
+    $('place-order').textContent = isTest() ? 'Place Test Order' : 'Get Started';
   }
 
   async function placeOrder() {
@@ -1573,13 +1577,16 @@
       $('co-coin').src = image || '';
       $('co-item').innerHTML = `<strong>${o.quantity.toLocaleString()} × Custom ${escapeHtml(sizeText())} ${q ? escapeHtml(q.finishLabel.split(' / ')[0]) + ' ' : ''}Coin</strong><br>` +
         `<span style="color:#999">Order ${escapeHtml(orderId)}${q ? ` &middot; ${money(q.unit)} each` : ''}</span>`;
+      // What Stripe would ask for: the deposit when one is configured, else the whole quote
+      const due = config.deposit ? depositOf(amount) : amount;
       $('co-lines').innerHTML = (q ? quoteLinesHtml(q, 'div') : `<div><span>Subtotal</span><span>${money(amount)}</span></div>`) +
-        `<div class="co-total"><span>Total due</span><span>${money(amount)}</span></div>`;
-      $('co-note').textContent = sample ? 'Sample price shown: the chart could not price this order. Test mode only.' : 'Sales tax, if any, is added at checkout. Our team confirms the final quote with your proof.';
+        `<div class="co-total"><span>Total</span><span>${money(amount)}</span></div>` +
+        (config.deposit ? `<div class="co-total"><span>Deposit due today (${config.deposit}%)</span><span>${money(due)}</span></div>` : '');
+      $('co-note').textContent = sample ? 'Sample price shown: the chart could not price this order. Test mode only.' : (config.deposit ? 'The balance is due when you approve your proof. ' : '') + 'Sales tax, if any, is added at checkout. Our team confirms the final quote with your proof.';
       co.form.reset();
       $('co-email').value = o.email;
       co.form.elements.cardName.value = o.name;
-      co.pay.textContent = `Pay ${money(amount)}`;
+      co.pay.textContent = `Pay ${money(due)}`;
       co.pay.disabled = false;
       co.error.hidden = true;
       for (const i of co.form.querySelectorAll('input')) i.classList.remove('bad');
@@ -1675,9 +1682,9 @@
     fetch(`/api/orders/${encodeURIComponent(orderId)}/paid`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paid }),
     }).catch(() => {});
-    showResult(paid
-      ? `<p class="head"><span class="script">Thank you</span> for your order!</p><p>Payment received for order <strong>${escapeHtml(orderId)}</strong>. A receipt is on its way to your inbox, and our team will be in touch about production and shipping.</p>`
-      : `<p class="head">Checkout cancelled</p><p>No charge was made for order <strong>${escapeHtml(orderId)}</strong>. Our team still has your request and will follow up by email.</p>`);
+    configReady.then(() => showResult(paid
+      ? `<p class="head"><span class="script">Thank you</span> for your order!</p><p>${config.deposit ? 'Your deposit is in' : 'Payment received'} for order <strong>${escapeHtml(orderId)}</strong>. A receipt is on its way to your inbox, and our team will be in touch with your proof${config.deposit ? ', the balance' : ''} and next steps.</p>`
+      : `<p class="head">Checkout cancelled</p><p>No charge was made for order <strong>${escapeHtml(orderId)}</strong>. Our team still has your request and will follow up by email.</p>`));
     return true;
   }
 
