@@ -80,8 +80,7 @@
       "key": "shiny-nickel",
       "finishes": [
         "shiny-nickel",
-        "shiny-silver",
-        "satin-nickel"
+        "shiny-silver"
       ],
       "label": "Shiny Nickel / Shiny Silver"
     },
@@ -97,7 +96,8 @@
       "key": "antique-silver",
       "finishes": [
         "antique-silver",
-        "satin-silver"
+        "satin-silver",
+        "satin-nickel"
       ],
       "label": "Antique Silver / Satin Silver"
     },

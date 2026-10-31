@@ -9,7 +9,7 @@ const multer = require('multer');
 const { getProvider } = require('./lib/providers');
 const { normalizeCoinShape, coinShapeLabel, freeText, quotedPhrases } = require('./lib/prompt');
 const { countReferences } = require('./lib/references');
-const { SIZES, hasPricing, quote, catalog, groupOf } = require('./lib/pricing');
+const { SIZES, hasPricing, quote, catalog, groupOf, taxStateOf } = require('./lib/pricing');
 const chart = require('./lib/price-chart.json');
 const { analyzeDesign, enabled: readDesignOn } = require('./lib/analyze');
 const { saveOrder, updateOrder, notifyWebhook, createCheckout, confirmPayment, awaitingPayment, depositRule } = require('./lib/orders');
@@ -155,6 +155,8 @@ function quoteOptions(src) {
     addons: addons.map((a) => String(a).trim().slice(0, 40)).filter(Boolean).slice(0, 20),
     packaging: String(src.packaging || '').trim().slice(0, 40),
     rush: src.rush === true || src.rush === 'true' || src.rush === '1',
+    // Sales tax follows the shipping address (Virginia only); the live quote sends the address fields as typed
+    taxState: taxStateOf({ cityStateZip: String(src.cityStateZip || '').slice(0, 120), country: String(src.country || '').slice(0, 60) }),
   };
 }
 
@@ -233,7 +235,7 @@ app.post('/api/orders', async (req, res) => {
   // Test orders: saved for inspection, but never sent to Stripe or the order webhook
   const isTest = b.test === true || process.env.TEST_MODE === '1';
   // Metal finish, enamel color, add-ons, packaging and rush, as chosen on the quote form; priced by lib/pricing.js
-  const options = quoteOptions(b.options && typeof b.options === 'object' ? b.options : {});
+  const options = quoteOptions({ ...(b.options && typeof b.options === 'object' ? b.options : {}), cityStateZip, country });
   const finishGroup = groupOf(options.finish);
   const analysis = cleanAnalysis(b.analysis);
   // What the customer described, plus whether and how the AI rendered it

@@ -44,9 +44,10 @@ cell = lambda a: ws[a].value
 # each one prices. Keys match lib/prompt.js FINISHES where they exist.
 GROUPS = [
     ("antique-brass", r"antique brass", ["antique-brass"]),
-    ("shiny-nickel", r"shiny nickel", ["shiny-nickel", "shiny-silver", "satin-nickel"]),
+    ("shiny-nickel", r"shiny nickel", ["shiny-nickel", "shiny-silver"]),
     ("copper", r"copper", ["antique-copper", "shiny-copper"]),
-    ("antique-silver", r"antique silver", ["antique-silver", "satin-silver"]),
+    # satin nickel is not on the sheet; Chris prices it as antique silver (2026-10-31)
+    ("antique-silver", r"antique silver", ["antique-silver", "satin-silver", "satin-nickel"]),
     ("gold", r"gold", ["antique-gold", "shiny-gold", "satin-gold"]),
     ("black", r"black", ["black-nickel", "matte-black", "dye-black"]),
 ]

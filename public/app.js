@@ -1387,7 +1387,8 @@
       return;
     }
     try {
-      const p = new URLSearchParams({ size: order.size, quantity: String(order.quantity), ...optionsPayload(), addons: order.addons.join(',') });
+      // The address goes along for the sales tax (Virginia orders only)
+      const p = new URLSearchParams({ size: order.size, quantity: String(order.quantity), ...optionsPayload(), addons: order.addons.join(','), cityStateZip: order.cityStateZip, country: order.country });
       const r = await fetch(`/api/quote?${p}`);
       const d = await r.json();
       if (seq !== quoteSeq) return; // a newer answer is on its way
@@ -1415,7 +1416,11 @@
     $('quote-summary').textContent = `${money(q.unit)} per coin · ${as.join(', ')}. Includes the mold${q.shipping != null ? ' and ground shipping' : ''}.`;
     $('quote-lines').innerHTML = quoteLinesHtml(q, 'li');
     const dep = config.payments ? depositOf(q.total) : null;
-    $('quote-notes').textContent = (order.analysis ? 'Priced from what your design shows; anything else you need goes in the notes. ' : '') + 'Sales tax not included. Our team confirms the final quote with your proof.'
+    // Up to 50 coins: what 100 would cost per coin, to make the case for a bigger order
+    const up = $('quote-upsell');
+    up.hidden = !q.upsell;
+    if (q.upsell) up.innerHTML = `Order <strong>${q.upsell.quantity}</strong> and the price drops to <strong>${money(q.upsell.unit)} per coin</strong>, ${money(q.upsell.saving)} less each.`;
+    $('quote-notes').textContent = (order.analysis ? 'Priced from what your design shows; anything else you need goes in the notes. ' : '') + (q.tax ? '' : 'No sales tax outside Virginia. ') + 'Our team confirms the final quote with your proof.'
       + (dep ? ` A ${depositText(dep)} gets your order started; the balance is due when you approve your proof.` : '');
     box.hidden = false;
     updateOrderButton();
@@ -1429,6 +1434,22 @@
     if (e.target && e.target.classList) e.target.classList.remove('bad');
     if (!form.querySelector('.bad')) $('quote-error').hidden = true;
   });
+  // The estimate follows the address for sales tax: the quote is asked again when the address starts or stops
+  // reading as Virginia (the server decides; this only spots the change)
+  let addressTimer = 0;
+  let wasVirginia = false;
+  const looksVirginia = () => /,\s*(va|virginia)\b/i.test(form.elements.cityStateZip.value) && !/west\s+virginia/i.test(form.elements.cityStateZip.value);
+  for (const name of ['cityStateZip', 'country']) {
+    form.elements[name].addEventListener('input', () => {
+      order.cityStateZip = form.elements.cityStateZip.value.trim();
+      order.country = form.elements.country.value.trim();
+      clearTimeout(addressTimer);
+      addressTimer = setTimeout(() => {
+        const now = looksVirginia();
+        if (now !== wasVirginia) { wasVirginia = now; updateEstimate(); }
+      }, 400);
+    });
+  }
   // Everything is checked at once; what is missing is listed, and the first field that needs fixing is brought into view
   form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -1593,7 +1614,7 @@
       $('co-lines').innerHTML = (q ? quoteLinesHtml(q, 'div') : `<div><span>Subtotal</span><span>${money(amount)}</span></div>`) +
         `<div class="co-total"><span>Total</span><span>${money(amount)}</span></div>` +
         (dep ? `<div class="co-total"><span>Deposit due today${dep.percent ? ` (${dep.percent}%)` : ''}</span><span>${money(due)}</span></div>` : '');
-      $('co-note').textContent = sample ? 'Sample price shown: the chart could not price this order. Test mode only.' : (dep ? 'The balance is due when you approve your proof. ' : '') + 'Sales tax, if any, is added at checkout. Our team confirms the final quote with your proof.';
+      $('co-note').textContent = sample ? 'Sample price shown: the chart could not price this order. Test mode only.' : (dep ? 'The balance is due when you approve your proof. ' : '') + (q && q.tax ? '' : 'No sales tax outside Virginia. ') + 'Our team confirms the final quote with your proof.';
       co.form.reset();
       $('co-email').value = o.email;
       co.form.elements.cardName.value = o.name;

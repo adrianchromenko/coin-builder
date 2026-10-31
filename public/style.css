@@ -623,6 +623,9 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .quote-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .quote-title { font-family: var(--font-head); font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dark); }
 .quote-summary { margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: var(--text); }
+/* Up to 50 coins: the per-coin price at 100, to make the case for a bigger order */
+.quote-upsell { margin: 8px 0 0; padding: 7px 10px; background: #fff; border: 1px dashed var(--orange); font-size: 13.5px; line-height: 1.45; color: var(--text-dark); }
+.quote-upsell strong { color: var(--orange-text); }
 .quote-more { margin: 8px 0 0; }
 .quote-more summary { display: inline-block; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--orange-text); list-style: none; }
 .quote-more summary::-webkit-details-marker { display: none; }
@@ -634,7 +637,7 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .quote-lines .ql-amount { flex: 0 0 auto; font-weight: 600; }
 .quote-lines .ql-free { color: var(--orange-text); }
 .quote-notes { margin: 10px 0 0; font-size: 12.5px; color: #666; line-height: 1.45; }
-.estimate.unpriced :is(.quote-head, .quote-summary, .quote-more), .estimate.reading :is(.quote-head, .quote-summary, .quote-more) { display: none; }
+.estimate.unpriced :is(.quote-head, .quote-summary, .quote-upsell, .quote-more), .estimate.reading :is(.quote-head, .quote-summary, .quote-upsell, .quote-more) { display: none; }
 .estimate.unpriced .quote-notes { margin-top: 0; font-size: 13px; }
 /* While the AI reads the design for the finish, color and add-ons, the estimate waits with a spinner */
 .estimate.reading .quote-notes { display: flex; align-items: center; gap: 8px; margin-top: 0; font-size: 13px; }
