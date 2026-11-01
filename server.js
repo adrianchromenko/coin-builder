@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
+const compression = require('compression');
 const multer = require('multer');
 const { getProvider } = require('./lib/providers');
 const { normalizeCoinShape, coinShapeLabel, freeText, quotedPhrases } = require('./lib/prompt');
@@ -56,21 +57,35 @@ function rateLimited(ip) {
 
 app.set('trust proxy', 1);
 guard.onAlert(sendAlertEmail);
+// gzip the page, scripts, styles and JSON answers (images are already compressed); page speed counts for search ranking
+app.use(compression());
 
 // ---------- the page, share previews and search engines ----------
 // index.html is a template: {{SITE_URL}} becomes the deployment's address so the canonical link and the
 // share-preview (Open Graph / Twitter) tags are absolute, as Facebook, LinkedIn, iMessage and Google require.
 // {{SHARE_VERSION}} changes whenever share.jpg does, so social networks fetch the new card instead of a cached one.
+// {{VERIFICATION}} becomes the site-verification meta tags for Google Search Console and Bing Webmaster Tools when
+// GOOGLE_SITE_VERIFICATION / BING_SITE_VERIFICATION are set (the code each console hands out), else nothing.
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const INDEX_FILE = path.join(PUBLIC_DIR, 'index.html');
 const SHARE_VERSION = (() => {
   try { return crypto.createHash('sha1').update(fs.readFileSync(path.join(PUBLIC_DIR, 'share.jpg'))).digest('hex').slice(0, 8); } catch (_) { return '1'; }
 })();
 let indexCache = { mtime: 0, html: '' };
+const VERIFICATION_TAGS = (() => {
+  const clean = (v) => String(v || '').trim().replace(/[^\w.=-]/g, '');
+  const tags = [];
+  if (clean(process.env.GOOGLE_SITE_VERIFICATION)) tags.push(`<meta name="google-site-verification" content="${clean(process.env.GOOGLE_SITE_VERIFICATION)}">`);
+  if (clean(process.env.BING_SITE_VERIFICATION)) tags.push(`<meta name="msvalidate.01" content="${clean(process.env.BING_SITE_VERIFICATION)}">`);
+  return tags.join('\n  ');
+})();
 function renderIndex(req) {
   const mtime = fs.statSync(INDEX_FILE).mtimeMs;
   if (mtime !== indexCache.mtime) indexCache = { mtime, html: fs.readFileSync(INDEX_FILE, 'utf8') };
-  return indexCache.html.replace(/\{\{SITE_URL\}\}/g, siteUrl(req)).replace(/\{\{SHARE_VERSION\}\}/g, SHARE_VERSION);
+  return indexCache.html
+    .replace(/\{\{SITE_URL\}\}/g, siteUrl(req))
+    .replace(/\{\{SHARE_VERSION\}\}/g, SHARE_VERSION)
+    .replace(/[ \t]*\{\{VERIFICATION\}\}\n?/g, VERIFICATION_TAGS ? `  ${VERIFICATION_TAGS}\n` : '');
 }
 app.get(['/', '/index.html'], (req, res) => {
   res.set('Cache-Control', 'no-cache, must-revalidate');

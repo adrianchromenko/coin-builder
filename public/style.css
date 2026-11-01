@@ -668,6 +668,15 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .foot .foot-links { margin-top: 4px; font-size: 11px; color: #999; }
 .foot a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .foot a:hover { color: var(--text-dark); }
+/* the folded questions under the footer */
+.faq { max-width: 720px; margin: 8px auto 0; text-align: left; border-top: 1px solid var(--line); }
+.faq details { border-bottom: 1px solid var(--line); }
+.faq summary { cursor: pointer; padding: 7px 0; font-size: 12px; font-weight: 600; color: var(--text); list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; color: var(--orange-text); font-weight: 700; flex: 0 0 auto; }
+.faq details[open] summary::after { content: "\2013"; }
+.faq summary:hover { color: var(--text-dark); }
+.faq p { margin: 0 0 10px; font-size: 12px; line-height: 1.55; color: var(--text); }
 .noscript { margin: 0; padding: 12px 16px; text-align: center; font-size: 14px; background: var(--orange); color: #1A1A1A; }
 .noscript a { color: inherit; font-weight: 700; }
 

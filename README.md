@@ -38,6 +38,8 @@ Without an API key the server runs in **demo mode** and returns a local SVG mock
 | `DEPOSIT_PERCENT` | `50` | That share; `100` charges the whole quote line by line |
 | `SALES_TAX_VA` | `5.3` | Sales tax on orders shipped within Virginia, in percent (on everything but the shipping); no tax elsewhere |
 | `PUBLIC_URL` | | Deployed URL, used for Stripe return links |
+| `GOOGLE_SITE_VERIFICATION` | | Google Search Console "HTML tag" code; becomes a meta tag in the page |
+| `BING_SITE_VERIFICATION` | | Bing Webmaster Tools "HTML meta tag" code; same |
 | `ORDER_WEBHOOK_URL` | | Every order is POSTed here as JSON |
 | `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN` | | Every quote request becomes a Lead in Zoho CRM, render attached (`lib/zoho.js`; get the token with `scripts/zoho-token.js`) |
 | `ZOHO_LEAD_SOURCE` | `Coin Builder` | Lead Source stamped on those leads |
@@ -125,7 +127,8 @@ Set `PUBLIC_URL` to the real address (for example `https://builder.coinsforanyth
 `public/index.html` is served as a template: the server fills in `{{SITE_URL}}` so every absolute URL matches the deployment.
 
 - **Link previews.** Open Graph and Twitter tags point at `public/share.jpg` (1200 x 630), so a pasted link shows a branded card in Facebook, LinkedIn, X, iMessage, WhatsApp, Slack and Teams. The image URL carries a version hash, so networks pick up a new card after `npm run share-image` (which rebuilds the card and the icons from the logo and a coin photo in `references/coins/`). After deploying a new card, refresh Facebook's cache at https://developers.facebook.com/tools/debug/ and LinkedIn's at https://www.linkedin.com/post-inspector/.
-- **Search.** Title, meta description, canonical link, `robots.txt`, `sitemap.xml` and JSON-LD (Organization, WebApplication, WebPage) are all served. Only the builder page is indexable; `/api`, `/mail-img`, `/signups.csv`, `/healthz` and `/test` answer with `X-Robots-Tag: noindex` and are disallowed in `robots.txt`. Submit `PUBLIC_URL/sitemap.xml` in Google Search Console once deployed.
+- **Search.** Title, meta description, canonical link, `robots.txt`, `sitemap.xml` and JSON-LD (Organization, WebApplication with its free offer, WebPage, FAQPage) are all served, and responses are gzipped. The footer holds four folded questions (what a challenge coin is, how the builder works, what coins cost, where they are made) so the page says in words what it does; keep the FAQPage data in the head and the footer text identical. Only the builder page is indexable; `/api`, `/mail-img`, `/signups.csv`, `/healthz` and `/test` answer with `X-Robots-Tag: noindex` and are disallowed in `robots.txt`.
+- **Getting found.** After deploying with `PUBLIC_URL` set: (1) add the site in [Google Search Console](https://search.google.com/search-console) and [Bing Webmaster Tools](https://www.bing.com/webmasters), choose the HTML-tag method, put each code in `GOOGLE_SITE_VERIFICATION` / `BING_SITE_VERIFICATION` and redeploy; (2) submit `PUBLIC_URL/sitemap.xml` in both; (3) link to the builder from coinsforanything.com (the menu, the quote page and a blog post), since links from the main site are what will carry a brand-new address into the results. A subdomain such as `builder.coinsforanything.com` inherits the main site's reputation better than an unrelated domain.
 - **Icons.** `favicon.ico`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` and `site.webmanifest` cover browser tabs, bookmarks and home-screen shortcuts.
 
 ## Structure

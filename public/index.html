@@ -8,6 +8,7 @@
   <!-- {{SITE_URL}} and {{SHARE_VERSION}} are filled in by the server (PUBLIC_URL, or the address the page was requested on) -->
   <link rel="canonical" href="{{SITE_URL}}/">
   <meta name="robots" content="index, follow, max-image-preview:large">
+  {{VERIFICATION}}
   <meta name="theme-color" content="#1A1A1A">
   <meta name="application-name" content="Coin Builder">
   <meta name="apple-mobile-web-app-title" content="Coin Builder">
@@ -77,6 +78,7 @@
         "applicationCategory": "DesignApplication",
         "operatingSystem": "Any",
         "browserRequirements": "Requires JavaScript",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "description": "Free AI preview and quote; the coins are priced by size, quantity and finish" },
         "provider": { "@id": "https://www.coinsforanything.com/#organization" }
       },
       {
@@ -89,6 +91,32 @@
         "primaryImageOfPage": "{{SITE_URL}}/share.jpg",
         "about": { "@id": "{{SITE_URL}}/#app" },
         "publisher": { "@id": "https://www.coinsforanything.com/#organization" }
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "{{SITE_URL}}/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is a challenge coin?",
+            "acceptedAnswer": { "@type": "Answer", "text": "A challenge coin is a custom-minted metal coin that carries an organization's emblem, motto or event. Military units started the tradition; today fire and police departments, companies, schools, clubs and families order custom coins to mark membership, achievements and occasions." }
+          },
+          {
+            "@type": "Question",
+            "name": "How does the coin builder work?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Upload your logo or a reference image, describe the front and the back of your coin, pick a shape, and the builder renders both sides in a few minutes. Then enter how many coins you need and the size, and your estimate appears right away. Submit it and our team confirms the quote with a proof." }
+          },
+          {
+            "@type": "Question",
+            "name": "How much do custom challenge coins cost?",
+            "acceptedAnswer": { "@type": "Answer", "text": "The price depends on the size, the quantity and the finish: fewer coins cost more each, and up to 50 coins the enamel color is included. The one-time mold fee covers both sides of the coin. Finishes include antique and shiny gold, silver, nickel, copper, brass and black nickel, in sizes from 1 to 4 inches. The builder prices orders up to 1,200 coins; for more, our team quotes by hand." }
+          },
+          {
+            "@type": "Question",
+            "name": "Where are the coins made and shipped from?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Coins For Anything is a 100% veteran owned and operated company in Fredericksburg, Virginia, with over 20 million coins minted. Orders ship across the United States; rush production in under 10 business days is available." }
+          }
+        ]
       }
     ]
   }
@@ -100,7 +128,7 @@
     <div class="topbar">100% Veteran Owned &amp; Operated &middot; <b>The Quality is Always Here</b></div>
     <header class="app-header">
       <div class="brand">
-        <img class="brand-logo" src="brand/logo.webp" alt="Coins for Anything, Inc.">
+        <img class="brand-logo" src="brand/logo.webp" alt="Coins for Anything, Inc." width="315" height="123">
         <div class="brand-text">
           <h1><span class="script">Custom</span>Coin Builder</h1>
           <p class="sub">Describe your coin, see both sides rendered, order it.</p>
@@ -395,6 +423,26 @@
     <footer class="foot">
       <p>Over <b>20 million coins</b> minted &middot; <b>60,000+</b> designs &middot; Trusted by <b>50,000+</b> companies</p>
       <p class="foot-links"><a href="https://www.coinsforanything.com/">Coins For Anything, Inc.</a> &middot; 1014 Prince Edward St, Fredericksburg, VA 22401 &middot; <a href="tel:+18665835434">1-866-583-5434</a></p>
+      <!-- About the builder, folded shut: the questions people search for, answered in a few lines each (the FAQPage
+           data in the head repeats them word for word). Phones hide the footer; the text is still in the page for search. -->
+      <div class="faq" id="faq">
+        <details>
+          <summary>What is a challenge coin?</summary>
+          <p>A challenge coin is a custom-minted metal coin that carries an organization's emblem, motto or event. Military units started the tradition; today fire and police departments, companies, schools, clubs and families order custom coins to mark membership, achievements and occasions.</p>
+        </details>
+        <details>
+          <summary>How does the coin builder work?</summary>
+          <p>Upload your logo or a reference image, describe the front and the back of your coin, pick a shape, and the builder renders both sides in a few minutes. Then enter how many coins you need and the size, and your estimate appears right away. Submit it and our team confirms the quote with a proof.</p>
+        </details>
+        <details>
+          <summary>How much do custom challenge coins cost?</summary>
+          <p>The price depends on the size, the quantity and the finish: fewer coins cost more each, and up to 50 coins the enamel color is included. The one-time mold fee covers both sides of the coin. Finishes include antique and shiny gold, silver, nickel, copper, brass and black nickel, in sizes from 1 to 4 inches. The builder prices orders up to 1,200 coins; for more, our team quotes by hand.</p>
+        </details>
+        <details>
+          <summary>Where are the coins made and shipped from?</summary>
+          <p>Coins For Anything is a 100% veteran owned and operated company in Fredericksburg, Virginia, with over 20 million coins minted. Orders ship across the United States; rush production in under 10 business days is available.</p>
+        </details>
+      </div>
     </footer>
     <div id="drop" class="drop" hidden>Drop your logo or reference images</div>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
