@@ -183,7 +183,7 @@ while True:
     addons.append({"key": key, "label": label, "perCoin": num(cell(f"Q{r}")), "setup": num(cell(f"R{r}")) or 0})
     r += 1
 
-# Packaging: Item / 0-74 / 75-500 / + S&H each
+# Packaging: Item / 0-74 / 75-500 / + S&H each (the 75-500 price also applies beyond 500: Chris, 2026-11-02)
 packaging = []
 r = 28
 while True:
