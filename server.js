@@ -20,6 +20,7 @@ const guard = require('./lib/guard');
 const { sideBySide } = require('./lib/composite');
 const progress = require('./lib/progress');
 const { siteUrl } = require('./lib/site');
+const { discountFor } = require('./lib/discounts');
 const { screenUploads } = require('./lib/moderate');
 const { fetchImage, FetchError } = require('./lib/fetchimage');
 const zoho = require('./lib/zoho');
@@ -172,6 +173,8 @@ function quoteOptions(src) {
     rush: src.rush === true || src.rush === 'true' || src.rush === '1',
     // Sales tax follows the shipping address (Virginia only); the live quote sends the address fields as typed
     taxState: taxStateOf({ cityStateZip: String(src.cityStateZip || '').slice(0, 120), country: String(src.country || '').slice(0, 60) }),
+    // A discount code as typed; lib/discounts.js says what it is worth
+    discount: discountFor(src.discountCode),
   };
 }
 
@@ -250,7 +253,7 @@ app.post('/api/orders', async (req, res) => {
   // Test orders: saved for inspection, but never sent to Stripe or the order webhook
   const isTest = b.test === true || process.env.TEST_MODE === '1';
   // Metal finish, enamel color, add-ons, packaging and rush, as chosen on the quote form; priced by lib/pricing.js
-  const options = quoteOptions({ ...(b.options && typeof b.options === 'object' ? b.options : {}), cityStateZip, country });
+  const options = quoteOptions({ ...(b.options && typeof b.options === 'object' ? b.options : {}), cityStateZip, country, discountCode: typeof b.discountCode === 'string' ? b.discountCode : '' });
   const finishGroup = groupOf(options.finish);
   const analysis = cleanAnalysis(b.analysis);
   // What the customer described, plus whether and how the AI rendered it
@@ -320,10 +323,19 @@ app.post('/api/orders', async (req, res) => {
     }
 
     let checkoutUrl = null;
-    try {
-      checkoutUrl = await createCheckout(record, siteUrl(req));
-    } catch (e) {
-      console.error('[coin-builder] stripe error:', e.message);
+    let comped = false;
+    if (priced.priced && priced.discount && priced.discount.valid && priced.total <= 0) {
+      // A 100% discount code: nothing to charge, so the order goes straight through as paid (how the team runs an
+      // order all the way through on the live site without paying; the code is on the order they get)
+      comped = true;
+      updateOrder(record.id, { status: 'paid', paidAt: new Date().toISOString(), amountPaid: 0, discount: priced.discount });
+      console.log(`[coin-builder] order ${record.id} is paid in full by discount code ${priced.discount.code}`);
+    } else {
+      try {
+        checkoutUrl = await createCheckout(record, siteUrl(req));
+      } catch (e) {
+        console.error('[coin-builder] stripe error:', e.message);
+      }
     }
 
     notifyWebhook({ ...record, checkoutUrl });
@@ -340,7 +352,7 @@ app.post('/api/orders', async (req, res) => {
         .then((r) => { updateOrder(record.id, { zoho: { leadId: r.leadId, owner: r.owner, attached: r.attached, at: new Date().toISOString() } }); console.log(`[coin-builder] order ${record.id} is Zoho lead ${r.leadId}`); })
         .catch((e) => { updateOrder(record.id, { zoho: { error: e.message, at: new Date().toISOString() } }); console.error(`[coin-builder] Zoho lead failed for ${record.id}:`, e.message); });
     }
-    res.json({ ok: true, orderId: record.id, quote: record.quote, checkoutUrl });
+    res.json({ ok: true, orderId: record.id, quote: record.quote, checkoutUrl, comped });
   } catch (e) {
     console.error('[coin-builder] order error:', e.message);
     res.status(500).json({ error: 'Sorry, I could not save your order. Please try again.' });

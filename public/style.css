@@ -636,6 +636,13 @@ input[type="range"] { width: 100%; accent-color: var(--orange); margin: 0; heigh
 .quote-lines li small { display: block; font-size: 12px; color: #666; }
 .quote-lines .ql-amount { flex: 0 0 auto; font-weight: 600; }
 .quote-lines .ql-free { color: var(--orange-text); }
+.quote-lines .ql-discount { color: var(--orange-text); }
+.ff.discount { margin-top: 14px; max-width: 320px; }
+.ff.discount input { text-transform: uppercase; }
+.discount-msg { font-size: 12px; line-height: 1.4; }
+.discount-msg[hidden] { display: none; }
+.discount-msg.ok { color: var(--orange-text); font-weight: 600; }
+.discount-msg.bad { color: #c62828; }
 .quote-notes { margin: 10px 0 0; font-size: 12.5px; color: #666; line-height: 1.45; }
 .estimate.unpriced :is(.quote-head, .quote-summary, .quote-upsell, .quote-more), .estimate.reading :is(.quote-head, .quote-summary, .quote-upsell, .quote-more) { display: none; }
 .estimate.unpriced .quote-notes { margin-top: 0; font-size: 13px; }

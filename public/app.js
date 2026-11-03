@@ -36,6 +36,7 @@
     finish: '', finishPicked: false, color: 'two', colorPicked: false, addons: [], analysis: null, reading: false,
     name: '', email: '', phone: '', company: '',
     street: '', cityStateZip: '', country: 'United States',
+    discountCode: '',
   };
   // Every AI render is kept as a version, per face: the picture, the proofreading result, and the description it was
   // made from. A back version also remembers which front it was drawn to match, for the record only: any front can be
@@ -1388,7 +1389,7 @@
     }
     try {
       // The address goes along for the sales tax (Virginia orders only)
-      const p = new URLSearchParams({ size: order.size, quantity: String(order.quantity), ...optionsPayload(), addons: order.addons.join(','), cityStateZip: order.cityStateZip, country: order.country });
+      const p = new URLSearchParams({ size: order.size, quantity: String(order.quantity), ...optionsPayload(), addons: order.addons.join(','), cityStateZip: order.cityStateZip, country: order.country, discountCode: order.discountCode });
       const r = await fetch(`/api/quote?${p}`);
       const d = await r.json();
       if (seq !== quoteSeq) return; // a newer answer is on its way
@@ -1415,20 +1416,29 @@
     const as = [q.finishLabel.split(' / ')[0], q.colorIncluded ? 'color included' : q.colorLabel.toLowerCase(), ...addons];
     $('quote-summary').textContent = `${money(q.unit)} per coin · ${as.join(', ')}. Includes the mold${q.shipping != null ? ' and ground shipping' : ''}.`;
     $('quote-lines').innerHTML = quoteLinesHtml(q, 'li');
+    discountMessage(q.discount);
     const dep = config.payments ? depositOf(q.total) : null;
     // Up to 50 coins: what 100 would cost per coin, to make the case for a bigger order
     const up = $('quote-upsell');
     up.hidden = !q.upsell;
     if (q.upsell) up.innerHTML = `Order <strong>${q.upsell.quantity}</strong> and the price drops to <strong>${money(q.upsell.unit)} per coin</strong>, ${money(q.upsell.saving)} less each.`;
     $('quote-notes').textContent = (order.analysis ? 'Priced from what your design shows; anything else you need goes in the notes. ' : '') + (q.tax ? '' : 'No sales tax outside Virginia. ') + 'Our team confirms the final quote with your proof.'
-      + (dep ? ` A ${depositText(dep)} gets your order started; the balance is due when you approve your proof.` : '');
+      + (dep ? ` A ${depositText(dep)} gets your order started; the balance is due when you approve your proof.` : q.total === 0 && q.discount ? ' Your code covers the whole order: nothing to pay.' : '');
     box.hidden = false;
     updateOrderButton();
   }
   // The quote's lines as markup: label, detail and amount per line (used by the estimate box and the test checkout)
   const quoteLinesHtml = (q, tag) => q.lines.map((l) =>
     `<${tag}><span class="ql-label">${escapeHtml(l.label)}${l.detail ? `<small>${escapeHtml(l.detail)}</small>` : ''}</span>` +
-    `<span class="ql-amount${l.amount === 0 ? ' ql-free' : ''}">${l.amount === 0 ? 'Free' : money(l.amount)}</span></${tag}>`).join('');
+    `<span class="ql-amount${l.amount === 0 ? ' ql-free' : l.amount < 0 ? ' ql-discount' : ''}">${l.amount === 0 ? 'Free' : l.amount < 0 ? '\u2212' + money(-l.amount) : money(l.amount)}</span></${tag}>`).join('');
+  // Under the code field: what the code did, or that it is not one of ours
+  function discountMessage(d) {
+    const el = $('discount-msg');
+    el.hidden = !d;
+    if (!d) return;
+    el.className = 'discount-msg ' + (d.valid ? 'ok' : 'bad');
+    el.textContent = d.valid ? `${d.code} applied: ${d.percent}% off.` : 'We don\u2019t recognize that code.';
+  }
 
   form.addEventListener('input', (e) => {
     if (e.target && e.target.classList) e.target.classList.remove('bad');
@@ -1450,6 +1460,16 @@
       }, 400);
     });
   }
+  // A discount code re-prices the estimate once typing pauses (the server says what the code is worth)
+  let discountTimer = 0;
+  form.elements.discountCode.addEventListener('input', () => {
+    const code = form.elements.discountCode.value.trim().toUpperCase();
+    if (code === order.discountCode) return;
+    order.discountCode = code;
+    $('discount-msg').hidden = true;
+    clearTimeout(discountTimer);
+    discountTimer = setTimeout(updateEstimate, 500);
+  });
   // Everything is checked at once; what is missing is listed, and the first field that needs fixing is brought into view
   form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -1510,6 +1530,7 @@
           billStreet: order.street, billCityStateZip: order.cityStateZip, billCountry: order.country,
           street: order.street, cityStateZip: order.cityStateZip, country: order.country,
           notes: order.notes,
+          discountCode: order.discountCode,
           options: optionsPayload(),
           analysis: order.analysis,
           design: {
@@ -1535,6 +1556,15 @@
         btn.textContent = 'Opening secure checkout…';
         await sleep(500);
         window.location.href = data.checkoutUrl;
+        return;
+      }
+      if (data.comped) {
+        showResult(
+          `<p class="head"><span class="script">Thank you</span> for your order!</p>` +
+          `<p>Order <strong>${escapeHtml(data.orderId)}</strong> for ${order.quantity.toLocaleString()} ${escapeHtml(sizeText())} coins is in, and your discount code <strong>${escapeHtml(order.discountCode)}</strong> covers it: nothing to pay. ` +
+          `Our team will be in touch at <strong>${escapeHtml(order.email)}</strong> with your proof and next steps.</p>` +
+          '<p>The Quality is Always Here.</p>'
+        );
         return;
       }
       showResult(
@@ -1618,7 +1648,7 @@
       co.form.reset();
       $('co-email').value = o.email;
       co.form.elements.cardName.value = o.name;
-      co.pay.textContent = `Pay ${money(due)}`;
+      co.pay.textContent = due > 0 ? `Pay ${money(due)}` : 'Place order';
       co.pay.disabled = false;
       co.error.hidden = true;
       for (const i of co.form.querySelectorAll('input')) i.classList.remove('bad');
@@ -1648,6 +1678,19 @@
       const onSubmit = async (e) => {
         e.preventDefault();
         const f = co.form.elements;
+        if (due <= 0) {
+          // A discount code covered it: no card to check
+          co.error.hidden = true;
+          co.pay.disabled = true;
+          await sleep(600);
+          paidResult = { paid: true, last4: '', brand: '', free: true };
+          $('co-done-text').innerHTML = `Nothing to pay for order <strong>${escapeHtml(orderId)}</strong>: your discount code covers it.<br>` +
+            '<span style="color:#888;font-size:13px">Test mode: no real order was placed.</span>';
+          co.form.hidden = true;
+          co.done.hidden = false;
+          co.finish.focus();
+          return;
+        }
         const digits = f.cardNumber.value.replace(/\D/g, '');
         const exp = f.cardExp.value.replace(/\D/g, '');
         const problems = [];
@@ -1691,7 +1734,7 @@
     if (result.paid) {
       showResult(
         `<p class="head"><span class="script">Thank you</span> for your order! <span class="test-tag">TEST</span></p>` +
-        `<p>Payment received for order <strong>${escapeHtml(orderId)}</strong> (${escapeHtml(result.brand)} ending in ${escapeHtml(result.last4)}). ` +
+        (result.free ? `<p>Order <strong>${escapeHtml(orderId)}</strong> is in; the discount code covered it, nothing to pay. ` : `<p>Payment received for order <strong>${escapeHtml(orderId)}</strong> (${escapeHtml(result.brand)} ending in ${escapeHtml(result.last4)}). `) +
         `A receipt would go to <strong>${escapeHtml(order.email)}</strong>, and our team would be in touch about production and shipping.</p>` +
         '<p class="caption">Test mode: no real charge was made. The order is saved in orders/ with status test_paid.</p>'
       );
@@ -2037,7 +2080,7 @@
   // ---------- restart ----------
   function restart() {
     Object.assign(design, newDesign());
-    Object.assign(order, { quantity: null, size: null, sizeOther: '', quote: null, notes: '', finish: '', finishPicked: false, color: 'two', colorPicked: false, addons: [], analysis: null, reading: false, name: '', email: '', phone: '', company: '', street: '', cityStateZip: '', country: 'United States' });
+    Object.assign(order, { quantity: null, size: null, sizeOther: '', quote: null, notes: '', finish: '', finishPicked: false, color: 'two', colorPicked: false, addons: [], analysis: null, reading: false, name: '', email: '', phone: '', company: '', street: '', cityStateZip: '', country: 'United States', discountCode: '' });
     readKey = ''; readSeq++;
     ai.front = newSide(); ai.back = newSide();
     tabOpen.design = firstTab('design');

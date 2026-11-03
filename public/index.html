@@ -398,6 +398,8 @@
                 <label class="ff"><span class="ff-label">Country <i>*</i></span><input type="text" name="country" value="United States" autocomplete="shipping country-name"></label>
               </div>
               <label class="ff notes"><span class="ff-label">Notes for our team <em>(optional)</em> <button type="button" class="help-btn" data-help="notes" aria-label="What to write here">?</button></span><textarea id="notes" rows="2" maxlength="1000" placeholder="A deadline or rush, packaging, add-ons like key chains or numbering, anything else…"></textarea></label>
+              <!-- A discount code: the server says what it is worth and the estimate shows it as its last line -->
+              <label class="ff discount"><span class="ff-label">Discount code <em>(optional)</em></span><input type="text" name="discountCode" id="discount-code" maxlength="30" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Enter a code if you have one"><small id="discount-msg" class="discount-msg" hidden></small></label>
             </section>
 
             <p id="quote-error" class="ff-error" role="alert" hidden></p>

@@ -37,6 +37,7 @@ Without an API key the server runs in **demo mode** and returns a local SVG mock
 | `DEPOSIT_THRESHOLD` | `5000` | Quotes at or above this pay a share of the total as the deposit instead |
 | `DEPOSIT_PERCENT` | `50` | That share; `100` charges the whole quote line by line |
 | `SALES_TAX_VA` | `5.3` | Sales tax on orders shipped within Virginia, in percent (on everything but the mold and the shipping); no tax elsewhere |
+| `DISCOUNT_CODES` | `CFATEST100:100` | Discount codes as `CODE:percent`, comma separated; the default is the team's 100% test code. Empty turns codes off |
 | `PUBLIC_URL` | | Deployed URL, used for Stripe return links |
 | `GOOGLE_SITE_VERIFICATION` | | Google Search Console "HTML tag" code; becomes a meta tag in the page |
 | `BING_SITE_VERIFICATION` | | Bing Webmaster Tools "HTML meta tag" code; same |
@@ -95,6 +96,7 @@ python scripts/import-pricing.py "C:/Users/User/Downloads/Expanded Pricing Chart
 - **Mold and set-up.** One mold fee per order, by size ($140 for 1" up to $379 for 4").
 - **Add-ons.** Per coin, some with a one-time setup fee (stamped edge, reeded edge, keychain, picture insert, custom ribbons, screen print).
 - **Packaging.** Per coin, cheaper from 75 coins (the same price from there up, past the sheet's 500); each piece adds a little to shipping.
+- **Discount code.** An optional field on the form; `lib/discounts.js` says what a code is worth (`DISCOUNT_CODES`), the estimate shows it as its last line, off the whole order. A 100% code (the default `CFATEST100`) skips Stripe: the order is saved as paid with nothing charged, so the team can test the whole path on the live site. The code is on the order email and the Zoho lead.
 - **Rush** (under 10 business days). $75 up to 50 coins, $80 for 51 to 99, 20% of the coin cost from 100.
 - **Shipping.** The chart's ground-shipping guide by size and quantity, from a few dollars for a handful of coins up; 1" to 2.25" coins ship free from 300 coins, larger coins at so much per coin.
 
