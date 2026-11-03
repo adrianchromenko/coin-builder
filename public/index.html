@@ -426,11 +426,12 @@
     </div>
 
     <footer class="foot">
-      <p>Over <b>20 million coins</b> minted &middot; <b>60,000+</b> designs &middot; Trusted by <b>50,000+</b> companies</p>
-      <p class="foot-links"><a href="https://www.coinsforanything.com/">Coins For Anything, Inc.</a> &middot; 1014 Prince Edward St, Fredericksburg, VA 22401 &middot; <a href="tel:+18665835434">1-866-583-5434</a></p>
-      <!-- About the builder, folded shut: the questions people search for, answered in a few lines each (the FAQPage
-           data in the head repeats them word for word). Phones hide the footer; the text is still in the page for search. -->
-      <div class="faq" id="faq">
+      <!-- "Good to know", above the foot line: the questions people search for, answered in a few lines each and folded
+           shut (the FAQPage data in the head repeats them word for word). Phones hide the footer; the text is still in
+           the page for search. -->
+      <section class="about" id="faq" aria-labelledby="about-title">
+        <h2 id="about-title" class="about-title">Good to know <em>about custom coins and this builder</em></h2>
+        <div class="faq">
         <details>
           <summary>What is a challenge coin?</summary>
           <p>A challenge coin is a custom-minted metal coin that carries an organization's emblem, motto or event. Military units started the tradition; today fire and police departments, companies, schools, clubs and families order custom coins to mark membership, achievements and occasions.</p>
@@ -447,7 +448,10 @@
           <summary>Where are the coins made and shipped from?</summary>
           <p>Coins For Anything is a 100% veteran owned and operated company in Fredericksburg, Virginia, with over 20 million coins minted. Orders ship across the United States; rush production in under 10 business days is available.</p>
         </details>
-      </div>
+        </div>
+      </section>
+      <p>Over <b>20 million coins</b> minted &middot; <b>60,000+</b> designs &middot; Trusted by <b>50,000+</b> companies</p>
+      <p class="foot-links"><a href="https://www.coinsforanything.com/">Coins For Anything, Inc.</a> &middot; 1014 Prince Edward St, Fredericksburg, VA 22401 &middot; <a href="tel:+18665835434">1-866-583-5434</a></p>
     </footer>
     <div id="drop" class="drop" hidden>Drop your logo or reference images</div>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
