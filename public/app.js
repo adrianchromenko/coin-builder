@@ -796,11 +796,13 @@
     const line = Math.floor((Date.now() - progress.started) / 6500) % progress.lines.length;
     if (line !== progress.line) {
       progress.line = line;
-      const sub = $('progress-sub');
       const [label, text] = progress.lines[line];
-      sub.textContent = text;
-      if (label) { const b = document.createElement('strong'); b.textContent = label + ' '; sub.prepend(b); }
-      sub.style.animation = 'none'; void sub.offsetWidth; sub.style.animation = ''; // play its fade-in again
+      // The line sits under the coin, and again under the whole stage for when the box over one face is too short
+      for (const sub of [$('progress-sub'), $('progress-wide')]) {
+        sub.textContent = text;
+        if (label) { const b = document.createElement('strong'); b.textContent = label + ' '; sub.prepend(b); }
+        sub.style.animation = 'none'; void sub.offsetWidth; sub.style.animation = ''; // play its fade-in again
+      }
     }
   }
   function progressListen(id) {
@@ -845,6 +847,7 @@
     genBtn.disabled = true;
     genBtn.textContent = 'Generating…';
     $('preview-busy').hidden = false;
+    $('progress-wide').hidden = false;
     progressStart(faces.length);
     revealStage();
     try {
@@ -861,6 +864,7 @@
       $('ai-btn').disabled = false;
       genBtn.textContent = genLabel;
       $('preview-busy').hidden = true;
+      $('progress-wide').hidden = true;
       syncDesign(); // the step's footer now offers the next move
     }
   }
