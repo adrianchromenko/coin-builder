@@ -69,10 +69,11 @@ app.use(compression());
 // GOOGLE_SITE_VERIFICATION / BING_SITE_VERIFICATION are set (the code each console hands out), else nothing.
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const INDEX_FILE = path.join(PUBLIC_DIR, 'index.html');
+const START_FILE = path.join(PUBLIC_DIR, 'start.html'); // the ad landing page: sells the company, then "Request a quote" or "Design your coin"
 const SHARE_VERSION = (() => {
   try { return crypto.createHash('sha1').update(fs.readFileSync(path.join(PUBLIC_DIR, 'share.jpg'))).digest('hex').slice(0, 8); } catch (_) { return '1'; }
 })();
-let indexCache = { mtime: 0, html: '' };
+const pageCache = new Map(); // file -> { mtime, html }
 const VERIFICATION_TAGS = (() => {
   const clean = (v) => String(v || '').trim().replace(/[^\w.=-]/g, '');
   const tags = [];
@@ -80,17 +81,23 @@ const VERIFICATION_TAGS = (() => {
   if (clean(process.env.BING_SITE_VERIFICATION)) tags.push(`<meta name="msvalidate.01" content="${clean(process.env.BING_SITE_VERIFICATION)}">`);
   return tags.join('\n  ');
 })();
-function renderIndex(req) {
-  const mtime = fs.statSync(INDEX_FILE).mtimeMs;
-  if (mtime !== indexCache.mtime) indexCache = { mtime, html: fs.readFileSync(INDEX_FILE, 'utf8') };
-  return indexCache.html
+function renderPage(file, req) {
+  const mtime = fs.statSync(file).mtimeMs;
+  let cached = pageCache.get(file);
+  if (!cached || mtime !== cached.mtime) { cached = { mtime, html: fs.readFileSync(file, 'utf8') }; pageCache.set(file, cached); }
+  return cached.html
     .replace(/\{\{SITE_URL\}\}/g, siteUrl(req))
     .replace(/\{\{SHARE_VERSION\}\}/g, SHARE_VERSION)
     .replace(/[ \t]*\{\{VERIFICATION\}\}\n?/g, VERIFICATION_TAGS ? `  ${VERIFICATION_TAGS}\n` : '');
 }
+const renderIndex = (req) => renderPage(INDEX_FILE, req);
 app.get(['/', '/index.html'], (req, res) => {
   res.set('Cache-Control', 'no-cache, must-revalidate');
   res.type('html').send(renderIndex(req));
+});
+app.get(['/start', '/start.html'], (req, res) => {
+  res.set('Cache-Control', 'no-cache, must-revalidate');
+  res.type('html').send(renderPage(START_FILE, req));
 });
 // Only the builder page is meant to be indexed. Everything else the server answers is data, admin, or staff-only.
 app.use((req, res, next) => {
@@ -123,6 +130,12 @@ app.get('/sitemap.xml', (req, res) => {
       <image:loc>${siteUrl(req)}/share.jpg</image:loc>
       <image:title>Custom Coin Builder by Coins For Anything</image:title>
     </image:image>
+  </url>
+  <url>
+    <loc>${siteUrl(req)}/start</loc>
+    <lastmod>${new Date(fs.statSync(START_FILE).mtimeMs).toISOString().slice(0, 10)}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
 </urlset>
 `);
