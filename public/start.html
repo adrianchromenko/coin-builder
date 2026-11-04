@@ -27,162 +27,232 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Open+Sans:wght@400;600;700&family=Yellowtail&display=swap" rel="stylesheet">
   <style>
+    /* ============ brand ============
+       Same three faces as the builder: Oswald for headings (tight, uppercase, tracked), Yellowtail for the one script
+       word that echoes the logo, Open Sans for everything you read. Type scale: 64 / 40 / 24 / 18 headings, 17 lead, 16 body. */
     :root {
-      --orange: #F58220; --orange-dark: #d96f12; --navy: #2B3990; --black: #1A1A1A; --charcoal: #222;
-      --white: #fff; --offwhite: #F4F4F4; --warm: #F5F1EA; --text: #4A4A4A; --text-dark: #222; --line: #DDD8D0;
+      --orange: #F58220; --orange-dark: #d96f12; --orange-text: #b35507; --navy: #2B3990; --navy-dark: #22307a;
+      --black: #1A1A1A; --ink: #111; --charcoal: #222; --white: #fff; --offwhite: #F4F4F4; --warm: #F5F1EA;
+      --text: #4A4A4A; --text-dark: #222; --line: #DDD8D0; --gold: #E2B458;
       --font-head: "Oswald", "Arial Narrow", Impact, sans-serif;
       --font-script: "Yellowtail", "Brush Script MT", cursive;
       --font-body: "Open Sans", Roboto, Lato, Arial, sans-serif;
+      --nav-h: 72px;
     }
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body { margin: 0; font-family: var(--font-body); color: var(--text); background: var(--white); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    html { scroll-behavior: smooth; scroll-padding-top: calc(var(--nav-h) + 12px); }
+    body { margin: 0; font-family: var(--font-body); font-size: 16px; color: var(--text); background: var(--white); line-height: 1.6; -webkit-font-smoothing: antialiased; }
     img { max-width: 100%; display: block; }
     a { color: var(--navy); }
-    .wrap { width: min(1080px, 100% - 40px); margin: 0 auto; }
-    h1, h2, h3 { font-family: var(--font-head); font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; line-height: 1.1; margin: 0; color: var(--text-dark); }
-    .script { font-family: var(--font-script); font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--orange); font-size: 1.15em; margin-right: 8px; }
-    .eyebrow { font-family: var(--font-head); font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: var(--orange-dark); margin: 0 0 10px; }
+    .wrap { width: min(1120px, 100% - 48px); margin: 0 auto; }
+    h1, h2, h3 { font-family: var(--font-head); font-weight: 600; text-transform: uppercase; line-height: 1.05; margin: 0; color: var(--text-dark); }
+    h1 { font-size: clamp(40px, 5.6vw, 64px); letter-spacing: 1px; }
+    h2 { font-size: clamp(30px, 3.6vw, 40px); letter-spacing: 1.5px; }
+    h3 { font-size: 24px; letter-spacing: 1px; }
+    .script { font-family: var(--font-script); font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--orange); line-height: 1; }
+    h2 .script { font-size: 1.3em; margin-right: 10px; vertical-align: -0.08em; }
+    .eyebrow { font-family: var(--font-head); font-weight: 500; font-size: 13px; letter-spacing: 3.5px; text-transform: uppercase; color: var(--orange-text); margin: 0 0 12px; }
+    .section-head { text-align: center; max-width: 680px; margin: 0 auto 44px; }
+    .section-head p { margin: 14px 0 0; font-size: 17px; }
+    .lead { font-size: 17px; }
 
-    /* ---- header ---- */
-    .topbar { background: #000; color: var(--white); font-family: var(--font-head); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; text-align: center; padding: 6px 12px; }
-    .topbar b { color: var(--orange); font-weight: 600; }
-    header.bar { background: var(--black); border-bottom: 4px solid var(--orange); }
-    header.bar .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; }
-    .logo { height: 50px; width: auto; }
-    .call { color: var(--white); text-decoration: none; font-family: var(--font-head); letter-spacing: 1.5px; text-transform: uppercase; font-size: 15px; white-space: nowrap; }
-    .call small { display: block; font-family: var(--font-body); font-size: 11px; letter-spacing: 0; text-transform: none; color: #bbb; }
-    .call b { color: var(--orange); font-weight: 600; }
-
-    /* ---- buttons ---- */
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: var(--font-head); font-weight: 600; font-size: 17px; letter-spacing: 1.8px; text-transform: uppercase; color: var(--white); background: var(--orange); border: 2px solid var(--orange); padding: 15px 26px; text-decoration: none; transition: background .15s, border-color .15s, transform .05s; min-width: 250px; }
-    .btn::after { content: "\203A"; font-size: 20px; line-height: 1; transition: transform .15s; }
+    /* ============ buttons ============ */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-family: var(--font-head); font-weight: 600; font-size: 16px; letter-spacing: 2px; text-transform: uppercase; color: var(--white); background: var(--orange); border: 2px solid var(--orange); padding: 16px 28px; text-decoration: none; white-space: nowrap; transition: background .15s, border-color .15s, color .15s, transform .05s; }
+    .btn::after { content: "\203A"; font-size: 22px; line-height: 0; transition: transform .15s; }
     .btn:hover { background: var(--orange-dark); border-color: var(--orange-dark); }
     .btn:hover::after { transform: translateX(3px); }
     .btn:active { transform: translateY(1px); }
-    .btn.ghost { background: transparent; color: var(--white); border-color: var(--white); }
-    .btn.ghost:hover { background: var(--white); color: var(--black); }
-    .btn.dark { background: var(--black); border-color: var(--black); }
-    .btn.dark:hover { background: #000; }
+    .btn.ghost { background: transparent; color: var(--white); border-color: rgba(255,255,255,.7); }
+    .btn.ghost:hover { background: var(--white); color: var(--black); border-color: var(--white); }
     .btn.navy { background: var(--navy); border-color: var(--navy); }
-    .btn.navy:hover { background: #22307a; border-color: #22307a; }
+    .btn.navy:hover { background: var(--navy-dark); border-color: var(--navy-dark); }
+    .btn.sm { font-size: 14px; letter-spacing: 1.8px; padding: 10px 18px; }
     .cta-pair { display: flex; flex-wrap: wrap; gap: 14px; }
-    .cta-note { font-size: 13px; color: #bbb; margin: 12px 0 0; }
-    .cta-note b { color: #eee; font-weight: 600; }
 
-    /* ---- hero ---- */
-    .hero { background: var(--black) radial-gradient(900px 500px at 80% 20%, #3a2a16 0%, transparent 60%); color: var(--white); position: relative; overflow: hidden; }
-    .hero .wrap { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; padding: 56px 0 60px; }
-    .hero h1 { color: var(--white); font-size: clamp(34px, 5vw, 56px); }
-    .hero h1 .script { font-size: 1.05em; display: block; margin: 0 0 -6px; }
-    .hero p.lead { font-size: 18px; color: #d8d8d8; margin: 18px 0 26px; max-width: 540px; }
-    .hero-coins { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .hero-coins img { border-radius: 6px; box-shadow: 0 18px 40px rgba(0,0,0,.5); aspect-ratio: 520 / 438; object-fit: cover; }
-    .hero-coins img:nth-child(2) { transform: translateY(26px); }
-    .hero-coins img:nth-child(3) { transform: translateY(-10px); }
-    .hero-coins img:nth-child(4) { transform: translateY(16px); }
+    /* ============ top bar + sticky menu ============ */
+    .topbar { background: #000; color: var(--white); font-family: var(--font-head); font-weight: 500; font-size: 12px; letter-spacing: 2.5px; text-transform: uppercase; text-align: center; padding: 7px 12px; }
+    .topbar b { color: var(--orange); font-weight: 600; }
+    .nav { position: sticky; top: 0; z-index: 50; background: var(--black); border-bottom: 4px solid var(--orange); box-shadow: 0 4px 20px rgba(0,0,0,.25); }
+    .nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 24px; height: var(--nav-h); }
+    .logo { height: 50px; width: auto; }
+    .menu { display: flex; align-items: center; gap: 30px; margin: 0; padding: 0; list-style: none; }
+    .menu a { color: #E8E8E8; text-decoration: none; font-family: var(--font-head); font-weight: 500; font-size: 15px; letter-spacing: 2px; text-transform: uppercase; padding: 6px 0; border-bottom: 2px solid transparent; transition: color .15s, border-color .15s; }
+    .menu a:hover { color: var(--white); border-bottom-color: var(--orange); }
+    .nav-right { display: flex; align-items: center; gap: 22px; }
+    .call { color: var(--white); text-decoration: none; text-align: right; line-height: 1.15; }
+    .call small { display: block; font-size: 11px; color: #A9A9A9; letter-spacing: .2px; }
+    .call b { font-family: var(--font-head); font-weight: 600; font-size: 18px; letter-spacing: 1.5px; color: var(--orange); }
+    .burger { display: none; background: none; border: 2px solid #555; color: var(--white); width: 44px; height: 44px; cursor: pointer; padding: 0; }
+    .burger span { display: block; width: 20px; height: 2px; background: currentColor; margin: 4px auto; transition: transform .2s, opacity .2s; }
+    .nav.open .burger span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+    .nav.open .burger span:nth-child(2) { opacity: 0; }
+    .nav.open .burger span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+    /* ============ hero ============ */
+    .hero { background: var(--ink); color: var(--white); position: relative; overflow: hidden; }
+    .hero::before { content: ""; position: absolute; inset: 0; background: radial-gradient(1100px 600px at 78% 40%, rgba(245,130,32,.22), transparent 60%), radial-gradient(700px 500px at 10% 100%, rgba(43,57,144,.35), transparent 60%); pointer-events: none; }
+    .hero .wrap { position: relative; display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; padding: 72px 0 80px; }
+    .hero h1 { color: var(--white); }
+    .hero h1 .script { display: block; font-size: .95em; margin: 0 0 2px 2px; }
+    .hero .lead { font-size: 18px; color: #CFCFCF; margin: 22px 0 32px; max-width: 520px; }
+    .hero .cta-pair { margin-bottom: 18px; }
+    .hero-note { font-size: 14px; color: #9A9A9A; margin: 0; max-width: 520px; }
+    .hero-note b { color: #E0E0E0; font-weight: 600; }
+    .hero-proof { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0 0 26px; padding: 0; list-style: none; font-size: 14px; color: #D8D8D8; }
+    .hero-proof li::before { content: "\2713"; color: var(--gold); font-weight: 700; margin-right: 8px; }
+    .hero-coins { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .hero-coins figure { margin: 0; aspect-ratio: 1; overflow: hidden; border-radius: 10px; box-shadow: 0 24px 50px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06); background: #000; }
+    .hero-coins img { width: 100%; height: 100%; object-fit: cover; }
+    .hero-coins figure:nth-child(2) { transform: translateY(28px); }
+    .hero-coins figure:nth-child(3) { transform: translateY(-12px); }
+    .hero-coins figure:nth-child(4) { transform: translateY(16px); }
+
     .stats { background: var(--orange); color: var(--black); }
-    .stats .wrap { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; padding: 16px 0; gap: 10px; }
-    .stats b { display: block; font-family: var(--font-head); font-size: 28px; font-weight: 700; letter-spacing: 1px; line-height: 1; }
-    .stats span { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; }
+    .stats .wrap { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; padding: 22px 0; gap: 16px; }
+    .stats b { display: block; font-family: var(--font-head); font-size: 34px; font-weight: 700; letter-spacing: 1px; line-height: 1; }
+    .stats span { display: block; margin-top: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; }
 
-    /* ---- two paths ---- */
-    .paths { background: var(--warm); padding: 56px 0; }
-    .paths .wrap > h2 { text-align: center; font-size: clamp(26px, 3.4vw, 36px); margin-bottom: 8px; }
-    .paths .wrap > p.sub { text-align: center; margin: 0 auto 32px; max-width: 620px; font-size: 17px; }
-    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    .card { background: var(--white); border: 1px solid var(--line); border-top: 6px solid var(--orange); padding: 30px 30px 28px; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,.06); }
-    .card.alt { border-top-color: var(--navy); }
-    .card h3 { font-size: 26px; margin-bottom: 8px; }
-    .card p { margin: 0 0 16px; }
-    .card ul { margin: 0 0 24px; padding-left: 20px; }
-    .card li { margin-bottom: 6px; }
+    /* ============ two paths ============ */
+    .paths { background: var(--warm); padding: 80px 0; }
+    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    .card { position: relative; background: var(--white); border: 1px solid var(--line); padding: 36px 36px 34px; display: flex; flex-direction: column; box-shadow: 0 14px 40px rgba(0,0,0,.07); }
+    .card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: var(--orange); }
+    .card.alt::before { background: var(--navy); }
+    .card .eyebrow { margin-bottom: 10px; }
+    .card.alt .eyebrow { color: var(--navy); }
+    .card h3 { font-size: 28px; margin-bottom: 10px; }
+    .card p { margin: 0 0 18px; }
+    .card ul { margin: 0 0 28px; padding: 0; list-style: none; }
+    .card li { position: relative; padding-left: 26px; margin-bottom: 8px; }
+    .card li::before { content: "\2713"; position: absolute; left: 0; top: 0; color: var(--orange-text); font-weight: 700; }
+    .card.alt li::before { color: var(--navy); }
     .card .btn { align-self: flex-start; margin-top: auto; }
-    .card .tag { display: inline-block; font-family: var(--font-head); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--orange-dark); margin-bottom: 10px; }
-    .card.alt .tag { color: var(--navy); }
+    .card .fine { margin: 14px 0 0; font-size: 13px; color: #777; }
 
-    /* ---- why ---- */
-    .why { padding: 56px 0; }
-    .why h2 { text-align: center; font-size: clamp(26px, 3.4vw, 36px); margin-bottom: 36px; }
-    .why-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px 32px; }
-    .why-item h3 { font-size: 18px; margin-bottom: 6px; letter-spacing: 1px; }
+    /* ============ why ============ */
+    .why { padding: 80px 0; }
+    .why-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px 40px; }
+    .why-item h3 { font-size: 20px; margin: 0 0 8px; }
     .why-item p { margin: 0; font-size: 15px; }
-    .why-item .ic { width: 44px; height: 44px; border: 2px solid var(--orange); color: var(--orange-dark); display: grid; place-items: center; font-family: var(--font-head); font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+    .why-item .ic { width: 52px; height: 52px; border-radius: 50%; background: var(--warm); color: var(--orange-text); display: grid; place-items: center; margin-bottom: 16px; }
+    .why-item .ic svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 
-    /* ---- gallery ---- */
-    .gallery { background: var(--black); padding: 48px 0 56px; color: var(--white); }
-    .gallery h2 { color: var(--white); text-align: center; font-size: clamp(24px, 3vw, 32px); margin-bottom: 8px; }
-    .gallery p { text-align: center; color: #bbb; margin: 0 auto 28px; max-width: 560px; }
-    .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
-    .grid img { border-radius: 4px; aspect-ratio: 520 / 438; object-fit: cover; }
+    /* ============ gallery ============ */
+    .gallery { background: var(--ink); padding: 80px 0; color: var(--white); }
+    .gallery h2 { color: var(--white); }
+    .gallery .section-head p { color: #BDBDBD; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .grid figure { margin: 0; position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 8px; background: #000; box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+    .grid img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
+    .grid figure:hover img { transform: scale(1.04); }
+    .grid figcaption { position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 16px 12px; background: linear-gradient(transparent, rgba(0,0,0,.75)); font-family: var(--font-head); font-weight: 500; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #F0F0F0; }
 
-    /* ---- how ---- */
-    .how { padding: 56px 0; background: var(--offwhite); }
-    .how h2 { text-align: center; font-size: clamp(26px, 3.4vw, 36px); margin-bottom: 32px; }
-    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; counter-reset: step; }
-    .step { background: var(--white); border: 1px solid var(--line); padding: 24px 20px 22px; position: relative; }
-    .step::before { counter-increment: step; content: counter(step); position: absolute; top: -16px; left: 20px; width: 32px; height: 32px; background: var(--orange); color: var(--white); font-family: var(--font-head); font-weight: 700; display: grid; place-items: center; font-size: 16px; }
-    .step h3 { font-size: 17px; letter-spacing: 1px; margin: 6px 0 6px; }
+    /* ============ how ============ */
+    .how { padding: 80px 0; background: var(--offwhite); }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; counter-reset: step; position: relative; }
+    .steps::before { content: ""; position: absolute; left: 12%; right: 12%; top: 26px; height: 2px; background: var(--line); }
+    .step { position: relative; background: var(--white); border: 1px solid var(--line); padding: 28px 22px 24px; margin-top: 26px; }
+    .step::before { counter-increment: step; content: counter(step); position: absolute; top: -26px; left: 22px; width: 52px; height: 52px; border-radius: 50%; background: var(--orange); color: var(--white); font-family: var(--font-head); font-weight: 700; font-size: 22px; display: grid; place-items: center; box-shadow: 0 0 0 6px var(--offwhite); }
+    .step h3 { font-size: 19px; margin: 22px 0 8px; }
     .step p { margin: 0; font-size: 15px; }
 
-    /* ---- closing ---- */
-    .closing { background: var(--navy); color: var(--white); text-align: center; padding: 52px 0; }
-    .closing h2 { color: var(--white); font-size: clamp(26px, 3.4vw, 38px); margin-bottom: 10px; }
-    .closing p { margin: 0 auto 26px; max-width: 560px; color: #dfe2f5; font-size: 17px; }
+    /* ============ closing ============ */
+    .closing { background: var(--navy); color: var(--white); text-align: center; padding: 76px 0; position: relative; overflow: hidden; }
+    .closing::before { content: ""; position: absolute; inset: 0; background: radial-gradient(800px 400px at 50% 120%, rgba(245,130,32,.28), transparent 70%); pointer-events: none; }
+    .closing .wrap { position: relative; }
+    .closing h2 { color: var(--white); margin-bottom: 12px; }
+    .closing p { margin: 0 auto 30px; max-width: 540px; color: #DCE0F5; font-size: 17px; }
     .closing .cta-pair { justify-content: center; }
     .closing .btn.ghost:hover { color: var(--navy); }
+    .closing .phone { margin-top: 26px; font-size: 15px; color: #C9CEEA; }
+    .closing .phone a { margin-left: 6px; color: var(--white); font-family: var(--font-head); font-weight: 600; letter-spacing: 1.5px; text-decoration: none; font-size: 18px; }
 
-    footer { background: #000; color: #aaa; font-size: 13px; text-align: center; padding: 22px 0; }
-    footer a { color: #ddd; text-decoration: none; }
-    footer p { margin: 4px 0; }
+    footer { background: #000; color: #9A9A9A; font-size: 13px; padding: 34px 0 28px; }
+    footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 14px 30px; }
+    footer a { color: #DDD; text-decoration: none; }
+    footer p { margin: 0; }
+    footer .flinks { display: flex; gap: 22px; flex-wrap: wrap; font-family: var(--font-head); font-weight: 500; letter-spacing: 2px; text-transform: uppercase; font-size: 12px; }
 
-    @media (max-width: 860px) {
-      .hero .wrap { grid-template-columns: 1fr; padding: 36px 0 44px; }
-      .hero-coins { max-width: 420px; margin: 0 auto; }
-      .stats .wrap { grid-template-columns: repeat(2, 1fr); }
-      .cards, .why-grid, .steps { grid-template-columns: 1fr; }
-      .steps { gap: 28px; }
-      .grid { grid-template-columns: repeat(3, 1fr); }
+    @media (max-width: 960px) {
+      .menu { gap: 20px; }
+      .menu a { font-size: 14px; letter-spacing: 1.5px; }
+      .nav-right .btn { display: none; }
+    }
+    @media (max-width: 820px) {
+      :root { --nav-h: 64px; }
+      .burger { display: block; }
+      .menu { display: none; position: absolute; left: 0; right: 0; top: 100%; flex-direction: column; align-items: stretch; gap: 0; background: var(--black); border-top: 1px solid #333; border-bottom: 4px solid var(--orange); padding: 8px 0 12px; }
+      .nav.open .menu { display: flex; }
+      .menu a { display: block; padding: 14px 24px; border-bottom: 1px solid #2A2A2A; font-size: 16px; }
+      .menu a:hover { border-bottom-color: #2A2A2A; }
       .call small { display: none; }
+      .call b { font-size: 16px; }
+      .hero .wrap { grid-template-columns: 1fr; gap: 40px; padding: 48px 0 56px; }
+      .hero-coins { max-width: 440px; }
+      .stats .wrap { grid-template-columns: repeat(2, 1fr); gap: 20px 10px; }
+      .cards, .why-grid, .steps { grid-template-columns: 1fr; }
+      .steps::before { display: none; }
+      .steps { gap: 34px; }
+      .paths, .why, .gallery, .how { padding: 60px 0; }
+      .section-head { margin-bottom: 32px; }
     }
     @media (max-width: 520px) {
-      .wrap { width: min(1080px, 100% - 32px); }
-      .btn { width: 100%; min-width: 0; }
-      .cta-pair { flex-direction: column; }
+      .wrap { width: min(1120px, 100% - 36px); }
       .logo { height: 40px; }
-      .call { font-size: 13px; }
-      .stats b { font-size: 24px; }
-      .grid { grid-template-columns: repeat(2, 1fr); }
-      .hero-coins img:nth-child(n+3) { display: none; } /* two coins on a phone, so the page gets to the two ways sooner */
-      .hero-coins img:nth-child(2) { transform: translateY(14px); }
+      .btn { width: 100%; }
+      .cta-pair { flex-direction: column; }
+      .hero-coins { gap: 12px; }
+      .hero-coins figure:nth-child(n+3) { display: none; }
+      .hero-coins figure:nth-child(2) { transform: translateY(14px); }
+      .grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .grid figcaption { font-size: 11px; letter-spacing: 1.5px; padding: 20px 10px 9px; }
+      .stats b { font-size: 28px; }
+      footer .wrap { justify-content: center; text-align: center; }
+      footer .flinks { justify-content: center; }
     }
   </style>
 </head>
 <body>
   <div class="topbar">100% Veteran Owned &amp; Operated &middot; <b>The Quality is Always Here</b></div>
-  <header class="bar">
-    <div class="wrap">
-      <a href="https://www.coinsforanything.com/" aria-label="Coins For Anything"><img class="logo" src="brand/logo.webp" alt="Coins for Anything, Inc." width="315" height="123"></a>
-      <a class="call" href="tel:+18665835434"><small>Talk to a coin expert</small><b>1-866-583-5434</b></a>
-    </div>
-  </header>
 
-  <section class="hero">
+  <nav class="nav" id="nav" aria-label="Page">
+    <div class="wrap">
+      <a href="#top" aria-label="Coins For Anything, back to top"><img class="logo" src="brand/logo.webp" alt="Coins for Anything, Inc." width="315" height="123"></a>
+      <ul class="menu" id="menu">
+        <li><a href="#start">Get Started</a></li>
+        <li><a href="#why">Why Us</a></li>
+        <li><a href="#work">Our Work</a></li>
+        <li><a href="#how">How It Works</a></li>
+      </ul>
+      <div class="nav-right">
+        <a class="call" href="tel:+18665835434"><small>Talk to a coin expert</small><b>1-866-583-5434</b></a>
+        <a class="btn sm" href="https://www.coinsforanything.com/quote/?utm_source=landing&amp;utm_medium=nav&amp;utm_campaign=start">Get a Quote</a>
+        <button class="burger" type="button" aria-controls="menu" aria-expanded="false" aria-label="Menu"><span></span><span></span><span></span></button>
+      </div>
+    </div>
+  </nav>
+
+  <section class="hero" id="top">
     <div class="wrap">
       <div>
         <h1><span class="script">Custom</span>Challenge Coins<br>Made Right</h1>
-        <p class="lead">Die-struck in metal, finished by hand, and backed by a team that has minted over 20 million coins for military units, first responders, companies, schools and families. Free artwork, free proof, no surprises.</p>
+        <p class="lead">Die-struck in metal, finished by hand, and backed by a team that has minted over 20 million coins for military units, first responders, companies, schools and families.</p>
+        <ul class="hero-proof">
+          <li>Free artwork and proof</li>
+          <li>Unlimited revisions</li>
+          <li>Rush in under 10 business days</li>
+        </ul>
         <div class="cta-pair">
-          <a class="btn" href="https://www.coinsforanything.com/quote/?utm_source=landing&amp;utm_medium=button&amp;utm_campaign=start">Request a Free Quote</a>
+          <a class="btn" href="https://www.coinsforanything.com/quote/?utm_source=landing&amp;utm_medium=hero&amp;utm_campaign=start">Request a Free Quote</a>
           <a class="btn ghost" href="/?src=start">Design Your Coin Online</a>
         </div>
-        <p class="cta-note"><b>Not sure which?</b> A quote is a quick form our team answers. The design tool shows you your coin in minutes.</p>
+        <p class="hero-note"><b>Not sure which?</b> A quote is a quick form our team answers. The design tool shows you your coin in minutes.</p>
       </div>
       <div class="hero-coins" aria-hidden="true">
-        <img src="gallery/aerial-port-dover.webp" alt="" width="520" height="438" loading="eager">
-        <img src="gallery/pittsburgh-ems.webp" alt="" width="520" height="438" loading="eager">
-        <img src="gallery/texas-state-fair.webp" alt="" width="520" height="438">
-        <img src="gallery/citgo.webp" alt="" width="520" height="438">
+        <figure><img src="gallery/aerial-port-dover.webp" alt="" width="438" height="438" loading="eager"></figure>
+        <figure><img src="gallery/pittsburgh-ems.webp" alt="" width="438" height="438" loading="eager"></figure>
+        <figure><img src="gallery/texas-state-fair.webp" alt="" width="438" height="438"></figure>
+        <figure><img src="gallery/citgo.webp" alt="" width="438" height="438"></figure>
       </div>
     </div>
   </section>
@@ -198,11 +268,14 @@
 
   <section class="paths" id="start">
     <div class="wrap">
-      <h2>Two ways to get started</h2>
-      <p class="sub">Pick whichever fits how you like to work. Either way, a real designer draws your artwork and you approve a proof before a single coin is made.</p>
+      <div class="section-head">
+        <p class="eyebrow">Get started</p>
+        <h2>Two ways to get your coin</h2>
+        <p>Pick whichever fits how you like to work. Either way, a real designer draws your artwork and you approve a proof before a single coin is made.</p>
+      </div>
       <div class="cards">
         <div class="card">
-          <span class="tag">Talk to our team</span>
+          <p class="eyebrow">Talk to our team</p>
           <h3>Request a Quote</h3>
           <p>Tell us what you have in mind, how many you need and when you need them. A coin expert gets back to you with pricing and free artwork.</p>
           <ul>
@@ -211,9 +284,10 @@
             <li>Rush production in under 10 business days available</li>
           </ul>
           <a class="btn" href="https://www.coinsforanything.com/quote/?utm_source=landing&amp;utm_medium=card&amp;utm_campaign=start">Request a Free Quote</a>
+          <p class="fine">Or call <a href="tel:+18665835434">1-866-583-5434</a> and talk it through.</p>
         </div>
         <div class="card alt">
-          <span class="tag">See it right now</span>
+          <p class="eyebrow">See it right now</p>
           <h3>Design Your Coin Online</h3>
           <p>Upload your logo, describe the front and back in your own words, and watch both sides render in minutes. Then get an instant estimate.</p>
           <ul>
@@ -222,47 +296,76 @@
             <li>Our artists finish the design and send a proof</li>
           </ul>
           <a class="btn navy" href="/?src=start">Design Your Coin Online</a>
+          <p class="fine">Free to try. No account needed.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="why">
+  <section class="why" id="why">
     <div class="wrap">
-      <h2>Why <span class="script">Coins For Anything</span></h2>
+      <div class="section-head">
+        <p class="eyebrow">About us</p>
+        <h2><span class="script">Why</span>Coins For Anything</h2>
+        <p>A coin is a small thing that carries a lot. We treat every one like it matters, because to the people who carry it, it does.</p>
+      </div>
       <div class="why-grid">
-        <div class="why-item"><div class="ic">V</div><h3>100% veteran owned</h3><p>Founded and run by veterans in Fredericksburg, Virginia. We know what a coin means to the people who carry it.</p></div>
-        <div class="why-item"><div class="ic">20M</div><h3>Over 20 million coins minted</h3><p>Military units, police and fire departments, Fortune 500 companies, schools, churches and clubs across the country.</p></div>
-        <div class="why-item"><div class="ic">$0</div><h3>Free artwork and proof</h3><p>Our in-house artists draw your design and you approve a proof before production. Revisions are free.</p></div>
-        <div class="why-item"><div class="ic">1-4"</div><h3>Every finish, every size</h3><p>Antique or shiny gold, silver, nickel, copper, brass and black nickel. Enamel color, 3D relief, cut-outs, edges and more.</p></div>
-        <div class="why-item"><div class="ic">10</div><h3>Rush when you need it</h3><p>Standard turnaround most orders can plan around, and rush production in under 10 business days.</p></div>
-        <div class="why-item"><div class="ic">QC</div><h3>The quality is always here</h3><p>Every coin is inspected before it ships. If something is not right, we make it right.</p></div>
+        <div class="why-item">
+          <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
+          <h3>100% veteran owned</h3><p>Founded and run by veterans in Fredericksburg, Virginia. We know what a coin means to the people who carry it.</p>
+        </div>
+        <div class="why-item">
+          <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v4c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 10v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4"/><path d="M4 14v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4"/></svg></div>
+          <h3>Over 20 million coins minted</h3><p>Military units, police and fire departments, Fortune 500 companies, schools, churches and clubs across the country.</p>
+        </div>
+        <div class="why-item">
+          <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 10-10-3-3L5 16l-1 4z"/><path d="M13 7l3 3"/><path d="M14 20h6"/></svg></div>
+          <h3>Free artwork and proof</h3><p>Our in-house artists draw your design and you approve a proof before production. Revisions are free.</p>
+        </div>
+        <div class="why-item">
+          <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3"/></svg></div>
+          <h3>Every finish, every size</h3><p>Antique or shiny gold, silver, nickel, copper, brass and black nickel. Enamel color, 3D relief, cut-outs and custom edges, from 1" to 4".</p>
+        </div>
+        <div class="why-item">
+          <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 8v5l3 2"/><path d="M9 2h6"/></svg></div>
+          <h3>Rush when you need it</h3><p>A standard turnaround most orders can plan around, and rush production in under 10 business days when the date is close.</p>
+        </div>
+        <div class="why-item">
+          <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.4 2.1 3.1-.4.9 3 2.8 1.4-1.3 2.9 1.3 2.9-2.8 1.4-.9 3-3.1-.4L12 20.5l-2.4-2.1-3.1.4-.9-3-2.8-1.4 1.3-2.9-1.3-2.9 2.8-1.4.9-3 3.1.4z"/><path d="M8.5 11.5l2.3 2.3 4.7-4.8"/></svg></div>
+          <h3>The quality is always here</h3><p>Every coin is inspected before it ships. If something is not right, we make it right. That is the whole promise.</p>
+        </div>
       </div>
     </div>
   </section>
 
-  <section class="gallery">
+  <section class="gallery" id="work">
     <div class="wrap">
-      <h2>Made for people who take their coins seriously</h2>
-      <p>A few of the designs that have come off our dies. Yours is next.</p>
+      <div class="section-head">
+        <p class="eyebrow">Our work</p>
+        <h2>Made for people who take their coins seriously</h2>
+        <p>A few of the designs that have come off our dies. Yours is next.</p>
+      </div>
       <div class="grid">
-        <img src="gallery/aerial-port-dover.webp" alt="Aerial Port Dover AFB challenge coin" width="520" height="438" loading="lazy">
-        <img src="gallery/pittsburgh-ems.webp" alt="Pittsburgh EMS paramedic rescue coin" width="520" height="438" loading="lazy">
-        <img src="gallery/orange-county.webp" alt="Orange County Gang Investigators Association 35 years coin" width="520" height="438" loading="lazy">
-        <img src="gallery/citgo.webp" alt="CITGO corporate challenge coin" width="520" height="438" loading="lazy">
-        <img src="gallery/cirque-du-soleil.webp" alt="Cirque du Soleil antique silver coin" width="520" height="438" loading="lazy">
-        <img src="gallery/texas-state-fair.webp" alt="State Fair of Texas full color coin" width="520" height="438" loading="lazy">
+        <figure><img src="gallery/aerial-port-dover.webp" alt="Aerial Port Dover AFB challenge coin in gold with full color enamel" width="438" height="438" loading="lazy"><figcaption>Air Force &middot; Dover AFB</figcaption></figure>
+        <figure><img src="gallery/pittsburgh-ems.webp" alt="Pittsburgh EMS paramedic rescue coin" width="438" height="438" loading="lazy"><figcaption>Pittsburgh EMS</figcaption></figure>
+        <figure><img src="gallery/orange-county.webp" alt="Orange County Gang Investigators Association 35 years coin" width="438" height="438" loading="lazy"><figcaption>Law enforcement &middot; 35 years</figcaption></figure>
+        <figure><img src="gallery/citgo.webp" alt="CITGO corporate challenge coin" width="438" height="438" loading="lazy"><figcaption>Corporate &middot; CITGO</figcaption></figure>
+        <figure><img src="gallery/cirque-du-soleil.webp" alt="Cirque du Soleil antique silver coin" width="438" height="438" loading="lazy"><figcaption>Cirque du Soleil &middot; Antique silver</figcaption></figure>
+        <figure><img src="gallery/texas-state-fair.webp" alt="State Fair of Texas full color coin" width="438" height="438" loading="lazy"><figcaption>State Fair of Texas</figcaption></figure>
       </div>
     </div>
   </section>
 
-  <section class="how">
+  <section class="how" id="how">
     <div class="wrap">
-      <h2>How it works</h2>
+      <div class="section-head">
+        <p class="eyebrow">How it works</p>
+        <h2>From idea to coin in four steps</h2>
+      </div>
       <div class="steps">
         <div class="step"><h3>Tell us your idea</h3><p>Send a logo, a sketch or just a description. Or build it yourself in the online design tool.</p></div>
         <div class="step"><h3>Get free artwork</h3><p>Our artists draw up your coin and send a proof. Change anything you like, as many times as you like.</p></div>
-        <div class="step"><h3>Approve and we mint</h3><p>Once you sign off, your coins are die-struck, plated, colored and inspected.</p></div>
+        <div class="step"><h3>Approve and we mint</h3><p>Once you sign off, your coins are die-struck, plated, colored and inspected one by one.</p></div>
         <div class="step"><h3>Delivered to your door</h3><p>Shipped anywhere in the United States, with rush options when the date is close.</p></div>
       </div>
     </div>
@@ -270,20 +373,35 @@
 
   <section class="closing">
     <div class="wrap">
-      <h2>Ready to see your coin?</h2>
+      <p class="eyebrow" style="color:#F4B46C">Ready?</p>
+      <h2>Let's see your coin</h2>
       <p>Get a quote from our team, or design it yourself right now. Either way, it's free to start.</p>
       <div class="cta-pair">
         <a class="btn" href="https://www.coinsforanything.com/quote/?utm_source=landing&amp;utm_medium=footer&amp;utm_campaign=start">Request a Free Quote</a>
         <a class="btn ghost" href="/?src=start">Design Your Coin Online</a>
       </div>
+      <p class="phone">Prefer to talk? <a href="tel:+18665835434">1-866-583-5434</a></p>
     </div>
   </section>
 
   <footer>
     <div class="wrap">
       <p><a href="https://www.coinsforanything.com/">Coins For Anything, Inc.</a> &middot; 1014 Prince Edward St, Fredericksburg, VA 22401 &middot; <a href="tel:+18665835434">1-866-583-5434</a></p>
+      <div class="flinks"><a href="#start">Get Started</a><a href="#why">Why Us</a><a href="#work">Our Work</a><a href="#how">How It Works</a></div>
       <p>100% Veteran Owned &amp; Operated</p>
     </div>
   </footer>
+
+  <script>
+    // The phone menu: the burger opens it, and any tap on a link closes it again.
+    (function () {
+      var nav = document.getElementById('nav'), btn = nav.querySelector('.burger');
+      btn.addEventListener('click', function () {
+        var open = nav.classList.toggle('open');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      nav.querySelectorAll('.menu a').forEach(function (a) { a.addEventListener('click', function () { nav.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }); });
+    })();
+  </script>
 </body>
 </html>
