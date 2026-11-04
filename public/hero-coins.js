@@ -112,13 +112,13 @@
     var x = W > 820 ? (Math.random() < .7 ? rand(W * .42, W + r * .4) : rand(-r * .4, W * .42)) : rand(-r * .3, W + r * .3);
     return {
       x: x, y: fresh ? H + r * 1.3 : rand(-r * .5, H + r * .5),
-      r: r, depth: depth, alpha: .2 + depth * .6,
+      r: r, depth: depth, alpha: .26 + depth * .56,
       angle: rand(0, Math.PI * 2), spin: rand(.16, .34) * (Math.random() < .5 ? -1 : 1),
       tilt: rand(-.35, .35), vy: -(2.5 + depth * 5), bob: rand(0, Math.PI * 2), bobAmp: 3 + depth * 5,
     };
   }
   function populate() {
-    var n = Math.round(Math.min(16, Math.max(7, (W * H) / 62000)));
+    var n = Math.round(Math.min(26, Math.max(14, (W * H) / 40000)));
     coins = []; for (var i = 0; i < n; i++) coins.push(makeCoin(i, n, false));
     coins.sort(function (a, b) { return a.depth - b.depth; }); // far ones drawn first
   }
