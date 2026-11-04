@@ -1,8 +1,8 @@
-// The hero's coin field: a handful of gold coins hang in the dark at different depths, turning over slowly
-// to show the Coin Nerd on one face and the logo on the other, the same two faces as the builder's turning
-// coin. The near ones are sharp, the far ones soft and dim, and the whole field shifts gently with the
-// pointer (deeper coins less), with a warm light that follows it. That's all it does: no bouncing, no
-// clicks, nothing that competes with the headline. Still under prefers-reduced-motion, asleep off screen.
+// The hero's coin field: real coins from the gallery (photographed, cut out round) hang in the dark at different
+// depths, turning over slowly to show one design on the front and another on the back. The near ones are
+// sharp, the far ones soft and dim, and the whole field shifts gently with the pointer (deeper coins less),
+// with a warm light that follows it. That's all it does: no bouncing, no clicks, nothing that competes with
+// the headline. Still under prefers-reduced-motion, asleep off screen.
 (function () {
   'use strict';
   var canvas = document.getElementById('coin-field');
@@ -13,93 +13,48 @@
   var DPR = Math.min(window.devicePixelRatio || 1, 2);
   var W = 0, H = 0, coins = [], running = false, raf = 0, last = 0, t = 0;
   var pointer = { x: 0, y: 0, tx: 0, ty: 0, in: false, glow: 0 };
-  var FACE = 320; // pre-rendered face texture size
+  var FACE = 360; // the cut-out size
 
-  // ---- the two faces, drawn once ----
-  function blank() { var c = document.createElement('canvas'); c.width = c.height = FACE; return c; }
-  var front = blank(), back = blank();
-  function disc(c) {
-    var g = c.getContext('2d'), r = FACE / 2;
-    var gold = g.createRadialGradient(r * .68, r * .56, 0, r, r, r * 1.08);
-    gold.addColorStop(0, '#FFF3B0'); gold.addColorStop(.32, '#EBC24A'); gold.addColorStop(.72, '#BA871B'); gold.addColorStop(1, '#7A5510');
-    g.fillStyle = gold; g.beginPath(); g.arc(r, r, r, 0, Math.PI * 2); g.fill();
-    // reeded edge
-    g.strokeStyle = 'rgba(94,63,8,.5)'; g.lineWidth = r * .056; g.setLineDash([r * .0105, r * .015]);
-    g.beginPath(); g.arc(r, r, r * .972, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
-    // raised rim
-    var rim = g.createLinearGradient(0, 0, FACE, FACE);
-    rim.addColorStop(0, '#FFF8D2'); rim.addColorStop(.45, '#D9A93A'); rim.addColorStop(1, '#5E3F08');
-    g.strokeStyle = rim; g.lineWidth = r * .032; g.beginPath(); g.arc(r, r, r * .926, 0, Math.PI * 2); g.stroke();
-    // the field dips toward the rim
-    var well = g.createRadialGradient(r, r, r * .64, r, r, r * .91);
-    well.addColorStop(0, 'rgba(60,38,4,0)'); well.addColorStop(1, 'rgba(60,38,4,.3)');
-    g.fillStyle = well; g.beginPath(); g.arc(r, r, r * .91, 0, Math.PI * 2); g.fill();
-    // beads
-    g.strokeStyle = 'rgba(255,243,176,.6)'; g.lineWidth = r * .016; g.lineCap = 'round'; g.setLineDash([.1, r * .04]);
-    g.beginPath(); g.arc(r, r, r * .874, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
-    return g;
-  }
-  function arcText(g, text, radius, top) {
-    var r = FACE / 2;
-    g.save(); g.translate(r, r);
-    g.font = '600 ' + Math.round(FACE * .066) + 'px Oswald, "Arial Narrow", sans-serif';
-    g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillStyle = '#6A480B'; g.strokeStyle = 'rgba(255,243,176,.45)'; g.lineWidth = 1;
-    var chars = text.split(''), step = FACE * .052 / radius, total = step * (chars.length - 1);
-    for (var i = 0; i < chars.length; i++) {
-      var a = (top ? -Math.PI / 2 : Math.PI / 2) + (top ? 1 : -1) * (-total / 2 + i * step);
-      g.save(); g.rotate(a); g.translate(0, top ? -radius : radius); g.rotate(top ? 0 : Math.PI);
-      g.strokeText(chars[i], 0, 0); g.fillText(chars[i], 0, 0); g.restore();
-    }
-    g.restore();
-  }
-  // Each face in a few sizes, halved step by step so small coins stay smooth, plus a soft copy for the far ones.
-  var levels = { front: [], back: [], frontSoft: [], backSoft: [] };
+  // ---- the faces: photographed coins, each in a few sizes so small ones stay smooth, plus a soft copy for the far ones ----
+  var FILES = ['dover', 'ems', 'citgo', 'texas', 'cirque', 'orange', 'lorian', 'softball'];
+  var EDGE = { cirque: ['#8C8C8C', '#D9D9D9', '#5A5A5A'] }; // silver; everything else is gold
+  var GOLD = ['#8F6612', '#E2B458', '#5E3F08'];
+  var faces = []; // { sharp: [{size,img}], soft: [{size,img}], edge: [dark, light, dark] }
   function mips(src) {
     var out = [{ size: FACE, img: src }], size = FACE, img = src;
-    while (size > 40) {
-      var next = document.createElement('canvas'); next.width = next.height = size / 2;
-      next.getContext('2d').drawImage(img, 0, 0, size / 2, size / 2);
-      out.push({ size: size / 2, img: next }); size /= 2; img = next;
+    while (size > 44) {
+      var next = document.createElement('canvas'); next.width = next.height = Math.round(size / 2);
+      next.getContext('2d').drawImage(img, 0, 0, next.width, next.height);
+      out.push({ size: next.width, img: next }); size = next.width; img = next;
     }
     return out;
   }
   function soften(src) {
     var c = document.createElement('canvas'); c.width = c.height = FACE; var g = c.getContext('2d');
-    if ('filter' in g) { g.filter = 'blur(' + FACE * .012 + 'px)'; g.drawImage(src, 0, 0); g.filter = 'none'; }
+    if ('filter' in g) { g.filter = 'blur(' + FACE * .011 + 'px)'; g.drawImage(src, 0, 0); g.filter = 'none'; }
     else g.drawImage(src, 0, 0);
     return c;
   }
   function pick(set, px) { for (var i = set.length - 1; i >= 0; i--) if (set[i].size >= px) return set[i].img; return set[0].img; }
-  function finishFaces() {
-    levels.front = mips(front); levels.back = mips(back);
-    levels.frontSoft = mips(soften(front)); levels.backSoft = mips(soften(back));
-    if (reduce) frame(0);
-  }
-  function buildFaces() {
-    var gf = disc(front), gb = disc(back), r = FACE / 2;
-    arcText(gf, 'COINS FOR ANYTHING', r * .7, true); arcText(gf, '★ VETERAN OWNED ★', r * .72, false);
-    arcText(gb, '★ EST. 2002 ★', r * .7, true); arcText(gb, '★ THE QUALITY IS ALWAYS HERE ★', r * .72, false);
-    // front: the Coin Nerd set into the metal like an enamel portrait
-    gf.fillStyle = 'rgba(60,38,4,.4)'; gf.beginPath(); gf.arc(r, r * 1.025, r * .475, 0, Math.PI * 2); gf.fill();
-    gf.fillStyle = '#FFF9EA'; gf.beginPath(); gf.arc(r, r * 1.01, r * .45, 0, Math.PI * 2); gf.fill();
-    var nerd = new Image(), logo = new Image(), left = 2;
-    function done() { if (--left) return; finishFaces(); }
-    nerd.onload = function () {
-      gf.save(); gf.beginPath(); gf.arc(r, r * 1.01, r * .43, 0, Math.PI * 2); gf.clip();
-      gf.drawImage(nerd, r * .55, r * .56, r * .9, r * .9); gf.restore();
-      gf.strokeStyle = '#F58220'; gf.lineWidth = r * .018; gf.beginPath(); gf.arc(r, r * 1.01, r * .43, 0, Math.PI * 2); gf.stroke();
-      done();
-    };
-    logo.onload = function () { gb.drawImage(logo, r * .17, r * .647, r * 1.66, r * .725); done(); };
-    nerd.onerror = logo.onerror = done;
-    nerd.src = 'brand/coinnerd-coin.webp'; logo.src = 'brand/logo-coin.webp';
+  function loadFaces() {
+    var left = FILES.length;
+    FILES.forEach(function (name) {
+      var img = new Image();
+      img.onload = function () {
+        var c = document.createElement('canvas'); c.width = c.height = FACE;
+        c.getContext('2d').drawImage(img, 0, 0, FACE, FACE);
+        faces.push({ sharp: mips(c), soft: mips(soften(c)), edge: EDGE[name] || GOLD });
+        if (!--left) { assign(); if (reduce) frame(0); }
+      };
+      img.onerror = function () { if (!--left) { assign(); if (reduce) frame(0); } };
+      img.src = 'hero/' + name + '.webp';
+    });
   }
   // a soft warm halo, drawn once and placed behind the near coins (cheaper than a shadow every frame)
   var halo = document.createElement('canvas'); halo.width = halo.height = 256;
   (function () {
     var g = halo.getContext('2d'), grad = g.createRadialGradient(128, 128, 0, 128, 128, 128);
-    grad.addColorStop(0, 'rgba(245,160,60,.5)'); grad.addColorStop(.45, 'rgba(245,130,32,.16)'); grad.addColorStop(1, 'rgba(245,130,32,0)');
+    grad.addColorStop(0, 'rgba(245,160,60,.42)'); grad.addColorStop(.45, 'rgba(245,130,32,.14)'); grad.addColorStop(1, 'rgba(245,130,32,0)');
     g.fillStyle = grad; g.fillRect(0, 0, 256, 256);
   })();
 
@@ -115,12 +70,20 @@
       r: r, depth: depth, alpha: .26 + depth * .56,
       angle: rand(0, Math.PI * 2), spin: rand(.16, .34) * (Math.random() < .5 ? -1 : 1),
       tilt: rand(-.35, .35), vy: -(2.5 + depth * 5), bob: rand(0, Math.PI * 2), bobAmp: 3 + depth * 5,
+      front: 0, back: 0,
     };
+  }
+  function assign() { // each coin gets one design on the front and a different one on the back
+    coins.forEach(function (c) {
+      c.front = Math.floor(Math.random() * faces.length);
+      c.back = faces.length > 1 ? (c.front + 1 + Math.floor(Math.random() * (faces.length - 1))) % faces.length : c.front;
+    });
   }
   function populate() {
     var n = Math.round(Math.min(26, Math.max(14, (W * H) / 40000)));
     coins = []; for (var i = 0; i < n; i++) coins.push(makeCoin(i, n, false));
     coins.sort(function (a, b) { return a.depth - b.depth; }); // far ones drawn first
+    assign();
   }
   function resize() {
     var rect = hero.getBoundingClientRect();
@@ -134,11 +97,11 @@
   }
 
   function drawCoin(c, time) {
+    if (!faces.length) return;
     var cos = Math.cos(c.angle), ax = Math.abs(cos);
+    var f = faces[cos >= 0 ? c.front : c.back];
     var soft = c.depth < .4;
-    var set = cos >= 0 ? (soft ? levels.frontSoft : levels.front) : (soft ? levels.backSoft : levels.back);
-    if (!set.length) return;
-    var face = pick(set, c.r * 2 * DPR);
+    var face = pick(soft ? f.soft : f.sharp, c.r * 2 * DPR);
     var shift = pointer.glow * .028 * (c.depth * c.depth + .1);
     var cx = c.x + (pointer.x - W / 2) * shift;
     var cy = c.y + Math.sin(c.bob) * c.bobAmp + (pointer.y - H / 2) * shift;
@@ -146,29 +109,33 @@
     ctx.translate(cx, cy);
     if (c.depth > .55) { // warm halo behind the near coins
       var hs = c.r * 3.2;
-      ctx.globalAlpha = (c.depth - .55) * .9;
+      ctx.globalAlpha = (c.depth - .55) * .8;
       ctx.drawImage(halo, -hs / 2, -hs / 2, hs, hs);
     }
     ctx.globalAlpha = c.alpha;
     ctx.rotate(c.tilt);
-    // the thickness: a darker band peeking out on the side turning away
-    var sin = Math.abs(Math.sin(c.angle)), thick = c.r * .11 * sin;
+    // the thickness: a metal band peeking out on the side turning away
+    var sin = Math.abs(Math.sin(c.angle)), thick = c.r * .1 * sin;
     if (thick > .4) {
       var edge = ctx.createLinearGradient(0, -c.r, 0, c.r);
-      edge.addColorStop(0, '#5E3F08'); edge.addColorStop(.5, '#A8781E'); edge.addColorStop(1, '#5E3F08');
+      edge.addColorStop(0, f.edge[2]); edge.addColorStop(.5, f.edge[1]); edge.addColorStop(1, f.edge[2]);
       ctx.fillStyle = edge;
       ctx.beginPath(); ctx.ellipse(cos >= 0 ? -thick : thick, 0, Math.max(.6, c.r * ax) + thick * .25, c.r, 0, 0, Math.PI * 2); ctx.fill();
     }
     if (ax > .03) {
       ctx.scale(ax, 1);
       ctx.drawImage(face, -c.r, -c.r, c.r * 2, c.r * 2);
+      // light from the upper left: a touch brighter there, a touch darker toward the lower right
+      var lit = ctx.createLinearGradient(-c.r, -c.r, c.r, c.r);
+      lit.addColorStop(0, 'rgba(255,255,255,.14)'); lit.addColorStop(.5, 'rgba(255,255,255,0)'); lit.addColorStop(1, 'rgba(0,0,0,.22)');
+      ctx.fillStyle = lit; ctx.beginPath(); ctx.arc(0, 0, c.r, 0, Math.PI * 2); ctx.fill();
       // a slow sheen that crosses the face now and then
       var g = ((time * .16 + c.bob) % 3) - .6;
       if (g > -.3 && g < 1.3) {
         var clamp = function (v) { return Math.min(1, Math.max(0, v)); };
         var grad = ctx.createLinearGradient(-c.r, 0, c.r, 0);
-        grad.addColorStop(clamp(g - .3), 'rgba(255,255,255,0)'); grad.addColorStop(clamp(g), 'rgba(255,255,255,.22)'); grad.addColorStop(clamp(g + .3), 'rgba(255,255,255,0)');
-        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, c.r * .93, 0, Math.PI * 2); ctx.fill();
+        grad.addColorStop(clamp(g - .3), 'rgba(255,255,255,0)'); grad.addColorStop(clamp(g), 'rgba(255,255,255,.2)'); grad.addColorStop(clamp(g + .3), 'rgba(255,255,255,0)');
+        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, c.r * .97, 0, Math.PI * 2); ctx.fill();
       }
     }
     ctx.restore();
@@ -193,7 +160,10 @@
         c.bob += dt * .5;
         c.y += c.vy * dt;
         c.angle += c.spin * dt;
-        if (c.y < -c.r * 1.3) { var n = makeCoin(0, 1, true); n.depth = c.depth; n.r = c.r; n.alpha = c.alpha; n.vy = c.vy; coins[i] = n; c = n; }
+        if (c.y < -c.r * 1.3) {
+          var n = makeCoin(0, 1, true); n.depth = c.depth; n.r = c.r; n.alpha = c.alpha; n.vy = c.vy; n.front = c.front; n.back = c.back;
+          coins[i] = n; c = n;
+        }
       }
       drawCoin(c, t);
     }
@@ -216,5 +186,5 @@
   }
   document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); else if (visible) start(); });
   var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(resize, 120); });
-  buildFaces(); resize(); start();
+  loadFaces(); resize(); start();
 })();
