@@ -262,6 +262,18 @@
       .logo { height: 40px; }
       .btn { width: 100%; }
       .cta-pair { flex-direction: column; }
+      /* the first screen: headline, lead, proof and both buttons fit above the fold on a phone */
+      .topbar { font-size: 11px; letter-spacing: 2px; padding: 6px 10px; }
+      .topbar .tb-more { display: none; }
+      .hero .wrap { padding: 26px 0 44px; gap: 28px; }
+      .hero h1 { font-size: 34px; }
+      .hero .lead { font-size: 15.5px; line-height: 1.5; margin: 12px 0 16px; }
+      .hero-proof { gap: 8px; margin-bottom: 16px; }
+      .hero-proof li { padding: 7px 10px 7px 9px; font-size: 12px; letter-spacing: 1.1px; gap: 7px; }
+      .hero-proof li::before { font-size: 13px; }
+      .hero .cta-pair { gap: 10px; margin-bottom: 12px; }
+      .hero .btn { padding: 14px 20px; font-size: 15px; }
+      .hero-note { font-size: 13px; }
       .hero-coins { gap: 12px; }
       .hero-coins figure:nth-child(n+3) { display: none; }
       .hero-coins figure:nth-child(2) { transform: translateY(14px); }
@@ -274,7 +286,7 @@
   </style>
 </head>
 <body>
-  <div class="topbar">100% Veteran Owned &amp; Operated &middot; <b>The Quality is Always Here</b></div>
+  <div class="topbar">100% Veteran Owned &amp; Operated<span class="tb-more"> &middot; <b>The Quality is Always Here</b></span></div>
 
   <nav class="nav" id="nav" aria-label="Page">
     <div class="wrap">
