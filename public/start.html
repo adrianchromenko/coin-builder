@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Custom Challenge Coins | Coins For Anything</title>
-  <meta name="description" content="Custom challenge coins from a 100% veteran owned company in Fredericksburg, Virginia. Over 20 million coins minted. Request a free quote or design your coin online in minutes.">
+  <meta name="description" content="Custom challenge coins from a 100% veteran owned company in Fredericksburg, Virginia. Over 20 million coins minted. Free quote, or design your coin online.">
   <link rel="canonical" href="{{SITE_URL}}/start">
   <link rel="icon" href="favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
@@ -15,14 +15,63 @@
   <meta property="og:url" content="{{SITE_URL}}/start">
   <meta property="og:title" content="Custom Challenge Coins, Made Right | Coins For Anything">
   <meta property="og:description" content="100% veteran owned. Over 20 million coins minted. Get a free quote or design your coin online in minutes.">
-  <meta property="og:image" content="{{SITE_URL}}/share.jpg?v={{SHARE_VERSION}}">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:image" content="{{SITE_URL}}/share-start.jpg?v={{SHARE_START_VERSION}}">
+  <meta property="og:image:type" content="image/jpeg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Custom challenge coins made right: four finished coins from Coins For Anything">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Custom Challenge Coins, Made Right | Coins For Anything">
   <meta name="twitter:description" content="100% veteran owned. Over 20 million coins minted. Get a free quote or design your coin online in minutes.">
-  <meta name="twitter:image" content="{{SITE_URL}}/share.jpg?v={{SHARE_VERSION}}">
+  <meta name="twitter:image" content="{{SITE_URL}}/share-start.jpg?v={{SHARE_START_VERSION}}">
+  <meta name="twitter:image:alt" content="Custom challenge coins made right: four finished coins from Coins For Anything">
   {{VERIFICATION}}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://www.coinsforanything.com/#organization",
+        "name": "Coins For Anything, Inc.",
+        "url": "https://www.coinsforanything.com/",
+        "logo": "{{SITE_URL}}/brand/logo.webp",
+        "slogan": "The Quality is Always Here",
+        "foundingDate": "2002",
+        "telephone": "+1-866-583-5434",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "1014 Prince Edward St",
+          "addressLocality": "Fredericksburg",
+          "addressRegion": "VA",
+          "postalCode": "22401",
+          "addressCountry": "US"
+        },
+        "sameAs": [
+          "https://www.facebook.com/CoinsForAnything",
+          "https://www.instagram.com/coinsforanything",
+          "https://www.pinterest.com/cfa22408"
+        ]
+      },
+      {
+        "@type": "WebPage",
+        "@id": "{{SITE_URL}}/start#webpage",
+        "url": "{{SITE_URL}}/start",
+        "name": "Custom Challenge Coins | Coins For Anything",
+        "description": "Custom challenge coins from a 100% veteran owned company in Fredericksburg, Virginia. Over 20 million coins minted. Free quote, or design your coin online.",
+        "inLanguage": "en-US",
+        "primaryImageOfPage": "{{SITE_URL}}/share-start.jpg",
+        "about": { "@id": "https://www.coinsforanything.com/#organization" },
+        "publisher": { "@id": "https://www.coinsforanything.com/#organization" },
+        "potentialAction": [
+          { "@type": "Action", "name": "Request a free quote", "target": "https://www.coinsforanything.com/quote/" },
+          { "@type": "Action", "name": "Design your coin online", "target": "{{SITE_URL}}/" }
+        ]
+      }
+    ]
+  }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Open+Sans:wght@400;600;700&family=Yellowtail&display=swap" rel="stylesheet">
@@ -262,8 +311,8 @@
         <p class="hero-note"><b>Not sure which?</b> A quote is a quick form our team answers. The design tool shows you your coin in minutes.</p>
       </div>
       <div class="hero-coins" aria-hidden="true">
-        <figure><img src="gallery/aerial-port-dover.webp" alt="" width="438" height="438" loading="eager"></figure>
-        <figure><img src="gallery/pittsburgh-ems.webp" alt="" width="438" height="438" loading="eager"></figure>
+        <figure><img src="gallery/aerial-port-dover.webp" alt="" width="438" height="438" loading="eager" fetchpriority="high"></figure>
+        <figure><img src="gallery/pittsburgh-ems.webp" alt="" width="438" height="438" loading="eager" fetchpriority="high"></figure>
         <figure><img src="gallery/texas-state-fair.webp" alt="" width="438" height="438"></figure>
         <figure><img src="gallery/citgo.webp" alt="" width="438" height="438"></figure>
       </div>

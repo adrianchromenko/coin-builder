@@ -64,15 +64,18 @@ app.use(compression());
 // ---------- the page, share previews and search engines ----------
 // index.html is a template: {{SITE_URL}} becomes the deployment's address so the canonical link and the
 // share-preview (Open Graph / Twitter) tags are absolute, as Facebook, LinkedIn, iMessage and Google require.
-// {{SHARE_VERSION}} changes whenever share.jpg does, so social networks fetch the new card instead of a cached one.
+// {{SHARE_VERSION}} changes whenever share.jpg does ({{SHARE_START_VERSION}} for the landing page's share-start.jpg), so
+// social networks fetch the new card instead of a cached one.
 // {{VERIFICATION}} becomes the site-verification meta tags for Google Search Console and Bing Webmaster Tools when
 // GOOGLE_SITE_VERIFICATION / BING_SITE_VERIFICATION are set (the code each console hands out), else nothing.
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const INDEX_FILE = path.join(PUBLIC_DIR, 'index.html');
 const START_FILE = path.join(PUBLIC_DIR, 'start.html'); // the ad landing page: sells the company, then "Request a quote" or "Design your coin"
-const SHARE_VERSION = (() => {
-  try { return crypto.createHash('sha1').update(fs.readFileSync(path.join(PUBLIC_DIR, 'share.jpg'))).digest('hex').slice(0, 8); } catch (_) { return '1'; }
-})();
+const shareVersion = (file) => {
+  try { return crypto.createHash('sha1').update(fs.readFileSync(path.join(PUBLIC_DIR, file))).digest('hex').slice(0, 8); } catch (_) { return '1'; }
+};
+const SHARE_VERSION = shareVersion('share.jpg');             // the builder's card
+const SHARE_START_VERSION = shareVersion('share-start.jpg'); // the landing page's card
 const pageCache = new Map(); // file -> { mtime, html }
 const VERIFICATION_TAGS = (() => {
   const clean = (v) => String(v || '').trim().replace(/[^\w.=-]/g, '');
@@ -88,6 +91,7 @@ function renderPage(file, req) {
   return cached.html
     .replace(/\{\{SITE_URL\}\}/g, siteUrl(req))
     .replace(/\{\{SHARE_VERSION\}\}/g, SHARE_VERSION)
+    .replace(/\{\{SHARE_START_VERSION\}\}/g, SHARE_START_VERSION)
     .replace(/[ \t]*\{\{VERIFICATION\}\}\n?/g, VERIFICATION_TAGS ? `  ${VERIFICATION_TAGS}\n` : '');
 }
 const renderIndex = (req) => renderPage(INDEX_FILE, req);
