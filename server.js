@@ -92,6 +92,7 @@ function renderPage(file, req) {
     .replace(/\{\{SITE_URL\}\}/g, siteUrl(req))
     .replace(/\{\{SHARE_VERSION\}\}/g, SHARE_VERSION)
     .replace(/\{\{SHARE_START_VERSION\}\}/g, SHARE_START_VERSION)
+    .replace(/\{\{MODIFIED\}\}/g, new Date(mtime).toISOString().slice(0, 10))
     .replace(/[ \t]*\{\{VERIFICATION\}\}\n?/g, VERIFICATION_TAGS ? `  ${VERIFICATION_TAGS}\n` : '');
 }
 const renderIndex = (req) => renderPage(INDEX_FILE, req);
@@ -108,18 +109,46 @@ app.use((req, res, next) => {
   if (/^\/(api|signups\.csv|healthz|test)(\/|$)/.test(req.path)) res.set('X-Robots-Tag', 'noindex, nofollow');
   next();
 });
+// Search engines and the AI assistants that answer with citations (ChatGPT, Claude, Perplexity, Google's AI features)
+// are all welcome on the pages; the crawlers are named so the welcome is explicit, since some only crawl when it is.
+const AI_CRAWLERS = ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-SearchBot', 'anthropic-ai', 'PerplexityBot', 'Perplexity-User', 'Google-Extended', 'Applebot', 'Applebot-Extended', 'Bingbot', 'DuckAssistBot', 'meta-externalagent'];
+const DISALLOW = ['Disallow: /api/', 'Disallow: /signups.csv', 'Disallow: /healthz', 'Disallow: /test'];
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send([
     'User-agent: *',
     'Allow: /',
-    'Disallow: /api/',
-    'Disallow: /signups.csv',
-    'Disallow: /healthz',
-    'Disallow: /test',
+    ...DISALLOW,
     '',
+    ...AI_CRAWLERS.flatMap((ua) => [`User-agent: ${ua}`, 'Allow: /', ...DISALLOW, '']),
     `Sitemap: ${siteUrl(req)}/sitemap.xml`,
     '',
   ].join('\n'));
+});
+// llms.txt: the company and its pages in plain words, for AI assistants that look for it
+app.get('/llms.txt', (req, res) => {
+  const site = siteUrl(req);
+  res.type('text/plain').send(`# Coins For Anything, Inc.
+
+> 100% veteran owned and operated custom challenge coin company in Fredericksburg, Virginia, founded in 2002. Over 20 million coins minted for military units, first responders, companies, schools, churches, clubs and families. Free artwork and proof, unlimited revisions, rush production in under 10 business days.
+
+- Main site: https://www.coinsforanything.com/
+- Free quote: https://www.coinsforanything.com/quote/
+- Phone: 1-866-583-5434
+- Address: 1014 Prince Edward St, Fredericksburg, VA 22401, United States
+
+## Pages
+
+- [Custom challenge coins](${site}/start): what the company makes, the two ways to order (free quote or online design tool), finishes and sizes, how it works, and answers to common questions.
+- [Online coin builder](${site}/): upload a logo, describe the front and back, see both sides rendered in minutes, and get an instant estimate. Free, no account needed.
+
+## Facts
+
+- Die-struck metal coins in sizes from 1 to 4 inches; custom shapes available.
+- Finishes: antique or shiny gold, silver, nickel, copper, brass and black nickel; enamel color, 3D relief, cut-outs and custom edges.
+- Price depends on size, quantity and finish; up to 50 coins the enamel color is included; one mold fee per order covers both sides.
+- Artwork and proof are free, revisions unlimited; nothing is minted until the proof is approved.
+- Ships anywhere in the United States.
+`);
 });
 app.get('/sitemap.xml', (req, res) => {
   const lastmod = new Date(Math.max(fs.statSync(INDEX_FILE).mtimeMs, fs.statSync(path.join(PUBLIC_DIR, 'app.js')).mtimeMs)).toISOString().slice(0, 10);
@@ -140,6 +169,10 @@ app.get('/sitemap.xml', (req, res) => {
     <lastmod>${new Date(fs.statSync(START_FILE).mtimeMs).toISOString().slice(0, 10)}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <image:image>
+      <image:loc>${siteUrl(req)}/share-start.jpg</image:loc>
+      <image:title>Custom challenge coins by Coins For Anything</image:title>
+    </image:image>
   </url>
 </urlset>
 `);

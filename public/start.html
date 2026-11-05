@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Custom Challenge Coins | Coins For Anything</title>
   <meta name="description" content="Custom challenge coins from a 100% veteran owned company in Fredericksburg, Virginia. Over 20 million coins minted. Free quote, or design your coin online.">
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
   <link rel="canonical" href="{{SITE_URL}}/start">
   <link rel="icon" href="favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
@@ -38,8 +39,12 @@
         "url": "https://www.coinsforanything.com/",
         "logo": "{{SITE_URL}}/brand/logo.webp",
         "slogan": "The Quality is Always Here",
+        "description": "Coins For Anything, Inc. is a 100% veteran owned and operated custom challenge coin company in Fredericksburg, Virginia, founded in 2002, with over 20 million coins minted for military units, first responders, companies, schools and families. Free artwork and proof, unlimited revisions, and rush production in under 10 business days.",
         "foundingDate": "2002",
         "telephone": "+1-866-583-5434",
+        "contactPoint": { "@type": "ContactPoint", "telephone": "+1-866-583-5434", "contactType": "sales", "areaServed": "US", "availableLanguage": "en" },
+        "areaServed": { "@type": "Country", "name": "United States" },
+        "knowsAbout": ["Challenge coins", "Custom coins", "Military coins", "Die-struck coins", "Enamel coins", "Commemorative coins"],
         "address": {
           "@type": "PostalAddress",
           "streetAddress": "1014 Prince Edward St",
@@ -61,12 +66,37 @@
         "name": "Custom Challenge Coins | Coins For Anything",
         "description": "Custom challenge coins from a 100% veteran owned company in Fredericksburg, Virginia. Over 20 million coins minted. Free quote, or design your coin online.",
         "inLanguage": "en-US",
+        "dateModified": "{{MODIFIED}}",
         "primaryImageOfPage": "{{SITE_URL}}/share-start.jpg",
+        "speakable": { "@type": "SpeakableSpecification", "cssSelector": [".hero h1", ".hero .lead"] },
         "about": { "@id": "https://www.coinsforanything.com/#organization" },
         "publisher": { "@id": "https://www.coinsforanything.com/#organization" },
         "potentialAction": [
           { "@type": "Action", "name": "Request a free quote", "target": "https://www.coinsforanything.com/quote/" },
           { "@type": "Action", "name": "Design your coin online", "target": "{{SITE_URL}}/" }
+        ]
+      },
+      {
+        "@type": "Service",
+        "@id": "{{SITE_URL}}/start#service",
+        "name": "Custom challenge coins",
+        "serviceType": "Custom challenge coin design and manufacturing",
+        "description": "Die-struck custom challenge coins in sizes from 1 to 4 inches, in antique or shiny gold, silver, nickel, copper, brass and black nickel, with enamel color, 3D relief, cut-outs and custom edges. Free artwork and proof, unlimited revisions, rush production in under 10 business days.",
+        "provider": { "@id": "https://www.coinsforanything.com/#organization" },
+        "areaServed": { "@type": "Country", "name": "United States" },
+        "url": "{{SITE_URL}}/start"
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "{{SITE_URL}}/start#faq",
+        "mainEntity": [
+          { "@type": "Question", "name": "What is a challenge coin?", "acceptedAnswer": { "@type": "Answer", "text": "A challenge coin is a custom-minted metal coin that carries an organization's emblem, motto or event. Military units started the tradition; today fire and police departments, companies, schools, clubs and families order custom coins to mark membership, achievements and occasions." } },
+          { "@type": "Question", "name": "How much do custom challenge coins cost?", "acceptedAnswer": { "@type": "Answer", "text": "The price depends on the size, the quantity and the finish: fewer coins cost more each, and up to 50 coins the enamel color is included. The one-time mold fee covers both sides of the coin. Finishes include antique and shiny gold, silver, nickel, copper, brass and black nickel, in sizes from 1 to 4 inches. The online design tool gives an instant estimate for orders up to 1,200 coins; for more, our team quotes by hand." } },
+          { "@type": "Question", "name": "Is the artwork really free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Our in-house artists draw your design from a logo, a sketch or a description and send you a proof at no charge. Revisions are unlimited, and nothing is minted until you approve the proof." } },
+          { "@type": "Question", "name": "How long does it take to get custom coins?", "acceptedAnswer": { "@type": "Answer", "text": "Standard turnaround is quoted with your proof and most orders can plan around it. When the date is close, rush production in under 10 business days is available. Orders ship anywhere in the United States." } },
+          { "@type": "Question", "name": "What finishes, sizes and options can I choose?", "acceptedAnswer": { "@type": "Answer", "text": "Antique or shiny gold, silver, nickel, copper, brass and black nickel plating, with enamel color, 3D relief, cut-outs and custom edges, in sizes from 1 to 4 inches. Custom shapes are available too." } },
+          { "@type": "Question", "name": "Do I need an account to design a coin online?", "acceptedAnswer": { "@type": "Answer", "text": "No. The online design tool is free to try with no account: upload your logo, describe the front and back in your own words, and both sides render in a few minutes with an instant estimate for your size and quantity. Our artists then finish the design and send a proof." } },
+          { "@type": "Question", "name": "Who is Coins For Anything?", "acceptedAnswer": { "@type": "Answer", "text": "Coins For Anything, Inc. is a 100% veteran owned and operated custom coin company founded in 2002 in Fredericksburg, Virginia. It has minted over 20 million coins for more than 50,000 organizations, including military units, police and fire departments, Fortune 500 companies, schools, churches and clubs." } }
         ]
       }
     ]
@@ -197,6 +227,11 @@
 
     /* ============ how ============ */
     .how { padding: 80px 0; background: var(--offwhite); }
+    .faq { padding: 80px 0; }
+    .faq-list { max-width: 800px; margin: 0 auto; border-bottom: 1px solid var(--line); }
+    .faq-item { border-top: 1px solid var(--line); padding: 24px 0; }
+    .faq-item h3 { font-size: 20px; margin: 0 0 8px; }
+    .faq-item p { margin: 0; }
     .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; counter-reset: step; position: relative; }
     .steps::before { content: ""; position: absolute; left: 12%; right: 12%; top: 26px; height: 2px; background: var(--line); }
     .step { position: relative; background: var(--white); border: 1px solid var(--line); padding: 28px 22px 24px; margin-top: 26px; }
@@ -249,7 +284,8 @@
       .cards, .why-grid, .steps { grid-template-columns: 1fr; }
       .steps::before { display: none; }
       .steps { gap: 34px; }
-      .paths, .why, .gallery, .how { padding: 60px 0; }
+      .paths, .why, .gallery, .how, .faq { padding: 60px 0; }
+      .faq-item { padding: 18px 0; }
       .section-head { margin-bottom: 32px; }
     }
     @media (max-width: 520px) {
@@ -288,6 +324,7 @@
         <li><a href="#why">Why Us</a></li>
         <li><a href="#work">Our Work</a></li>
         <li><a href="#how">How It Works</a></li>
+        <li><a href="#faq">FAQ</a></li>
       </ul>
       <div class="nav-right">
         <a class="call" href="tel:+18665835434"><small>Talk to a coin expert</small><b>1-866-583-5434</b></a>
@@ -375,7 +412,7 @@
       <div class="why-grid">
         <div class="why-item">
           <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
-          <h3>100% veteran owned</h3><p>Founded and run by veterans in Fredericksburg, Virginia. We know what a coin means to the people who carry it.</p>
+          <h3>100% veteran owned</h3><p>Founded in 2002 and run by veterans in Fredericksburg, Virginia. We know what a coin means to the people who carry it.</p>
         </div>
         <div class="why-item">
           <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v4c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 10v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4"/><path d="M4 14v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4"/></svg></div>
@@ -434,6 +471,24 @@
     </div>
   </section>
 
+  <section class="faq" id="faq">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Good to know</p>
+        <h2>Questions people ask</h2>
+      </div>
+      <div class="faq-list">
+        <div class="faq-item"><h3>What is a challenge coin?</h3><p>A challenge coin is a custom-minted metal coin that carries an organization's emblem, motto or event. Military units started the tradition; today fire and police departments, companies, schools, clubs and families order custom coins to mark membership, achievements and occasions.</p></div>
+        <div class="faq-item"><h3>How much do custom challenge coins cost?</h3><p>The price depends on the size, the quantity and the finish: fewer coins cost more each, and up to 50 coins the enamel color is included. The one-time mold fee covers both sides of the coin. Finishes include antique and shiny gold, silver, nickel, copper, brass and black nickel, in sizes from 1 to 4 inches. The online design tool gives an instant estimate for orders up to 1,200 coins; for more, our team quotes by hand.</p></div>
+        <div class="faq-item"><h3>Is the artwork really free?</h3><p>Yes. Our in-house artists draw your design from a logo, a sketch or a description and send you a proof at no charge. Revisions are unlimited, and nothing is minted until you approve the proof.</p></div>
+        <div class="faq-item"><h3>How long does it take to get custom coins?</h3><p>Standard turnaround is quoted with your proof and most orders can plan around it. When the date is close, rush production in under 10 business days is available. Orders ship anywhere in the United States.</p></div>
+        <div class="faq-item"><h3>What finishes, sizes and options can I choose?</h3><p>Antique or shiny gold, silver, nickel, copper, brass and black nickel plating, with enamel color, 3D relief, cut-outs and custom edges, in sizes from 1 to 4 inches. Custom shapes are available too.</p></div>
+        <div class="faq-item"><h3>Do I need an account to design a coin online?</h3><p>No. The online design tool is free to try with no account: upload your logo, describe the front and back in your own words, and both sides render in a few minutes with an instant estimate for your size and quantity. Our artists then finish the design and send a proof.</p></div>
+        <div class="faq-item"><h3>Who is Coins For Anything?</h3><p>Coins For Anything, Inc. is a 100% veteran owned and operated custom coin company founded in 2002 in Fredericksburg, Virginia. It has minted over 20 million coins for more than 50,000 organizations, including military units, police and fire departments, Fortune 500 companies, schools, churches and clubs.</p></div>
+      </div>
+    </div>
+  </section>
+
   <section class="closing">
     <div class="ring b" aria-hidden="true"></div>
     <div class="ring a" aria-hidden="true"></div>
@@ -451,7 +506,7 @@
   <footer>
     <div class="wrap">
       <p><a href="https://www.coinsforanything.com/">Coins For Anything, Inc.</a> &middot; 1014 Prince Edward St, Fredericksburg, VA 22401 &middot; <a href="tel:+18665835434">1-866-583-5434</a></p>
-      <div class="flinks"><a href="#start">Get Started</a><a href="#why">Why Us</a><a href="#work">Our Work</a><a href="#how">How It Works</a></div>
+      <div class="flinks"><a href="#start">Get Started</a><a href="#why">Why Us</a><a href="#work">Our Work</a><a href="#how">How It Works</a><a href="#faq">FAQ</a></div>
       <p>100% Veteran Owned &amp; Operated</p>
     </div>
   </footer>
