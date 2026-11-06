@@ -805,6 +805,52 @@
       }
     }
   }
+  // The render request. The server answers 202 with the job id as soon as the upload is in and draws the coin in
+  // the background; the result is collected here with short polls. A phone drops a long request the moment the
+  // screen locks, the visitor switches apps or the network changes hands (Safari calls it "Load failed"); a short
+  // request that fails is simply sent again, and the render carries on on the server meanwhile. The job id is
+  // chosen here (it is the progress id), so a post that has to be sent twice starts one render, not two.
+  const RENDER_WAIT_MS = 12 * 60 * 1000; // longer than any render; the server's own timeouts answer well before this
+  const netError = (e) => e instanceof TypeError; // fetch's own failure: no connection, not an answer from the server
+  async function renderRequest(form, jobId) {
+    const deadline = Date.now() + RENDER_WAIT_MS;
+    let res = null;
+    for (let attempt = 1; !res; attempt++) {
+      try {
+        res = await fetch('/api/generate', { method: 'POST', body: form });
+      } catch (e) {
+        if (!netError(e) || attempt >= 3) throw new Error('The connection dropped while sending your design. Please check your signal and try again.');
+        await sleep(1500 * attempt);
+      }
+    }
+    if (res.status !== 202) return res; // an answer the upload step gave straight away (a refused upload)
+    let failures = 0;
+    for (;;) {
+      await pollPause(2000);
+      if (Date.now() > deadline) throw new Error('This render is taking far longer than usual. Please try again.');
+      let r;
+      try {
+        r = await fetch('/api/generate/' + jobId, { cache: 'no-store' });
+      } catch (e) {
+        if (!netError(e)) throw e;
+        if (++failures >= 40) throw new Error('We lost the connection while your coin was rendering. Please check your signal and try again.');
+        continue;
+      }
+      failures = 0;
+      if (r.status === 202) continue;
+      return r;
+    }
+  }
+  // A pause between polls that ends early when the page comes back into view (the phone unlocked, the app came
+  // back), so the finished render shows without waiting out the rest of the pause
+  function pollPause(ms) {
+    return new Promise((resolve) => {
+      const done = () => { clearTimeout(t); document.removeEventListener('visibilitychange', onShow); resolve(); };
+      const onShow = () => { if (!document.hidden) done(); };
+      const t = setTimeout(done, ms);
+      document.addEventListener('visibilitychange', onShow);
+    });
+  }
   function progressListen(id) {
     if (!('EventSource' in window)) return null;
     const es = new EventSource('/api/progress/' + id);
@@ -911,7 +957,7 @@
         form.append('progressId', progressId);
         if (fresh) form.append('fresh', '1');
         if (token) form.append('turnstile', token);
-        const res = await fetch('/api/generate', { method: 'POST', body: form });
+        const res = await renderRequest(form, progressId);
         data = await res.json().catch(() => ({}));
         if (!res.ok) {
           if (data.rejected) markRejected(snapshot, data.rejected);

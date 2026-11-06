@@ -19,6 +19,7 @@ const { mailConfigured, sendOrderEmail, sendAlertEmail, sendContactEmail, saveLe
 const guard = require('./lib/guard');
 const { sideBySide } = require('./lib/composite');
 const progress = require('./lib/progress');
+const jobs = require('./lib/jobs');
 const { siteUrl } = require('./lib/site');
 const { discountFor } = require('./lib/discounts');
 const { screenUploads } = require('./lib/moderate');
@@ -495,118 +496,143 @@ app.get('/api/progress/:id', progress.subscribe);
 // One face per request. The front is rendered from the customer's words. The back is rendered with the finished
 // front handed to the AI as its first image, so it comes out as the same coin turned over: same shape, rim, border,
 // edge and finish, with only the face artwork changed. Both faces are put together at order time.
+//
+// The render runs as a job (lib/jobs.js): this request answers 202 with the job id as soon as the upload is in, and
+// the page collects the result from GET /api/generate/:id. A render takes a minute or more, and a phone drops a
+// request that long when the screen locks or the visitor switches apps; a short poll can simply be sent again.
+app.get('/api/generate/:id', jobs.poll);
 app.post('/api/generate', (req, res) => {
   upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'refs', maxCount: MAX_OWN_REFS }])(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'LIMIT_FILE_COUNT' ? `Please keep it to ${MAX_OWN_REFS} reference images.` : err.message });
     const b = req.body || {};
+    const ip = req.ip; // taken now: the render outlives this request
     const progressId = progress.valid(b.progressId) ? b.progressId : null;
+    const jobId = progressId && jobs.valid(progressId) ? progressId : null; // the progress id doubles as the job id
+    // The same request again, from a page whose first answer was lost on the way: the render it started is still the one
+    if (jobId && !jobs.start(jobId)) return res.status(202).json({ jobId });
+    if (jobId) res.status(202).json({ jobId });
+    // answer(code, body): what this route has to say. Into the job for the page to collect, or straight back when
+    // the page sent no id (an older page, or a script).
+    const answer = (code, body) => { if (jobId) jobs.finish(jobId, code, body); else res.status(code).json(body); };
     const report = (event) => { if (progressId) progress.emit(progressId, event); };
     const finish = (event) => { if (!progressId) return; progress.emit(progressId, event); setTimeout(() => progress.close(progressId), 2000); };
     const files = req.files || {};
     const logo = files.logo && files.logo[0] ? { buffer: files.logo[0].buffer, mimetype: files.logo[0].mimetype } : null;
     const ownRefs = (files.refs || []).map((f) => ({ buffer: f.buffer, mimetype: f.mimetype }));
     const side = b.side === 'back' ? 'back' : 'front';
-    // note: what the customer wants different in this version (optional; only sent from "Make Another Version")
-    const design = { shape: normalizeCoinShape(b.shape), style: freeText(b.style, 300), description: freeText(b.description, 600), note: freeText(b.note, 300) };
-    if (!design.description) return res.status(400).json({ error: `Please describe the ${side} of your coin first.` });
-    let frontImage = null, frontRenderId = null;
-    if (side === 'back') {
-      frontRenderId = /^[0-9a-f]{32}$/.test(String(b.frontRenderId || '')) ? b.frontRenderId : null;
-      frontImage = readOriginal(frontRenderId);
-      // The demo provider draws a stand-in with nothing saved on the server, so it has no front to anchor on
-      if (!frontImage && getProvider().name !== 'demo') return res.status(400).json({ error: 'Generate the front first; the back is drawn to match it. If your front is a few days old, please generate it again.' });
-    }
-
-    // A change the customer asked for ("Make Another Version" with a note) is made to the version they were looking
-    // at: that render leads the AI's input, so the result is that picture with the change, on the same face.
-    const baseRenderId = design.note && /^[0-9a-f]{32}$/.test(String(b.baseRenderId || '')) ? b.baseRenderId : null;
-    const baseImage = baseRenderId ? readOriginal(baseRenderId) : null;
-    // A change asked of a version whose clean render is gone (renders are kept a few days; a deploy without a
-    // persistent disk loses them): drawn from the front instead, the back came out as the front with the change made
-    // to it. The page is told to have that face drawn again first.
-    if (design.note && (baseRenderId || side === 'back') && !baseImage && getProvider().name !== 'demo') {
-      console.warn(`[coin-builder] change asked of the ${side} but its render ${baseRenderId || '(no id)'} is not on the server`);
-      return res.status(400).json({ error: `The ${side} you were looking at has expired on our side, so the change cannot be made to it. Generate the ${side} again, then ask for the change.`, expired: side });
-    }
-
-    // Every render below this line costs money, so the cheap checks come first.
-    // 1. The very same face was rendered recently: hand back that result for free. Not when the customer asked for
-    //    another version of the same design: a new version has to be a new render.
-    const key = guard.fingerprint(logo ? logo.buffer : Buffer.alloc(0), { side, ...design, frontRenderId, baseRenderId, refs: ownRefs.map((r) => crypto.createHash('sha1').update(r.buffer).digest('hex')) });
-    const repeat = b.fresh === '1' ? null : guard.cached(key);
-    if (repeat) {
-      console.log('[coin-builder] repeat render served from cache');
-      finish({ stage: 'done' });
-      return res.json(repeat);
-    }
-    // 2. Real browser? (only when Turnstile is configured)
-    if (!(await guard.verifyTurnstile(b.turnstile, req.ip))) {
-      finish({ stage: 'failed' });
-      return res.status(403).json({ error: 'We could not confirm this request came from a browser. Please reload the page and try again.' });
-    }
-    // 3. Per-visitor and site-wide limits. From here on the render is counted, so release() must run.
-    const gate = guard.admit(req.ip, 1);
-    if (!gate.ok) { finish({ stage: 'failed' }); return res.status(gate.status).json({ error: gate.error }); }
-
     try {
-      const provider = getProvider();
-      const started = Date.now();
-      report({ stage: 'starting', sides: 1 });
-      // Nothing a customer uploads reaches the image model before it has been screened (see lib/moderate.js)
-      const refused = provider.name === 'openai'
-        ? await screenUploads([...(logo ? [{ ...logo, label: 'logo' }] : []), ...ownRefs.map((r, i) => ({ ...r, label: `ref${i}` }))])
-        : [];
-      if (refused.length) {
-        console.warn(`[coin-builder] upload refused by screening: ${refused.map((r) => `${r.label} (${r.category})`).join(', ')}`);
-        finish({ stage: 'failed' });
-        const refs = refused.filter((r) => r.label !== 'logo').map((r) => Number(r.label.slice(3)));
-        return res.status(400).json({
-          error: "We can't use one of the images you uploaded, so nothing was rendered. Please remove it and try again.",
-          rejected: { logo: refused.some((r) => r.label === 'logo'), refs },
-        });
-      }
-      const result = await provider.generate({
-        mode: 'described', logo, ownRefs, shape: design.shape, style: design.style, sideName: side, description: design.description, note: design.note,
-        frontImage, baseImage, refNames: frontRenderId ? refsByRender.get(frontRenderId) : null,
-        onProgress: (event) => report({ side, ...event }),
-      });
-      report({ stage: 'finishing' });
-      console.log(`[coin-builder] ${provider.name} generated the ${side} of a described ${design.shape === 'odd' ? 'odd-shaped' : 'round'} coin${ownRefs.length ? ` with ${ownRefs.length} customer reference image(s)` : ''} in ${Date.now() - started}ms, ${result.attempts} attempt(s), model ${result.model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
-
-      // The clean render stays on the server. The browser gets a small, lightly watermarked preview; the download
-      // endpoint below hands out a heavily watermarked full-size copy. If watermarking fails, nothing is sent.
-      let image, renderId = null;
-      if (result.mimetype === 'image/png') {
-        const clean = Buffer.from(result.base64, 'base64');
-        const preview = await watermark(clean, { strength: 'preview', size: 768 });
-        renderId = saveOriginal(clean);
-        rememberRefs(renderId, result.refs);
-        image = `data:image/png;base64,${preview.toString('base64')}`;
-      } else {
-        image = `data:${result.mimetype};base64,${result.base64}`;
-      }
-      const response = {
-        provider: provider.name,
-        side,
-        image,
-        renderId,
-        // Proofreading result: which quoted wording matched, how well the logo held up
-        check: result.check,
-        phrases: quotedPhrases(design.description),
-        attempts: result.attempts,
-      };
-      if (provider.name !== 'demo') guard.remember(key, response);
-      finish({ stage: 'done' });
-      res.json(response);
+      await renderFace({ b, ip, logo, ownRefs, side, answer, report, finish });
     } catch (e) {
+      // Nothing below should throw past its own handling; if something does, the page must not wait on the job forever
       finish({ stage: 'failed' });
       console.error('[coin-builder] generation error:', e.message);
-      res.status(502).json({ error: 'Sorry, I could not generate the coin right now. Please try again.' });
-    } finally {
-      guard.release(req.ip);
+      answer(500, { error: 'Sorry, I could not generate the coin right now. Please try again.' });
     }
   });
 });
+
+async function renderFace({ b, ip, logo, ownRefs, side, answer, report, finish }) {
+  // note: what the customer wants different in this version (optional; only sent from "Make Another Version")
+  const design = { shape: normalizeCoinShape(b.shape), style: freeText(b.style, 300), description: freeText(b.description, 600), note: freeText(b.note, 300) };
+  if (!design.description) { finish({ stage: 'failed' }); return answer(400, { error: `Please describe the ${side} of your coin first.` }); }
+  let frontImage = null, frontRenderId = null;
+  if (side === 'back') {
+    frontRenderId = /^[0-9a-f]{32}$/.test(String(b.frontRenderId || '')) ? b.frontRenderId : null;
+    frontImage = readOriginal(frontRenderId);
+    // The demo provider draws a stand-in with nothing saved on the server, so it has no front to anchor on
+    if (!frontImage && getProvider().name !== 'demo') { finish({ stage: 'failed' }); return answer(400, { error: 'Generate the front first; the back is drawn to match it. If your front is a few days old, please generate it again.' }); }
+  }
+
+  // A change the customer asked for ("Make Another Version" with a note) is made to the version they were looking
+  // at: that render leads the AI's input, so the result is that picture with the change, on the same face.
+  const baseRenderId = design.note && /^[0-9a-f]{32}$/.test(String(b.baseRenderId || '')) ? b.baseRenderId : null;
+  const baseImage = baseRenderId ? readOriginal(baseRenderId) : null;
+  // A change asked of a version whose clean render is gone (renders are kept a few days; a deploy without a
+  // persistent disk loses them): drawn from the front instead, the back came out as the front with the change made
+  // to it. The page is told to have that face drawn again first.
+  if (design.note && (baseRenderId || side === 'back') && !baseImage && getProvider().name !== 'demo') {
+    console.warn(`[coin-builder] change asked of the ${side} but its render ${baseRenderId || '(no id)'} is not on the server`);
+    finish({ stage: 'failed' });
+    return answer(400, { error: `The ${side} you were looking at has expired on our side, so the change cannot be made to it. Generate the ${side} again, then ask for the change.`, expired: side });
+  }
+
+  // Every render below this line costs money, so the cheap checks come first.
+  // 1. The very same face was rendered recently: hand back that result for free. Not when the customer asked for
+  //    another version of the same design: a new version has to be a new render.
+  const key = guard.fingerprint(logo ? logo.buffer : Buffer.alloc(0), { side, ...design, frontRenderId, baseRenderId, refs: ownRefs.map((r) => crypto.createHash('sha1').update(r.buffer).digest('hex')) });
+  const repeat = b.fresh === '1' ? null : guard.cached(key);
+  if (repeat) {
+    console.log('[coin-builder] repeat render served from cache');
+    finish({ stage: 'done' });
+    return answer(200, repeat);
+  }
+  // 2. Real browser? (only when Turnstile is configured)
+  if (!(await guard.verifyTurnstile(b.turnstile, ip))) {
+    finish({ stage: 'failed' });
+    return answer(403, { error: 'We could not confirm this request came from a browser. Please reload the page and try again.' });
+  }
+  // 3. Per-visitor and site-wide limits. From here on the render is counted, so release() must run.
+  const gate = guard.admit(ip, 1);
+  if (!gate.ok) { finish({ stage: 'failed' }); return answer(gate.status, { error: gate.error }); }
+
+  try {
+    const provider = getProvider();
+    const started = Date.now();
+    report({ stage: 'starting', sides: 1 });
+    // Nothing a customer uploads reaches the image model before it has been screened (see lib/moderate.js)
+    const refused = provider.name === 'openai'
+      ? await screenUploads([...(logo ? [{ ...logo, label: 'logo' }] : []), ...ownRefs.map((r, i) => ({ ...r, label: `ref${i}` }))])
+      : [];
+    if (refused.length) {
+      console.warn(`[coin-builder] upload refused by screening: ${refused.map((r) => `${r.label} (${r.category})`).join(', ')}`);
+      finish({ stage: 'failed' });
+      const refs = refused.filter((r) => r.label !== 'logo').map((r) => Number(r.label.slice(3)));
+      return answer(400, {
+        error: "We can't use one of the images you uploaded, so nothing was rendered. Please remove it and try again.",
+        rejected: { logo: refused.some((r) => r.label === 'logo'), refs },
+      });
+    }
+    const result = await provider.generate({
+      mode: 'described', logo, ownRefs, shape: design.shape, style: design.style, sideName: side, description: design.description, note: design.note,
+      frontImage, baseImage, refNames: frontRenderId ? refsByRender.get(frontRenderId) : null,
+      onProgress: (event) => report({ side, ...event }),
+    });
+    report({ stage: 'finishing' });
+    console.log(`[coin-builder] ${provider.name} generated the ${side} of a described ${design.shape === 'odd' ? 'odd-shaped' : 'round'} coin${ownRefs.length ? ` with ${ownRefs.length} customer reference image(s)` : ''} in ${Date.now() - started}ms, ${result.attempts} attempt(s), model ${result.model}, ${guard.limits().usedToday}/${guard.limits().perDayTotal} renders today`);
+
+    // The clean render stays on the server. The browser gets a small, lightly watermarked preview; the download
+    // endpoint below hands out a heavily watermarked full-size copy. If watermarking fails, nothing is sent.
+    let image, renderId = null;
+    if (result.mimetype === 'image/png') {
+      const clean = Buffer.from(result.base64, 'base64');
+      const preview = await watermark(clean, { strength: 'preview', size: 768 });
+      renderId = saveOriginal(clean);
+      rememberRefs(renderId, result.refs);
+      image = `data:image/png;base64,${preview.toString('base64')}`;
+    } else {
+      image = `data:${result.mimetype};base64,${result.base64}`;
+    }
+    const response = {
+      provider: provider.name,
+      side,
+      image,
+      renderId,
+      // Proofreading result: which quoted wording matched, how well the logo held up
+      check: result.check,
+      phrases: quotedPhrases(design.description),
+      attempts: result.attempts,
+    };
+    if (provider.name !== 'demo') guard.remember(key, response);
+    finish({ stage: 'done' });
+    answer(200, response);
+  } catch (e) {
+    finish({ stage: 'failed' });
+    console.error('[coin-builder] generation error:', e.message);
+    answer(502, { error: 'Sorry, I could not generate the coin right now. Please try again.' });
+  } finally {
+    guard.release(ip);
+  }
+}
 
 // Full-size download of a render: always the heavily watermarked copy, made fresh from the clean original
 const downloads = new Map();
